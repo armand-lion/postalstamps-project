@@ -45,7 +45,9 @@
                             </span>
                         </flux:label>
                         <flux:input name="name" value="{{ old('name', $stamp->name) }}" required autofocus />
-                        <flux:error name="name" />
+                        <div class="min-h-5">
+                            <flux:error name="name" />
+                        </div>
                     </flux:field>
 
                     {{-- Land --}}
@@ -66,8 +68,9 @@
                                 </option>
                             @endforeach
                         </flux:select>
-
-                        <flux:error name="country_id" />
+                        <div class="min-h-5">
+                            <flux:error name="country_id" />
+                        </div>
                     </flux:field>
 
                     {{-- Postzegelserie --}}
@@ -83,8 +86,9 @@
                                 </option>
                             @endforeach
                         </flux:select>
-
-                        <flux:error name="stamp_series_id" />
+                        <div class="min-h-5">
+                            <flux:error name="stamp_series_id" />
+                        </div>
                     </flux:field>
 
                     {{-- Uitgiftejaar --}}
@@ -98,8 +102,9 @@
 
                         <flux:input type="number" name="issue_year" min="1840" max="2200"
                             value="{{ old('issue_year', $stamp->issue_year) }}" />
-
-                        <flux:error name="issue_year" />
+                        <div class="min-h-5">
+                            <flux:error name="issue_year" />
+                        </div>
                     </flux:field>
 
                     {{-- Uitgiftedatum --}}
@@ -108,8 +113,9 @@
 
                         <flux:input type="date" name="issue_date"
                             value="{{ old('issue_date', $stamp->issue_date?->format('Y-m-d')) }}" />
-
-                        <flux:error name="issue_date" />
+                        <div class="min-h-5">
+                            <flux:error name="issue_date" />
+                        </div>
                     </flux:field>
 
                     {{-- Nominale waarde --}}
@@ -119,7 +125,8 @@
                         <flux:input type="number" name="face_value" min="0" step="0.01"
                             value="{{ old('face_value', $stamp->face_value) }}" />
 
-                        <flux:error name="face_value" />
+                            <flux:error name="face_value" />
+
                     </flux:field>
 
                     {{-- Valuta --}}

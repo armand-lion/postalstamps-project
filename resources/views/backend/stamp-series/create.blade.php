@@ -35,7 +35,7 @@
         @endif
 
         {{-- Formulier --}}
-        <form method="POST" action="{{ route('backend.stamp-series.store') }}" class="flex flex-col gap-6">
+        <form method="POST" action="{{ route('backend.stamp-series.store') }}" class="flex flex-col gap-6" novalidate>
             @csrf
 
             <div class="rounded-xl border border-neutral-200 p-4 dark:border-neutral-700 md:p-6">
@@ -47,73 +47,70 @@
                 <div class="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2">
 
                     {{-- Land --}}
-                    <div>
-                        <label for="country_id" class="mb-2 block text-sm font-medium">
-                            {{ __('Land') }}
-                            <span class="text-red-600">*</span>
-                        </label>
+                    <flux:field>
+                        <flux:label>
+                            <span class="flex items-center gap-1">
+                                {{ __('Land') }}
+                                <span class="text-red-600">*</span>
+                            </span>
+                        </flux:label>
 
-                        <select id="country_id" name="country_id" required
-                            class="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900">
-                            <option value="">
-                                {{ __('Selecteer een land') }}
-                            </option>
+                        <flux:select name="country_id" required>
+                            <option value="">{{ __('Selecteer een land') }}</option>
 
                             @foreach ($countries as $country)
                                 <option value="{{ $country->id }}" @selected((string) old('country_id') === (string) $country->id)>
                                     {{ $country->name }}
                                 </option>
                             @endforeach
-                        </select>
+                        </flux:select>
 
-                        @error('country_id')
-                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                        @enderror
-                    </div>
+                        <div class="min-h-5">
+                            <flux:error name="country_id" />
+                        </div>
+                    </flux:field>
 
                     {{-- Naam --}}
-                    <div>
-                        <label for="name" class="mb-2 block text-sm font-medium">
-                            {{ __('Naam van de postzegelserie') }}
-                            <span class="text-red-600">*</span>
-                        </label>
+                    <flux:field>
+                        <flux:label>
+                            <span class="flex items-center gap-1">
+                                {{ __('Naam van de postzegelserie') }}
+                                <span class="text-red-600">*</span>
+                            </span>
+                        </flux:label>
 
-                        <flux:input id="name" name="name" :value="old('name')"
+                        <flux:input name="name" value="{{ old('name') }}"
                             placeholder="{{ __('Bijvoorbeeld: Nederlandse molens') }}" required />
 
-                        @error('name')
-                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                        @enderror
-                    </div>
+                        <div class="min-h-5">
+                            <flux:error name="name" />
+                        </div>
+                    </flux:field>
 
                     {{-- Uitgiftejaar --}}
-                    <div>
-                        <label for="issue_year" class="mb-2 block text-sm font-medium">
-                            {{ __('Uitgiftejaar') }}
-                        </label>
+                    <flux:field>
+                        <flux:label>{{ __('Uitgiftejaar') }}</flux:label>
 
-                        <flux:input id="issue_year" name="issue_year" type="number" min="1840" max="2200"
-                            :value="old('issue_year')" placeholder="{{ __('Bijvoorbeeld 2026') }}" />
+                        <flux:input type="number" name="issue_year" min="1840" max="2200"
+                            value="{{ old('issue_year') }}" placeholder="{{ __('Bijvoorbeeld 2026') }}" />
 
-                        @error('issue_year')
-                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                        @enderror
-                    </div>
+                        <div class="min-h-5">
+                            <flux:error name="issue_year" />
+                        </div>
+                    </flux:field>
 
                     {{-- Beschrijving --}}
-                    <div class="md:col-span-2">
-                        <label for="description" class="mb-2 block text-sm font-medium">
-                            {{ __('Beschrijving') }}
-                        </label>
+                    <flux:field class="md:col-span-2">
+                        <flux:label>{{ __('Beschrijving') }}</flux:label>
 
-                        <flux:textarea id="description" name="description" rows="4"
+                        <flux:textarea name="description" rows="4"
                             placeholder="{{ __('Beschrijf deze postzegelserie...') }}">{{ old('description') }}
                         </flux:textarea>
 
-                        @error('description')
-                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                        @enderror
-                    </div>
+                        <div class="min-h-5">
+                            <flux:error name="description" />
+                        </div>
+                    </flux:field>
 
                 </div>
             </div>

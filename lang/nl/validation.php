@@ -197,6 +197,19 @@ return [
     |
     */
 
-    'attributes' => [],
+    'attributes' => [
+        'country_id' => 'land',
+        'stamp_series_id' => 'postzegelserie',
+        'name' => 'naam',
+        'description' => 'beschrijving',
+        'issue_year' => 'uitgiftejaar',
+        'issue_date' => 'uitgiftedatum',
+        'face_value' => 'nominale waarde',
+        'currency' => 'valuta',
+        'designer' => 'ontwerper',
+        'printing_method' => 'druktechniek',
+        'catalog_reference' => 'catalogusreferentie',
+        'notes' => 'notities',
+    ],
 
 ];

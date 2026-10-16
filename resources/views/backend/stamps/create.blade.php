@@ -25,7 +25,7 @@
         @endif
 
         {{-- Formulier --}}
-        <form method="POST" action="{{ route('backend.stamps.store') }}" class="flex flex-col gap-6">
+        <form method="POST" action="{{ route('backend.stamps.store') }}" class="flex flex-col gap-6" novalidate>
             @csrf
 
             <div class="rounded-xl border border-neutral-200 p-4 dark:border-neutral-700 md:p-6">
@@ -43,8 +43,11 @@
                                 <span class="text-red-600">*</span>
                             </span>
                         </flux:label>
+
                         <flux:input name="name" value="{{ old('name') }}" required autofocus />
-                        <flux:error name="name" />
+                        <div class="min-h-5">
+                            <flux:error name="name" />
+                        </div>
                     </flux:field>
 
                     {{-- Land --}}
@@ -64,7 +67,9 @@
                                 </option>
                             @endforeach
                         </flux:select>
-                        <flux:error name="country_id" />
+                        <div class="min-h-5">
+                            <flux:error name="country_id" />
+                        </div>
                     </flux:field>
 
                     {{-- Serie --}}
@@ -79,7 +84,10 @@
                                 </option>
                             @endforeach
                         </flux:select>
-                        <flux:error name="stamp_series_id" />
+
+                        <div class="min-h-5">
+                            <flux:error name="stamp_series_id" />
+                        </div>
                     </flux:field>
 
                     {{-- Uitgiftejaar --}}
@@ -92,14 +100,18 @@
                         </flux:label>
                         <flux:input type="number" name="issue_year" min="1840" max="2200"
                             value="{{ old('issue_year') }}" />
-                        <flux:error name="issue_year" />
+                        <div class="min-h-5">
+                            <flux:error name="issue_year" />
+                        </div>
                     </flux:field>
 
                     {{-- Uitgiftedatum --}}
                     <flux:field>
                         <flux:label>{{ __('Uitgiftedatum') }}</flux:label>
                         <flux:input type="date" name="issue_date" value="{{ old('issue_date') }}" />
-                        <flux:error name="issue_date" />
+                        <div class="min-h-5">
+                            <flux:error name="issue_date" />
+                        </div>
                     </flux:field>
 
                     {{-- Nominale waarde --}}
@@ -107,49 +119,63 @@
                         <flux:label>{{ __('Nominale waarde') }}</flux:label>
                         <flux:input type="number" name="face_value" min="0" step="0.01"
                             value="{{ old('face_value') }}" />
-                        <flux:error name="face_value" />
+                        <div class="min-h-5">
+                            <flux:error name="face_value" />
+                        </div>
                     </flux:field>
 
                     {{-- Valuta --}}
                     <flux:field>
                         <flux:label>{{ __('Valuta') }}</flux:label>
                         <flux:input name="currency" maxlength="3" value="{{ old('currency') }}" placeholder="EUR" />
-                        <flux:error name="currency" />
+                        <div class="min-h-5">
+                            <flux:error name="currency" />
+                        </div>
                     </flux:field>
 
                     {{-- Ontwerper --}}
                     <flux:field>
                         <flux:label>{{ __('Ontwerper') }}</flux:label>
                         <flux:input name="designer" value="{{ old('designer') }}" />
-                        <flux:error name="designer" />
+                        <div class="min-h-5">
+                            <flux:error name="designer" />
+                        </div>
                     </flux:field>
 
                     {{-- Druktechniek --}}
                     <flux:field>
                         <flux:label>{{ __('Druktechniek') }}</flux:label>
                         <flux:input name="printing_method" value="{{ old('printing_method') }}" />
-                        <flux:error name="printing_method" />
+                        <div class="min-h-5">
+                            <flux:error name="printing_method" />
+                        </div>
                     </flux:field>
 
                     {{-- Catalogusreferentie --}}
                     <flux:field>
                         <flux:label>{{ __('Catalogusreferentie') }}</flux:label>
                         <flux:input name="catalog_reference" value="{{ old('catalog_reference') }}" />
-                        <flux:error name="catalog_reference" />
+                        <div class="min-h-5">
+                            <flux:error name="catalog_reference" />
+                        </div>
                     </flux:field>
 
                     {{-- Beschrijving --}}
                     <flux:field class="md:col-span-2">
                         <flux:label>{{ __('Beschrijving') }}</flux:label>
                         <flux:textarea name="description" rows="4">{{ old('description') }}</flux:textarea>
-                        <flux:error name="description" />
+                        <div class="min-h-5">
+                            <flux:error name="description" />
+                        </div>
                     </flux:field>
 
                     {{-- Notities --}}
                     <flux:field class="md:col-span-2">
                         <flux:label>{{ __('Notities') }}</flux:label>
                         <flux:textarea name="notes" rows="4">{{ old('notes') }}</flux:textarea>
-                        <flux:error name="notes" />
+                        <div class="min-h-5">
+                            <flux:error name="notes" />
+                        </div>
                     </flux:field>
 
                 </div>

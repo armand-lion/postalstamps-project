@@ -94,12 +94,12 @@ Created the first backend views for the stamps, and stamp-series.
 
 Face 4 completed
 
-## Fase 5 Dashboard
+## Fase 5
 
-## Fase 6 Settings
+5 Language translations added: Dutch, English, German, Franch and Spanish
 
-## Fase 7 Logout
+Validation added for these 5 languages.
 
-## Fase 8 Repository
+Some small changes on the stamps views and stamp-series. To keep the validation-messages and field input field aligned.
 
-## Fase 9 Documentation
+Fase 5 completed

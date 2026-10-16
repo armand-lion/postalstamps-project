@@ -43,7 +43,7 @@
                 </flux:heading>
 
                 <flux:text class="mt-1">
-                    {{ trans_choice(':count serie gevonden|:count series gevonden', $series->total()) }}
+                    {{ trans_choice(__(':count stamp series found|:count stamp series found'), $series->total()) }}
                 </flux:text>
             </div>
 
@@ -93,7 +93,6 @@
                         <tbody class="divide-y divide-neutral-200 dark:divide-neutral-700">
                             @foreach ($series as $item)
                                 <tr class="hover:bg-neutral-50 dark:hover:bg-neutral-900/50">
-
                                     <td class="px-4 py-3 font-medium">
                                         <a href="{{ route('backend.stamp-series.show', $item) }}"
                                             class="underline decoration-neutral-300 underline-offset-4 hover:decoration-current">
@@ -115,7 +114,6 @@
 
                                     <td class="px-4 py-3">
                                         <div class="flex flex-wrap justify-end gap-3">
-
                                             <a href="{{ route('backend.stamp-series.show', $item) }}"
                                                 class="underline underline-offset-4">
                                                 {{ __('Bekijken') }}
@@ -128,16 +126,16 @@
 
                                             <form method="POST"
                                                 action="{{ route('backend.stamp-series.destroy', $item) }}"
-                                                onsubmit="return confirm('{{ __('Weet je zeker dat je deze postzegelserie wilt verwijderen?') }}');">
+                                                class="delete-confirm-form">
                                                 @csrf
                                                 @method('DELETE')
 
-                                                <button type="submit"
-                                                    class="text-red-600 underline underline-offset-4 hover:text-red-800">
+                                                <button type="button"
+                                                    class="text-red-600 underline underline-offset-4 hover:text-red-800"
+                                                    onclick="openDeleteModal(this.form)">
                                                     {{ __('Verwijderen') }}
                                                 </button>
                                             </form>
-
                                         </div>
                                     </td>
                                 </tr>
@@ -154,4 +152,6 @@
 
         </div>
     </div>
+
+    @include('components.delete-confirm-modal')
 </x-layouts::app>

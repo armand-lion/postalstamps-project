@@ -78,8 +78,10 @@
                     <dt class="text-sm text-neutral-500 dark:text-neutral-400">
                         {{ __('Beschrijving') }}
                     </dt>
-                    <dd class="mt-1 whitespace-pre-line">
-                        {{ $series->description ?: '—' }}
+                    <dd class="mt-1">
+                        <flux:text class="whitespace-pre-line">
+                            {{ $series->description ?: '—' }}
+                        </flux:text>
                     </dd>
                 </div>
 
@@ -95,7 +97,7 @@
                 </flux:heading>
 
                 <flux:text class="mt-1">
-                    {{ trans_choice(':count postzegel gevonden|:count postzegels gevonden', $series->stamps->count()) }}
+                   {{ trans_choice(__(':count stamp found|:count stamps found'), $series->stamps->count()) }}
                 </flux:text>
             </div>
 

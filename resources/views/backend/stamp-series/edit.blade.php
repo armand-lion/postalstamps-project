@@ -13,18 +13,15 @@
                 </flux:text>
             </div>
 
-            <flux:button
-                :href="route('backend.stamp-series.show', $series)"
-                variant="ghost"
-                icon="arrow-left"
-            >
+            <flux:button :href="route('backend.stamp-series.show', $series)" variant="ghost" icon="arrow-left">
                 {{ __('Terug naar serie') }}
             </flux:button>
         </div>
 
         {{-- Validatiefouten --}}
         @if ($errors->any())
-            <div class="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200">
+            <div
+                class="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200">
                 <p class="font-medium">
                     {{ __('Controleer de volgende gegevens:') }}
                 </p>
@@ -38,11 +35,8 @@
         @endif
 
         {{-- Formulier --}}
-        <form
-            method="POST"
-            action="{{ route('backend.stamp-series.update', $series) }}"
-            class="flex flex-col gap-6"
-        >
+        <form method="POST" action="{{ route('backend.stamp-series.update', $series) }}" class="flex flex-col gap-6"
+            novalidate>
             @csrf
             @method('PUT')
 
@@ -55,92 +49,77 @@
                 <div class="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2">
 
                     {{-- Land --}}
-                    <div>
-                        <label for="country_id" class="mb-2 block text-sm font-medium">
-                            {{ __('Land') }}
-                            <span class="text-red-600">*</span>
-                        </label>
+                    <flux:field>
+                        <flux:label>
+                            <span class="flex items-center gap-1">
+                                {{ __('Land') }}
+                                <span class="text-red-600">*</span>
+                            </span>
+                        </flux:label>
 
-                        <select
-                            id="country_id"
-                            name="country_id"
-                            required
-                            class="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900"
-                        >
+                        <flux:select name="country_id" required>
                             <option value="">
                                 {{ __('Selecteer een land') }}
                             </option>
 
                             @foreach ($countries as $country)
-                                <option
-                                    value="{{ $country->id }}"
-                                    @selected((string) old('country_id', $series->country_id) === (string) $country->id)
-                                >
+                                <option value="{{ $country->id }}" @selected((string) old('country_id', $series->country_id) === (string) $country->id)>
                                     {{ $country->name }}
                                 </option>
                             @endforeach
-                        </select>
+                        </flux:select>
 
-                        @error('country_id')
-                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                        @enderror
-                    </div>
+                        <div class="min-h-5">
+                            <flux:error name="country_id" />
+                        </div>
+                    </flux:field>
 
                     {{-- Naam --}}
-                    <div>
-                        <label for="name" class="mb-2 block text-sm font-medium">
-                            {{ __('Naam van de postzegelserie') }}
-                            <span class="text-red-600">*</span>
-                        </label>
+                    <flux:field>
+                        <flux:label>
+                            <span class="flex items-center gap-1">
+                                {{ __('Naam van de postzegelserie') }}
+                                <span class="text-red-600">*</span>
+                            </span>
+                        </flux:label>
 
-                        <flux:input
-                            id="name"
-                            name="name"
-                            :value="old('name', $series->name)"
-                            required
-                        />
+                        <flux:input name="name" value="{{ old('name', $series->name) }}"
+                            placeholder="{{ __('Bijvoorbeeld: Nederlandse molens') }}" required />
 
-                        @error('name')
-                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                        @enderror
-                    </div>
+                        <div class="min-h-5">
+                            <flux:error name="name" />
+                        </div>
+                    </flux:field>
 
                     {{-- Uitgiftejaar --}}
-                    <div>
-                        <label for="issue_year" class="mb-2 block text-sm font-medium">
+                    <flux:field>
+                        <flux:label>
                             {{ __('Uitgiftejaar') }}
-                        </label>
+                        </flux:label>
 
-                        <flux:input
-                            id="issue_year"
-                            name="issue_year"
-                            type="number"
-                            min="1840"
-                            max="2200"
-                            :value="old('issue_year', $series->issue_year)"
-                        />
+                        <flux:input type="number" name="issue_year" min="1840" max="2200"
+                            value="{{ old('issue_year', $series->issue_year) }}"
+                            placeholder="{{ __('Bijvoorbeeld 2026') }}" />
 
-                        @error('issue_year')
-                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                        @enderror
-                    </div>
+                        <div class="min-h-5">
+                            <flux:error name="issue_year" />
+                        </div>
+                    </flux:field>
 
                     {{-- Beschrijving --}}
-                    <div class="md:col-span-2">
-                        <label for="description" class="mb-2 block text-sm font-medium">
+                    <flux:field class="md:col-span-2">
+                        <flux:label>
                             {{ __('Beschrijving') }}
-                        </label>
+                        </flux:label>
 
-                        <flux:textarea
-                            id="description"
-                            name="description"
-                            rows="4"
-                        >{{ old('description', $series->description) }}</flux:textarea>
+                        <flux:textarea name="description" rows="4"
+                            placeholder="{{ __('Beschrijf deze postzegelserie...') }}">
+                            {{ old('description', $series->description) }}</flux:textarea>
 
-                        @error('description')
-                            <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                        @enderror
-                    </div>
+                        <div class="min-h-5">
+                            <flux:error name="description" />
+                        </div>
+                    </flux:field>
 
                 </div>
             </div>
@@ -148,18 +127,11 @@
             {{-- Acties --}}
             <div class="flex flex-col-reverse justify-end gap-3 sm:flex-row">
 
-                <flux:button
-                    :href="route('backend.stamp-series.show', $series)"
-                    variant="ghost"
-                >
+                <flux:button :href="route('backend.stamp-series.show', $series)" variant="ghost">
                     {{ __('Annuleren') }}
                 </flux:button>
 
-                <flux:button
-                    type="submit"
-                    variant="primary"
-                    icon="check"
-                >
+                <flux:button type="submit" variant="primary" icon="check">
                     {{ __('Wijzigingen opslaan') }}
                 </flux:button>
 

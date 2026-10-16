@@ -46,10 +46,12 @@
     "Aankoopdatum": "Aankoopdatum",
     "Aankoopprijs": "Aankoopprijs",
     "Er zijn nog geen fysieke exemplaren geregistreerd.": "Er zijn nog geen fysieke exemplaren geregistreerd.",
+    ":count stamp found|:count stamps found": ":count postzegel gevonden|:count postzegels gevonden",
 
     "Pas de gegevens van deze postzegel aan.": "Pas de gegevens van deze postzegel aan.",
-    "Uitgiftedatum'": "Uitgiftedatum",
     "Wijzigingen opslaan": "Wijzigingen opslaan",
+    "Verwijderen bevestigen": "Verwijderen bevestigen",
+    "Weet je zeker dat je dit item wilt verwijderen?": "Weet je zeker dat je dit item wilt verwijderen?",
 
     "Postzegelseries beheren": "Postzegelseries beheren",
     "Beheer de postzegelseries waartoe je postzegels behoren.": "Beheer de postzegelseries waartoe je postzegels behoren.",
@@ -60,12 +62,13 @@
     "Eerste postzegelserie toevoegen": "Eerste postzegelserie toevoegen",
     "Aantal postzegels": "Aantal postzegels",
     "Weet je zeker dat je deze postzegelserie wilt verwijderen?": "Weet je zeker dat je deze postzegelserie wilt verwijderen?",
+    ":count stamp series found|:count stamp series found": ":count serie gevonden|:count series gevonden",
 
     "Voeg een postzegelserie toe aan je catalogus.": "Voeg een postzegelserie toe aan je catalogus.",
     "Controleer de volgende gegevens:": "Controleer de volgende gegevens:",
     "Naam van de postzegelserie": "Naam van de postzegelserie",
     "Bijvoorbeeld: Nederlandse molens": "Bijvoorbeeld: Nederlandse molens",
-    "Beschrijf deze postzegelserie...'": "Beschrijf deze postzegelserie...'",
+    "Beschrijf deze postzegelserie...": "Beschrijf deze postzegelserie...",
     "Postzegelserie opslaan": "Postzegelserie opslaan",
 
     "Postzegelserie bekijken": "Postzegelserie bekijken",
@@ -77,7 +80,11 @@
     "Postzegelserie bewerken": "Postzegelserie bewerken",
     "Pas de gegevens van deze postzegelserie aan.": "Pas de gegevens van deze postzegelserie aan.",
     "Terug naar serie": "Terug naar serie",
-    "Controleer de volgende gegevens:'": "Controleer de volgende gegevens:'",
 
-    "Taal": "Taal"
+    "Taal": "Taal",
+    "Dashboard": "Dashboard",
+    "Settings": "Instellingen",
+    "Log out": "Uitloggen",
+    "Repository": "Repository",
+    "Documentation": "Documentatie"
 }

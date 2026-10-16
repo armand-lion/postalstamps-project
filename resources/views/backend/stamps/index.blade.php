@@ -37,33 +37,36 @@
         {{-- Filters --}}
         <form method="GET" action="{{ route('backend.stamps.index') }}"
             class="flex flex-col gap-4 rounded-xl border border-neutral-200 p-4 dark:border-neutral-700 sm:flex-row sm:items-end">
-            <div class="flex-1">
-                <label for="country_id" class="mb-2 block text-sm font-medium">
+            {{-- Land --}}
+            <flux:field class="flex-1">
+                <flux:label>
                     {{ __('Land') }}
-                </label>
+                </flux:label>
 
-                <select id="country_id" name="country_id"
-                    class="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900">
-                    <option value="">{{ __('Alle landen') }}</option>
+                <flux:select name="country_id">
+                    <option value="">
+                        {{ __('Alle landen') }}
+                    </option>
 
                     @foreach ($countries as $country)
                         <option value="{{ $country->id }}" @selected((string) request('country_id') === (string) $country->id)>
                             {{ $country->name }}
                         </option>
                     @endforeach
-                </select>
-            </div>
+                </flux:select>
+            </flux:field>
 
-            <div class="flex-1">
-                <label for="issue_year" class="mb-2 block text-sm font-medium">
+            {{-- Uitgiftejaar --}}
+            <flux:field class="flex-1">
+                <flux:label>
                     {{ __('Uitgiftejaar') }}
-                </label>
+                </flux:label>
 
-                <input type="number" id="issue_year" name="issue_year" min="1840" max="2200"
-                    value="{{ request('issue_year') }}" placeholder="{{ __('Bijvoorbeeld 2026') }}"
-                    class="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900">
-            </div>
+                <flux:input type="number" name="issue_year" min="1840" max="2200"
+                    value="{{ request('issue_year') }}" placeholder="{{ __('Bijvoorbeeld 2026') }}" />
+            </flux:field>
 
+            {{-- Acties --}}
             <div class="flex gap-2">
                 <flux:button type="submit" variant="primary">
                     {{ __('Filteren') }}
@@ -84,7 +87,7 @@
                 </flux:heading>
 
                 <flux:text class="mt-1">
-                    {{ trans_choice(':count postzegel gevonden|:count postzegels gevonden', $stamps->total()) }}
+                    {{ trans_choice(__(':count stamp found|:count stamps found'), $stamps->total()) }}
                 </flux:text>
             </div>
 
@@ -154,18 +157,14 @@
                                                 {{ __('Bewerken') }}
                                             </a>
 
-                                            <form
-                                                method="POST"
-                                                action="{{ route('backend.stamps.destroy', $stamp) }}"
-                                                onsubmit="return confirm('{{ __('Weet je zeker dat je deze postzegel wilt verwijderen?') }}');"
-                                            >
+                                            <form method="POST" action="{{ route('backend.stamps.destroy', $stamp) }}"
+                                                class="delete-confirm-form">
                                                 @csrf
                                                 @method('DELETE')
 
-                                                <button
-                                                    type="submit"
+                                                <button type="button"
                                                     class="text-red-600 underline underline-offset-4 hover:text-red-800"
-                                                >
+                                                    onclick="openDeleteModal(this.form)">
                                                     {{ __('Verwijderen') }}
                                                 </button>
                                             </form>
@@ -184,4 +183,6 @@
             @endif
         </div>
     </div>
+
+    @include('components.delete-confirm-modal')
 </x-layouts::app>

@@ -197,6 +197,19 @@ return [
     |
     */
 
-    'attributes' => [],
+    'attributes' => [
+        'country_id' => 'country',
+        'stamp_series_id' => 'stamp series',
+        'name' => 'name',
+        'description' => 'description',
+        'issue_year' => 'issue year',
+        'issue_date' => 'issue date',
+        'face_value' => 'face value',
+        'currency' => 'currency',
+        'designer' => 'designer',
+        'printing_method' => 'printing method',
+        'catalog_reference' => 'catalog reference',
+        'notes' => 'notes',
+    ],
 
 ];
