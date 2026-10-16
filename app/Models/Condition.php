@@ -4,13 +4,12 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Condition extends Model
 {
     protected $fillable = [
-        'name',
         'slug',
-        'description',
         'sort_order',
         'is_active',
     ];
@@ -21,6 +20,11 @@ class Condition extends Model
             'sort_order' => 'integer',
             'is_active' => 'boolean',
         ];
+    }
+
+    public function translations(): HasMany
+    {
+        return $this->hasMany(ConditionTranslation::class);
     }
 
     public function stampCopies(): HasMany
@@ -46,5 +50,11 @@ class Condition extends Model
     public function seriesValuations(): HasMany
     {
         return $this->hasMany(SeriesValuation::class);
+    }
+
+    public function translation(): HasOne
+    {
+        return $this->hasOne(ConditionTranslation::class)
+            ->where('locale', app()->getLocale());
     }
 }

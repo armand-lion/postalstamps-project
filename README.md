@@ -85,3 +85,21 @@ We will start with three tables:
 - Conditions: the condition categories for your stamps.
 
 Fase 3 is completed
+
+## Fase 4
+
+Changes in the database structure to support multiple langues as Dutch, English, German, Frech, and Spanish.
+
+Created the first backend views for the stamps, and stamp-series.
+
+Face 4 completed
+
+## Fase 5 Dashboard
+
+## Fase 6 Settings
+
+## Fase 7 Logout
+
+## Fase 8 Repository
+
+## Fase 9 Documentation
