@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
 class CatalogEdition extends Model
 {
@@ -30,9 +31,21 @@ class CatalogEdition extends Model
         return $this->belongsTo(Catalog::class);
     }
 
-    public function stampValues(): HasMany
+    public function stampEntries(): HasMany
     {
-        return $this->hasMany(StampCatalogValue::class);
+        return $this->hasMany(StampCatalogEntry::class);
+    }
+
+    public function stampValues(): HasManyThrough
+    {
+        return $this->hasManyThrough(
+            StampCatalogValue::class,
+            StampCatalogEntry::class,
+            'catalog_edition_id',
+            'stamp_catalog_entry_id',
+            'id',
+            'id'
+        );
     }
 
     public function seriesValues(): HasMany

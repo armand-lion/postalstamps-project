@@ -5,7 +5,7 @@
         <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
                 <flux:heading size="xl">
-                    {{ $stamp->name }}
+                    {{ $stamp->translationWithFallback()?->name ?? $stamp->name }}
                 </flux:heading>
 
                 <flux:text class="mt-2">
@@ -37,7 +37,7 @@
                         {{ __('Naam') }}
                     </dt>
                     <dd class="mt-1 font-medium">
-                        {{ $stamp->name }}
+                        {{ $stamp->translationWithFallback()?->name ?? $stamp->name }}
                     </dd>
                 </div>
 
@@ -46,7 +46,7 @@
                         {{ __('Land') }}
                     </dt>
                     <dd class="mt-1 font-medium">
-                        {{ $stamp->country?->name ?? '—' }}
+                        {{ $stamp->country?->translationWithFallback()?->name ?? ($stamp->country?->name ?? '—') }}
                     </dd>
                 </div>
 
@@ -55,7 +55,7 @@
                         {{ __('Postzegelserie') }}
                     </dt>
                     <dd class="mt-1 font-medium">
-                        {{ $stamp->series?->name ?? '—' }}
+                        {{ $stamp->series?->translationWithFallback()?->name ?? ($stamp->series?->name ?? '—') }}
                     </dd>
                 </div>
 
@@ -128,7 +128,7 @@
             </flux:heading>
 
             <div class="mt-4 whitespace-pre-line text-sm">
-                {{ $stamp->description ?: '—' }}
+                {{ $stamp->translationWithFallback()?->description ?? ($stamp->description ?? '—') }}
             </div>
         </div>
 
@@ -162,7 +162,7 @@
                         @foreach ($stamp->copies as $copy)
                             <flux:table.row>
                                 <flux:table.cell>
-                                    {{ $copy->condition?->translation?->name ?? '—' }}
+                                    {{ $copy->condition?->translationWithFallback()?->name ?? '—' }}
                                 </flux:table.cell>
 
                                 <flux:table.cell>

@@ -181,8 +181,8 @@ return [
     */
 
     'custom' => [
-        'attribute-name' => [
-            'rule-name' => 'custom-message',
+        'stamp_series_id' => [
+            'exists' => 'De geselecteerde postzegelserie is ongeldig.',
         ],
     ],
 

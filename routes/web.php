@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Backend\CountryController;
 use App\Http\Controllers\Backend\StampController;
 use App\Http\Controllers\Backend\StampSeriesController;
 use Illuminate\Http\Request;
@@ -27,6 +28,7 @@ Route::middleware(['auth'])->group(function () { //
     Route::prefix('backend')
         ->name('backend.')
         ->group(function () {
+            Route::resource('countries', CountryController::class);
             Route::resource('stamps', StampController::class);
             Route::resource('stamp-series', StampSeriesController::class);
         });

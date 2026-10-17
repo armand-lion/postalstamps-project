@@ -50,7 +50,7 @@
 
                     @foreach ($countries as $country)
                         <option value="{{ $country->id }}" @selected((string) request('country_id') === (string) $country->id)>
-                            {{ $country->name }}
+                            {{ $country->translationWithFallback()?->name ?? $country->name }}
                         </option>
                     @endforeach
                 </flux:select>
@@ -124,12 +124,12 @@
                                     <td class="px-4 py-3 font-medium">
                                         <a href="{{ route('backend.stamps.show', $stamp) }}"
                                             class="underline decoration-neutral-300 underline-offset-4 hover:decoration-current">
-                                            {{ $stamp->name }}
+                                            {{ $stamp->translationWithFallback()?->name ?? $stamp->name }}
                                         </a>
                                     </td>
 
                                     <td class="px-4 py-3">
-                                        {{ $stamp->country->name }}
+                                        {{ $stamp->country?->translationWithFallback()?->name ?? $stamp->country?->name ?? '—' }}
                                     </td>
 
                                     <td class="px-4 py-3">

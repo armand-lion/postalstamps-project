@@ -96,10 +96,27 @@ Face 4 completed
 
 ## Fase 5
 
-5 Language translations added: Dutch, English, German, Franch and Spanish
+5 Language translations added: Dutch, English, German, French and Spanish
 
 Validation added for these 5 languages.
 
 Some small changes on the stamps views and stamp-series. To keep the validation-messages and field input field aligned.
 
 Fase 5 completed
+
+## Fase 6
+
+Starting with with digital version of the stamp catalog.
+
+I propose implementing the changes in the following order:
+
+1. Verify whether the current migrations have already been executed.
+2. Define the final structure for catalog entries and values.
+3. Add the relationship between primary stamps and their variants.
+4. Design the tables for technical specifications.
+5. Create the necessary new migrations.
+6. Adjust the existing Eloquent models and relationships.
+7. Test everything using a sample catalog, including stamp 379 with variants 379a–d.
+8. Set fallback for missing translations
+9. Multilingual support in views
+10. Multilingual support by create and edit

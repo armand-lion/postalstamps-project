@@ -8,10 +8,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class StampCatalogValue extends Model
 {
     protected $fillable = [
-        'catalog_edition_id',
-        'stamp_id',
+        'stamp_catalog_entry_id',
         'condition_id',
-        'catalog_number',
         'catalog_value',
         'currency',
         'notes',
@@ -24,14 +22,9 @@ class StampCatalogValue extends Model
         ];
     }
 
-    public function catalogEdition(): BelongsTo
+    public function catalogEntry(): BelongsTo
     {
-        return $this->belongsTo(CatalogEdition::class);
-    }
-
-    public function stamp(): BelongsTo
-    {
-        return $this->belongsTo(Stamp::class);
+        return $this->belongsTo(StampCatalogEntry::class, 'stamp_catalog_entry_id');
     }
 
     public function condition(): BelongsTo

@@ -41,4 +41,22 @@ class StampSeries extends Model
     {
         return $this->hasMany(SeriesValuation::class);
     }
+
+    public function translations(): HasMany
+    {
+        return $this->hasMany(StampSeriesTranslation::class);
+    }
+
+    public function translationWithFallback(): ?StampSeriesTranslation
+    {
+        $locale = app()->getLocale();
+        $fallbackLocale = config('app.fallback_locale', 'nl');
+
+        return $this->translations()
+            ->where('locale', $locale)
+            ->first()
+            ?? $this->translations()
+                ->where('locale', $fallbackLocale)
+                ->first();
+    }
 }

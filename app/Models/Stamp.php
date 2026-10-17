@@ -6,11 +6,13 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
 class Stamp extends Model
 {
     protected $fillable = [
         'country_id',
+        'parent_stamp_id',
         'stamp_series_id',
         'name',
         'description',
@@ -59,13 +61,59 @@ class Stamp extends Model
         return $this->hasMany(StampImage::class);
     }
 
-    public function catalogValues(): HasMany
+    public function catalogEntries(): HasMany
     {
-        return $this->hasMany(StampCatalogValue::class);
+        return $this->hasMany(StampCatalogEntry::class);
+    }
+
+    public function catalogValues(): HasManyThrough
+    {
+        return $this->hasManyThrough(
+            StampCatalogValue::class,
+            StampCatalogEntry::class,
+            'stamp_id',
+            'stamp_catalog_entry_id',
+            'id',
+            'id'
+        );
     }
 
     public function valuations(): HasMany
     {
         return $this->hasMany(StampValuation::class);
+    }
+
+    /**
+     * The parent stamp of this variant.
+     */
+    public function parentStamp(): BelongsTo
+    {
+        return $this->belongsTo(Stamp::class, 'parent_stamp_id');
+    }
+
+    /**
+     * The variants belonging to this stamp.
+     */
+    public function variants(): HasMany
+    {
+        return $this->hasMany(Stamp::class, 'parent_stamp_id');
+    }
+
+    public function translations(): HasMany
+    {
+        return $this->hasMany(StampTranslation::class);
+    }
+
+    public function translationWithFallback(): ?StampTranslation
+    {
+        $locale = app()->getLocale();
+        $fallbackLocale = config('app.fallback_locale', 'nl');
+
+        return $this->translations()
+            ->where('locale', $locale)
+            ->first()
+            ?? $this->translations()
+                ->where('locale', $fallbackLocale)
+                ->first();
     }
 }

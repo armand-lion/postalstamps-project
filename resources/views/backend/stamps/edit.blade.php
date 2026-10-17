@@ -81,11 +81,13 @@
                             <option value="">{{ __('Geen serie') }}</option>
 
                             @foreach ($series as $item)
-                                <option value="{{ $item->id }}" @selected((string) old('stamp_series_id', $stamp->stamp_series_id) === (string) $item->id)>
+                                <option value="{{ $item->id }}" data-country-id="{{ $item->country_id }}"
+                                    @selected((string) old('stamp_series_id', $stamp->stamp_series_id) === (string) $item->id)>
                                     {{ $item->name }}
                                 </option>
                             @endforeach
                         </flux:select>
+
                         <div class="min-h-5">
                             <flux:error name="stamp_series_id" />
                         </div>
@@ -125,7 +127,7 @@
                         <flux:input type="number" name="face_value" min="0" step="0.01"
                             value="{{ old('face_value', $stamp->face_value) }}" />
 
-                            <flux:error name="face_value" />
+                        <flux:error name="face_value" />
 
                     </flux:field>
 
@@ -203,4 +205,35 @@
 
         </form>
     </div>
+    <script>
+        const countrySelect = document.querySelector('select[name="country_id"]');
+        const seriesSelect = document.querySelector('select[name="stamp_series_id"]');
+
+        function filterStampSeries() {
+            const selectedCountryId = countrySelect.value;
+
+            Array.from(seriesSelect.options).forEach(option => {
+                if (option.value === '') {
+                    option.hidden = false;
+                    return;
+                }
+
+                option.hidden = option.dataset.countryId !== selectedCountryId;
+            });
+
+            const selectedOption = seriesSelect.selectedOptions[0];
+
+            if (
+                selectedOption &&
+                selectedOption.value !== '' &&
+                selectedOption.dataset.countryId !== selectedCountryId
+            ) {
+                seriesSelect.value = '';
+            }
+        }
+
+        countrySelect.addEventListener('change', filterStampSeries);
+
+        filterStampSeries();
+    </script>
 </x-layouts::app>

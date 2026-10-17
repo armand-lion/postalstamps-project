@@ -9,6 +9,7 @@ use App\Models\StampSeries;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class StampController extends Controller
@@ -73,7 +74,8 @@ class StampController extends Controller
             'stamp_series_id' => [
                 'nullable',
                 'integer',
-                'exists:stamp_series,id',
+                Rule::exists('stamp_series', 'id')
+                    ->where('country_id', $request->input('country_id')),
             ],
             'name' => [
                 'required',
@@ -185,7 +187,8 @@ class StampController extends Controller
             'stamp_series_id' => [
                 'nullable',
                 'integer',
-                'exists:stamp_series,id',
+                Rule::exists('stamp_series', 'id')
+                    ->where('country_id', $request->input('country_id')),
             ],
             'name' => [
                 'required',
@@ -258,8 +261,10 @@ class StampController extends Controller
         $hasRelatedData =
             $stamp->copies()->exists()
             || $stamp->images()->exists()
+            || $stamp->catalogEntries()->exists()
             || $stamp->catalogValues()->exists()
-            || $stamp->valuations()->exists();
+            || $stamp->valuations()->exists()
+            || $stamp->variants()->exists();
 
         // Verwijder de postzegel niet als er gegevens gekoppeld zijn.
         if ($hasRelatedData) {

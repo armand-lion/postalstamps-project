@@ -96,12 +96,12 @@
                                     <td class="px-4 py-3 font-medium">
                                         <a href="{{ route('backend.stamp-series.show', $item) }}"
                                             class="underline decoration-neutral-300 underline-offset-4 hover:decoration-current">
-                                            {{ $item->name }}
+                                            {{ $item->translationWithFallback()?->name ?? $item->name }}
                                         </a>
                                     </td>
 
                                     <td class="px-4 py-3">
-                                        {{ $item->country->name }}
+                                        {{ $item->country?->translationWithFallback()?->name ?? ($item->country?->name ?? '—') }}
                                     </td>
 
                                     <td class="px-4 py-3">

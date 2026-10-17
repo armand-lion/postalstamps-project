@@ -5,7 +5,7 @@
         <div class="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
             <div>
                 <flux:heading size="xl">
-                    {{ $series->name }}
+                    {{ $series->translationWithFallback()?->name ?? $series->name }}
                 </flux:heading>
 
                 <flux:text class="mt-2">
@@ -14,19 +14,11 @@
             </div>
 
             <div class="flex flex-wrap gap-2">
-                <flux:button
-                    :href="route('backend.stamp-series.index')"
-                    variant="ghost"
-                    icon="arrow-left"
-                >
+                <flux:button :href="route('backend.stamp-series.index')" variant="ghost" icon="arrow-left">
                     {{ __('Terug naar overzicht') }}
                 </flux:button>
 
-                <flux:button
-                    :href="route('backend.stamp-series.edit', $series)"
-                    variant="primary"
-                    icon="pencil"
-                >
+                <flux:button :href="route('backend.stamp-series.edit', $series)" variant="primary" icon="pencil">
                     {{ __('Bewerken') }}
                 </flux:button>
             </div>
@@ -34,7 +26,8 @@
 
         {{-- Succesmelding --}}
         @if (session('success'))
-            <div class="rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-800 dark:border-green-900 dark:bg-green-950 dark:text-green-200">
+            <div
+                class="rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-800 dark:border-green-900 dark:bg-green-950 dark:text-green-200">
                 {{ session('success') }}
             </div>
         @endif
@@ -52,7 +45,7 @@
                         {{ __('Naam') }}
                     </dt>
                     <dd class="mt-1 font-medium">
-                        {{ $series->name }}
+                        {{ $series->translationWithFallback()?->name ?? $series->name }}
                     </dd>
                 </div>
 
@@ -61,7 +54,7 @@
                         {{ __('Land') }}
                     </dt>
                     <dd class="mt-1 font-medium">
-                        {{ $series->country->name }}
+                        {{ $series->country?->translationWithFallback()?->name ?? ($series->country?->name ?? '—') }}
                     </dd>
                 </div>
 
@@ -80,7 +73,7 @@
                     </dt>
                     <dd class="mt-1">
                         <flux:text class="whitespace-pre-line">
-                            {{ $series->description ?: '—' }}
+                            {{ $series->translationWithFallback()?->description ?? ($series->description ?? '—') }}
                         </flux:text>
                     </dd>
                 </div>
@@ -97,7 +90,7 @@
                 </flux:heading>
 
                 <flux:text class="mt-1">
-                   {{ trans_choice(__(':count stamp found|:count stamps found'), $series->stamps->count()) }}
+                    {{ trans_choice(__(':count stamp found|:count stamps found'), $series->stamps->count()) }}
                 </flux:text>
             </div>
 
@@ -139,7 +132,7 @@
                                 <tr class="hover:bg-neutral-50 dark:hover:bg-neutral-900/50">
 
                                     <td class="px-4 py-3 font-medium">
-                                        {{ $stamp->name }}
+                                        {{ $stamp->translationWithFallback()?->name ?? $stamp->name }}
                                     </td>
 
                                     <td class="px-4 py-3">
@@ -156,10 +149,8 @@
                                     </td>
 
                                     <td class="px-4 py-3 text-right">
-                                        <a
-                                            href="{{ route('backend.stamps.show', $stamp) }}"
-                                            class="underline underline-offset-4"
-                                        >
+                                        <a href="{{ route('backend.stamps.show', $stamp) }}"
+                                            class="underline underline-offset-4">
                                             {{ __('Bekijken') }}
                                         </a>
                                     </td>

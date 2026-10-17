@@ -27,6 +27,19 @@ class Condition extends Model
         return $this->hasMany(ConditionTranslation::class);
     }
 
+    public function translationWithFallback(): ?ConditionTranslation
+    {
+        $locale = app()->getLocale();
+        $fallbackLocale = config('app.fallback_locale', 'nl');
+
+        return $this->translations()
+            ->where('locale', $locale)
+            ->first()
+            ?? $this->translations()
+                ->where('locale', $fallbackLocale)
+                ->first();
+    }
+
     public function stampCopies(): HasMany
     {
         return $this->hasMany(StampCopy::class);
