@@ -51,11 +51,11 @@
 
                 <div>
                     <dt class="text-sm text-neutral-500 dark:text-neutral-400">
-                        {{ __('Nederlandse naam') }}
+                        {{ __('Naam') }}
                     </dt>
 
                     <dd class="mt-1 font-medium">
-                        {{ $country->name }}
+                        {{ $country->translationWithFallback()?->name ?? $country->name }}
                     </dd>
                 </div>
 
@@ -119,11 +119,11 @@
 
                 <div class="sm:col-span-2 lg:col-span-3">
                     <dt class="text-sm text-neutral-500 dark:text-neutral-400">
-                        {{ __('Nederlandse beschrijving') }}
+                        {{ __('Beschrijving') }}
                     </dt>
 
                     <dd class="mt-1 whitespace-pre-line">
-                        {{ $country->description ?: '—' }}
+                        {{ $country->translationWithFallback()?->description ?: '—' }}
                     </dd>
                 </div>
 
@@ -233,11 +233,7 @@
                             </dt>
 
                             <dd class="mt-1 font-medium">
-                                @if ($locale === 'nl')
-                                    {{ $country->name }}
-                                @else
-                                    {{ $translation?->name ?: '—' }}
-                                @endif
+                                {{ $translation?->name ?: '—' }}
                             </dd>
                         </div>
 
@@ -247,11 +243,7 @@
                             </dt>
 
                             <dd class="mt-1 whitespace-pre-line">
-                                @if ($locale === 'nl')
-                                    {{ $country->description ?: '—' }}
-                                @else
-                                    {{ $translation?->description ?: '—' }}
-                                @endif
+                                {{ $translation?->description ?: '—' }}
                             </dd>
                         </div>
                     </div>

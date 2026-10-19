@@ -24,7 +24,7 @@
             <div
                 class="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200">
                 <p class="font-medium">
-                    {{ __('Controleer de volgende velden:') }}
+                    {{ __('Terug naar details') }}
                 </p>
 
                 <ul class="mt-2 list-inside list-disc space-y-1">
@@ -35,7 +35,7 @@
             </div>
         @endif
 
-        <form method="POST" action="{{ route('backend.countries.update', $country) }}" class="flex flex-col gap-6">
+        <form method="POST" action="{{ route('backend.countries.update', $country) }}" class="flex flex-col gap-6" novalidate>
             @csrf
             @method('PUT')
 
@@ -48,18 +48,6 @@
                 </div>
 
                 <div class="grid gap-5 p-4 md:grid-cols-2">
-
-                    {{-- Nederlandse naam --}}
-                    <flux:field>
-                        <flux:label>
-                            {{ __('Nederlandse naam') }}
-                            <span class="text-red-600">*</span>
-                        </flux:label>
-
-                        <flux:input name="name" value="{{ old('name', $country->name) }}" required maxlength="100" />
-
-                        <flux:error name="name" />
-                    </flux:field>
 
                     {{-- ISO-code --}}
                     <flux:field>
@@ -75,8 +63,10 @@
                     {{-- Type --}}
                     <flux:field>
                         <flux:label>
-                            {{ __('Type entiteit') }}
-                            <span class="text-red-600"> *</span>
+                            <span class="flex items-center gap-1">
+                                {{ __('Type entiteit') }}
+                                <span class="text-red-600">*</span>
+                            </span>
                         </flux:label>
 
                         <flux:select name="entity_type" required>
@@ -113,20 +103,6 @@
 
                         <flux:error name="end_year" />
                     </flux:field>
-
-                    {{-- Nederlandse beschrijving --}}
-                    <div class="md:col-span-2">
-                        <flux:field>
-                            <flux:label>
-                                {{ __('Nederlandse beschrijving') }}
-                            </flux:label>
-
-                            <flux:textarea name="description" rows="4">
-                                {{ old('description', $country->description) }}</flux:textarea>
-
-                            <flux:error name="description" />
-                        </flux:field>
-                    </div>
 
                     {{-- Status --}}
                     <div class="md:col-span-2">
@@ -190,21 +166,28 @@
                             {{-- Vertaalde naam --}}
                             <flux:field>
                                 <flux:label>
-                                    {{ __('Naam') }}
-                                    @if ($locale === 'nl')
-                                        *
-                                    @endif
+                                    <span class="flex items-center gap-1">
+                                        {{ __('Naam') }}
+                                        @if ($locale === app()->getLocale())
+                                            <span class="text-red-600">*</span>
+                                        @endif
+                                    </span>
                                 </flux:label>
 
                                 <flux:input name="translations[{{ $locale }}][name]"
-                                    value="{{ old('translations.' . $locale . '.name', $locale === 'nl' ? $country->name : $translation?->name) }}"
-                                    maxlength="100" @required($locale === 'nl') />
+                                    value="{{ old('translations.' . $locale . '.name', $translation?->name) }}"
+                                    maxlength="100"
+                                    @required($locale === app()->getLocale()) />
 
-                                @if ($locale === 'nl')
-                                    <flux:description>
-                                        {{ __('Deze naam wordt gelijk gehouden aan de Nederlandse naam hierboven.') }}
-                                    </flux:description>
-                                @endif
+                                    @if ($locale === app()->getLocale())
+                                        <flux:description>
+                                            {{ __('Deze naam is verplicht omdat dit de actieve applicatietaal is.') }}
+                                        </flux:description>
+                                    @else
+                                        <flux:description>
+                                            {{ __('Optioneel. Laat leeg als je deze vertaling nog niet hebt.') }}
+                                        </flux:description>
+                                    @endif
 
                                 <flux:error name="translations.{{ $locale }}.name" />
                             </flux:field>
@@ -216,7 +199,7 @@
                                 </flux:label>
 
                                 <flux:textarea name="translations[{{ $locale }}][description]" rows="3">
-                                    {{ old('translations.$locale.description', $locale === 'nl' ? $country->description : $translation?->description) }}
+                                    {{ old("translations.$locale.description", $translation?->description) }}
                                 </flux:textarea>
 
                                 <flux:error name="translations.{{ $locale }}.description" />

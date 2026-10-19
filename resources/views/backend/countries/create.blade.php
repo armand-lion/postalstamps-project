@@ -34,7 +34,7 @@
             </div>
         @endif
 
-        <form method="POST" action="{{ route('backend.countries.store') }}" class="flex flex-col gap-6">
+        <form method="POST" action="{{ route('backend.countries.store') }}" class="flex flex-col gap-6" novalidate>
             @csrf
 
             {{-- Basisgegevens --}}
@@ -51,17 +51,6 @@
 
                 <div class="grid gap-5 p-4 md:grid-cols-2">
 
-                    {{-- Nederlandse naam --}}
-                    <flux:field>
-                        <flux:label>
-                            {{ __('Nederlandse naam') }} *
-                        </flux:label>
-
-                        <flux:input name="name" value="{{ old('name') }}" required maxlength="100"
-                            placeholder="Bijvoorbeeld: Nederlands-Indië" />
-
-                        <flux:error name="name" />
-                    </flux:field>
 
                     {{-- ISO-code --}}
                     <flux:field>
@@ -70,7 +59,7 @@
                         </flux:label>
 
                         <flux:input name="iso_code" value="{{ old('iso_code') }}" maxlength="3"
-                            placeholder="Bijvoorbeeld: NL" />
+                            placeholder="{{ __('Bijvoorbeeld: NL') }}" />
 
                         <flux:description>
                             {{ __('Optioneel. Maximaal drie tekens.') }}
@@ -82,7 +71,10 @@
                     {{-- Type entiteit --}}
                     <flux:field>
                         <flux:label>
-                            {{ __('Type entiteit') }} *
+                            <span class="flex items-center gap-1">
+                                {{ __('Type entiteit') }}
+                                <span class="text-red-600">*</span>
+                            </span>
                         </flux:label>
 
                         <flux:select name="entity_type" required>
@@ -96,8 +88,10 @@
                                 </option>
                             @endforeach
                         </flux:select>
+                        <div class="min-h-5">
+                            <flux:error name="entity_type" />
+                        </div>
 
-                        <flux:error name="entity_type" />
                     </flux:field>
 
                     {{-- Beginjaar --}}
@@ -107,7 +101,7 @@
                         </flux:label>
 
                         <flux:input type="number" name="start_year" value="{{ old('start_year') }}" min="0"
-                            max="9999" placeholder="Bijvoorbeeld: 1949" />
+                            max="9999" placeholder="{{ __('Bijvoorbeeld: 1949') }}" />
 
                         <flux:description>
                             {{ __('Het jaar waarin deze entiteit begon.') }}
@@ -123,7 +117,7 @@
                         </flux:label>
 
                         <flux:input type="number" name="end_year" value="{{ old('end_year') }}" min="0"
-                            max="9999" placeholder="Bijvoorbeeld: 1990" />
+                            max="9999" placeholder="{{ __('Bijvoorbeeld: 1990') }}" />
 
                         <flux:description>
                             {{ __('Laat leeg als de entiteit nog bestaat of het eindjaar onbekend is.') }}
@@ -131,19 +125,6 @@
 
                         <flux:error name="end_year" />
                     </flux:field>
-
-                    {{-- Beschrijving --}}
-                    <div class="md:col-span-2">
-                        <flux:field>
-                            <flux:label>
-                                {{ __('Nederlandse beschrijving') }}
-                            </flux:label>
-
-                            <flux:textarea name="description" rows="4">{{ old('description') }}</flux:textarea>
-
-                            <flux:error name="description" />
-                        </flux:field>
-                    </div>
 
                     {{-- Actief --}}
                     <div class="md:col-span-2">
@@ -202,28 +183,33 @@
                             {{-- Vertaalde naam --}}
                             <flux:field>
                                 <flux:label>
-                                    {{ __('Naam') }}
-                                    @if ($locale === 'nl')
-                                        *
-                                    @endif
+                                    <span class="flex items-center gap-1">
+                                        {{ __('Naam') }}
+                                        @if ($locale === app()->getLocale())
+                                            <span class="text-red-600">*</span>
+                                        @endif
+                                    </span>
                                 </flux:label>
 
                                 <flux:input name="translations[{{ $locale }}][name]"
-                                    value="{{ old('translations.$locale.name', $locale === 'nl' ? old('name') : '') }}"
-                                    maxlength="100" @required($locale === 'nl')
+                                    value="{{ old('translations.' . $locale . '.name') }}"
+                                    maxlength="100"
+                                    @required($locale === app()->getLocale())
                                     placeholder="{{ $languageNames[$locale] ?? strtoupper($locale) }}" />
 
-                                @if ($locale === 'nl')
+                                @if ($locale === app()->getLocale())
                                     <flux:description>
-                                        {{ __('Deze naam wordt gelijk gehouden aan de Nederlandse naam hierboven.') }}
+                                        {{ __('Deze naam is verplicht omdat dit de actieve applicatietaal is.') }}
                                     </flux:description>
                                 @else
                                     <flux:description>
                                         {{ __('Optioneel. Laat leeg als je deze vertaling nog niet hebt.') }}
                                     </flux:description>
                                 @endif
+                                                                <div class="min-h-5">
+                                    <flux:error name="translations.{{ $locale }}.name" />
+                                </div>
 
-                                <flux:error name="translations.{{ $locale }}.name" />
                             </flux:field>
 
                             {{-- Vertaalde beschrijving --}}
@@ -233,7 +219,7 @@
                                 </flux:label>
 
                                 <flux:textarea name="translations[{{ $locale }}][description]" rows="3">
-                                    {{ old("translations.$locale.description", $locale === 'nl' ? old('description') : '') }}
+                                    {{ old("translations.$locale.description") }}
                                 </flux:textarea>
 
                                 <flux:error name="translations.{{ $locale }}.description" />

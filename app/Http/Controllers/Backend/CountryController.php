@@ -40,7 +40,10 @@ class CountryController extends Controller
             $query->where(function ($query) use ($search) {
                 $query->where('name', 'like', "%{$search}%")
                     ->orWhere('iso_code', 'like', "%{$search}%")
-                    ->orWhere('slug', 'like', "%{$search}%");
+                    ->orWhere('slug', 'like', "%{$search}%")
+                    ->orWhereHas('translations', function ($translationQuery) use ($search) {
+                        $translationQuery->where('name', 'like', "%{$search}%");
+                    });
             });
         }
 
@@ -85,14 +88,22 @@ class CountryController extends Controller
      */
     public function store(Request $request)
     {
-        $validated = $request->validate(
-            $this->validationRules()
-        );
+$validated = $request->validate(
+    $this->validationRules(),
+    [],
+    [
+        'translations.nl.name' => __('Nederlandse naam'),
+        'translations.en.name' => __('Engelse naam'),
+        'translations.de.name' => __('Duitse naam'),
+        'translations.fr.name' => __('Franse naam'),
+        'translations.es.name' => __('Spaanse naam'),
+    ]
+);
 
         if ($this->hasInvalidYearRange($validated)) {
             return back()
                 ->withErrors([
-                    'end_year' => 'Het eindjaar mag niet vóór het beginjaar liggen.',
+                    'end_year' => __('Het eindjaar mag niet vóór het beginjaar liggen.'),
                 ])
                 ->withInput();
         }
@@ -100,6 +111,27 @@ class CountryController extends Controller
         $translations = $validated['translations'] ?? [];
 
         unset($validated['translations']);
+
+        // Gebruik de naam en beschrijving uit de actieve applicatietaal.
+        $locale = app()->getLocale();
+
+        $validated['name'] = trim(
+            $translations[$locale]['name']
+        );
+
+        $validated['description'] = trim(
+            $translations[$locale]['description'] ?? ''
+        );
+
+        // Controleer of de algemene naam al bestaat.
+        if (Country::where('name', $validated['name'])->exists()) {
+            return back()
+                ->withErrors([
+                    "translations.{$locale}.name" =>
+                        __('Deze naam bestaat al.'),
+                ])
+                ->withInput();
+        }
 
         $country = DB::transaction(function () use (
             $validated,
@@ -123,7 +155,7 @@ class CountryController extends Controller
             ->route('backend.countries.show', $country)
             ->with(
                 'success',
-                'Het land of gebied is succesvol toegevoegd.'
+                __('Het land of gebied is succesvol toegevoegd.')
             );
     }
 
@@ -167,13 +199,21 @@ class CountryController extends Controller
     public function update(Request $request, Country $country)
     {
         $validated = $request->validate(
-            $this->validationRules($country)
+            $this->validationRules($country),
+            [],
+            [
+                'translations.nl.name' => __('Nederlandse naam'),
+                'translations.en.name' => __('Engelse naam'),
+                'translations.de.name' => __('Duitse naam'),
+                'translations.fr.name' => __('Franse naam'),
+                'translations.es.name' => __('Spaanse naam'),
+            ]
         );
 
         if ($this->hasInvalidYearRange($validated)) {
             return back()
                 ->withErrors([
-                    'end_year' => 'Het eindjaar mag niet vóór het beginjaar liggen.',
+                    'end_year' => __('Het eindjaar mag niet vóór het beginjaar liggen.'),
                 ])
                 ->withInput();
         }
@@ -188,10 +228,9 @@ class CountryController extends Controller
             $translations,
             $request
         ) {
-            $validated['slug'] = $this->generateUniqueSlug(
-                $validated['name'],
-                $country->id
-            );
+            // Behoud de bestaande algemene naam en slug.
+            // Alleen de vertalingen worden taalspecifiek gewijzigd.
+            unset($validated['name'], $validated['description']);
 
             $validated['is_active'] = $request->boolean('is_active');
 
@@ -204,7 +243,7 @@ class CountryController extends Controller
             ->route('backend.countries.show', $country)
             ->with(
                 'success',
-                'De gegevens zijn succesvol bijgewerkt.'
+                 __('De gegevens zijn succesvol bijgewerkt.')
             );
     }
 
@@ -222,7 +261,7 @@ class CountryController extends Controller
                 ->route('backend.countries.show', $country)
                 ->with(
                     'error',
-                    'Dit land of gebied kan niet worden verwijderd omdat er nog postzegels, series of catalogi aan gekoppeld zijn.'
+                    __('Dit land of gebied kan niet worden verwijderd omdat er nog postzegels, series of catalogi aan gekoppeld zijn.')
                 );
         }
 
@@ -232,7 +271,7 @@ class CountryController extends Controller
             ->route('backend.countries.index')
             ->with(
                 'success',
-                'Het land of gebied is verwijderd.'
+                __('Het land of gebied is verwijderd.')
             );
     }
 
@@ -252,7 +291,7 @@ class CountryController extends Controller
 
         $rules = [
             'name' => [
-                'required',
+                'nullable',
                 'string',
                 'max:100',
                 $nameRule,
@@ -288,7 +327,7 @@ class CountryController extends Controller
                 'boolean',
             ],
             'translations' => [
-                'sometimes',
+                'required',
                 'array',
             ],
         ];
@@ -300,7 +339,7 @@ class CountryController extends Controller
             ];
 
             $rules["translations.{$locale}.name"] = [
-                'nullable',
+                $locale === app()->getLocale() ? 'required' : 'nullable',
                 'string',
                 'max:100',
             ];
@@ -347,29 +386,11 @@ class CountryController extends Controller
 
             $translatedDescription = $translation['description'] ?? null;
 
-            if ($locale === 'nl') {
-                $existingTranslation = $country->translations()
-                    ->where('locale', 'nl')
-                    ->first();
-
-                $country->translations()->updateOrCreate(
-                    ['locale' => 'nl'],
-                    [
-                        'name' => $country->name,
-                        'description' => $descriptionWasProvided
-                            ? $translatedDescription
-                            : $existingTranslation?->description,
-                    ]
-                );
-
-                continue;
-            }
-
             /*
-             * An empty translated name means:
-             * retain any existing translation and do not create
-             * a new, incomplete translation.
-             */
+            * Een lege vertaalde naam betekent:
+            * behoud een bestaande vertaling en maak
+            * geen nieuwe, onvolledige vertaling aan.
+            */
             if ($translatedName === '') {
                 continue;
             }
