@@ -148,11 +148,20 @@
                                         @endif
                                     </td>
 
-                                    <td class="px-4 py-3 text-right">
-                                        <a href="{{ route('backend.stamps.show', $stamp) }}"
-                                            class="underline underline-offset-4">
-                                            {{ __('Bekijken') }}
-                                        </a>
+                                    {{-- Acties --}}
+                                    <td class="px-4 py-3">
+                                        <div class="flex justify-end">
+
+                                            <flux:button
+                                                :href="route('backend.stamps.show', $stamp)"
+                                                size="sm"
+                                                variant="ghost"
+                                                icon="eye"
+                                            >
+                                                {{ __('Bekijken') }}
+                                            </flux:button>
+
+                                        </div>
                                     </td>
 
                                 </tr>
@@ -163,6 +172,27 @@
             @endif
 
         </div>
+        {{-- Acties onderaan --}}
+        <div class="flex flex-wrap justify-end gap-2">
 
+            <flux:button
+                :href="route('backend.stamp-series.index')"
+                variant="ghost"
+                icon="arrow-left"
+            >
+                {{ __('Terug naar overzicht') }}
+            </flux:button>
+
+            <flux:button
+                :href="route('backend.stamp-series.edit', $series)"
+                variant="primary"
+                icon="pencil"
+            >
+                {{ __('Bewerken') }}
+            </flux:button>
+
+        </div>
+
+    </div>
     </div>
 </x-layouts::app>

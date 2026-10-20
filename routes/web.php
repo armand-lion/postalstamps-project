@@ -3,6 +3,8 @@
 use App\Http\Controllers\Backend\CountryController;
 use App\Http\Controllers\Backend\StampController;
 use App\Http\Controllers\Backend\StampSeriesController;
+use App\Http\Controllers\Backend\CatalogController;
+use App\Http\Controllers\Backend\CatalogEditionController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -31,7 +33,10 @@ Route::middleware(['auth'])->group(function () { //
             Route::resource('countries', CountryController::class);
             Route::resource('stamps', StampController::class);
             Route::resource('stamp-series', StampSeriesController::class);
+            Route::resource('catalogs', CatalogController::class);
+            // Catalogusedities
+            Route::resource('catalogs.editions', CatalogEditionController::class);
         });
-});
+    });
 
 require __DIR__.'/settings.php';

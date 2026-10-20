@@ -7,7 +7,7 @@
 
     <body class="min-h-screen bg-white dark:bg-zinc-800">
         <flux:sidebar sticky collapsible="mobile"
-            class="border-e border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900">
+            class="border-e border-theme-accent-1 bg-theme-accent-3 dark:border-zinc-700 dark:bg-zinc-900">
             <flux:sidebar.header>
                 <x-app-logo :sidebar="true" href="{{ route('dashboard') }}" wire:navigate />
                 <flux:sidebar.collapse class="lg:hidden" />
@@ -25,18 +25,38 @@
             <form method="POST" action="{{ route('language.switch') }}" class="px-4 py-3">
                 @csrf
 
-                <label for="locale" class="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                <label for="locale" class="mb-2 block text-sm font-medium text-white dark:text-zinc-300">
                     {{ __('Taal') }}
                 </label>
 
                 <select id="locale" name="locale" onchange="this.form.requestSubmit()"
-                    class="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-white">
-                    <option value="nl" @selected(app()->getLocale() === 'nl')>Nederlands</option>
+                    class="w-full rounded-lg border border-theme-accent-1 bg-brown-6 px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-white">
+                    <option class="bg-brown-6" value="nl" @selected(app()->getLocale() === 'nl')>Nederlands</option>
                     <option value="en" @selected(app()->getLocale() === 'en')>English</option>
                     <option value="de" @selected(app()->getLocale() === 'de')>Deutsch</option>
                     <option value="fr" @selected(app()->getLocale() === 'fr')>Français</option>
                     <option value="es" @selected(app()->getLocale() === 'es')>Español</option>
                 </select>
+
+
+                <flux:dropdown>
+                    <!-- De knop die getoond wordt (de selectie) -->
+                    <flux:button
+                        d="locale" name="locale"
+                        class="border-theme-accent-3! bg-brown-4! hover:bg-brown-4! hover:border-theme-accent-3! focus:ring-0! focus:border-theme-accent-3!"
+                    >
+                        {{ __('') }}
+                    </flux:button>
+
+                    <!-- Het menu met de opties -->
+                    <flux:menu class="bg-brown-6! border-theme-accent-3!">
+                        <flux:menu.item class="hover:bg-brown-5! text-zinc-900! dark:text-white!" name="locale" value="nl" x-on:click="$el.closest('form').submit()">Nederlands</flux:menu.item>
+                        <flux:menu.item class="hover:bg-brown-5!" name="locale" value="en" x-on:click="$el.closest('form').submit()">English</flux:menu.item>
+                        <flux:menu.item class="hover:bg-brown-5!" name="locale" value="de" x-on:click="$el.closest('form').submit()">Deutsch</flux:menu.item>
+                        <flux:menu.item class="hover:bg-brown-5!" name="locale" value="fr" x-on:click="$el.closest('form').submit()">Français</flux:menu.item>
+                        <flux:menu.item class="hover:bg-brown-5!" name="locale" value="es" x-on:click="$el.closest('form').submit()">Español</flux:menu.item>
+                    </flux:menu>
+                </flux:dropdown>
             </form>
 
             <flux:spacer />

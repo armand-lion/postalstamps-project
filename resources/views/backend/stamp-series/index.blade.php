@@ -112,30 +112,51 @@
                                         {{ $item->stamps_count }}
                                     </td>
 
+                                    {{-- Acties --}}
                                     <td class="px-4 py-3">
-                                        <div class="flex flex-wrap justify-end gap-3">
-                                            <a href="{{ route('backend.stamp-series.show', $item) }}"
-                                                class="underline underline-offset-4">
+                                        <div class="flex flex-wrap justify-end gap-2">
+
+                                            {{-- Bekijken --}}
+                                            <flux:button
+                                                :href="route('backend.stamp-series.show', $item)"
+                                                size="sm"
+                                                variant="ghost"
+                                                icon="eye"
+                                            >
                                                 {{ __('Bekijken') }}
-                                            </a>
+                                            </flux:button>
 
-                                            <a href="{{ route('backend.stamp-series.edit', $item) }}"
-                                                class="underline underline-offset-4">
+                                            {{-- Bewerken --}}
+                                            <flux:button
+                                                :href="route('backend.stamp-series.edit', $item)"
+                                                size="sm"
+                                                variant="ghost"
+                                                icon="pencil"
+                                            >
                                                 {{ __('Bewerken') }}
-                                            </a>
+                                            </flux:button>
 
-                                            <form method="POST"
+                                            {{-- Verwijderen --}}
+                                            <form
+                                                method="POST"
                                                 action="{{ route('backend.stamp-series.destroy', $item) }}"
-                                                class="delete-confirm-form">
+                                                class="delete-confirm-form"
+                                            >
                                                 @csrf
                                                 @method('DELETE')
 
-                                                <button type="button"
-                                                    class="text-red-600 underline underline-offset-4 hover:text-red-800"
-                                                    onclick="openDeleteModal(this.form)">
+                                                <flux:button
+                                                    type="button"
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    icon="trash"
+                                                    class="text-red-600 dark:text-red-400"
+                                                    onclick="openDeleteModal(this.closest('form'))"
+                                                >
                                                     {{ __('Verwijderen') }}
-                                                </button>
+                                                </flux:button>
                                             </form>
+
                                         </div>
                                     </td>
                                 </tr>

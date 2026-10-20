@@ -211,7 +211,7 @@
 
             {{-- Acties --}}
             <div class="flex flex-col-reverse justify-end gap-3 sm:flex-row">
-                <flux:button :href="route('backend.countries.show', $country)" variant="ghost">
+                <flux:button :href="route('backend.countries.show', $country)" variant="ghost" icon="x-mark">
                     {{ __('Annuleren') }}
                 </flux:button>
 

@@ -185,7 +185,7 @@
 
             {{-- Acties --}}
             <div class="flex flex-wrap justify-end gap-3">
-                <flux:button :href="route('backend.stamps.index')" variant="ghost">
+                <flux:button :href="route('backend.stamps.index')" variant="ghost" icon="x-mark">
                     {{ __('Annuleren') }}
                 </flux:button>
 

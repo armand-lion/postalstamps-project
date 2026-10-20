@@ -127,7 +127,7 @@
             {{-- Acties --}}
             <div class="flex flex-col-reverse justify-end gap-3 sm:flex-row">
 
-                <flux:button :href="route('backend.stamp-series.show', $series)" variant="ghost">
+                <flux:button :href="route('backend.stamp-series.show', $series)" variant="ghost" icon="x-mark">
                     {{ __('Annuleren') }}
                 </flux:button>
 

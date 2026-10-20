@@ -252,7 +252,7 @@
         </section>
 
         {{-- Acties --}}
-        <div class="flex flex-wrap justify-between gap-3">
+        <div class="flex flex-wrap justify-end gap-3">
             <flux:button :href="route('backend.countries.index')" variant="ghost" icon="arrow-left">
                 {{ __('Terug naar overzicht') }}
             </flux:button>

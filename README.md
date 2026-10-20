@@ -120,3 +120,47 @@ I propose implementing the changes in the following order:
 8. Set fallback for missing translations
 9. Multilingual support in views
 10. Multilingual support by create and edit
+
+Fase 6 completed
+
+## Fase 7
+
+Countries
+
+- Test search and filtering functionality.
+- Test filtering by type of historical entity and active status (to the extent that these filters have been implemented).
+- Verify mandatory fields and validation.
+- Check the outcome when attempting to delete a country or historical territory that is still linked to stamps.
+
+Stamps and Stamp Series
+
+- Verify that the relationships between stamps, series, and countries continue to function correctly.
+- Ensure that existing data is preserved when modifications are made.
+- Check that translations are displayed correctly.
+
+Fase 7 complete
+
+## Fase 8
+
+For the catalogue module, we previously established the following premises:
+
+- A single country may have multiple stamp catalogues.
+- Each catalogue can have various editions—for example, from 2024, 2025, and 2026.
+- A single stamp can appear in multiple catalogues.
+- It must be possible to store catalogue values ​​for each individual edition.
+- Ultimately, we aim to display the value trends of stamps and series through charts.
+
+To this end, we have already created several models, including `Catalog`, `CatalogEdition`, `StampCatalogValue`, and `SeriesCatalogValue`.
+
+Fase 8 completed
+
+## Fase 9
+
+Implementing different Catalogs editions.
+
+Meaning that 1 catalogus can have more edition, like 2024, 2025, 2026.
+Each edition can have different stamps catalog-values. These are placed in different datatables.
+When stamps are connected with an catalog-edition, that edition can not be deleted, validations are making sure of that.
+All translations in 5 languages are modified.
+
+Fase 9 completed

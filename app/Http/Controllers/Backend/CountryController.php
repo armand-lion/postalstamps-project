@@ -88,17 +88,17 @@ class CountryController extends Controller
      */
     public function store(Request $request)
     {
-$validated = $request->validate(
-    $this->validationRules(),
-    [],
-    [
-        'translations.nl.name' => __('Nederlandse naam'),
-        'translations.en.name' => __('Engelse naam'),
-        'translations.de.name' => __('Duitse naam'),
-        'translations.fr.name' => __('Franse naam'),
-        'translations.es.name' => __('Spaanse naam'),
-    ]
-);
+        $validated = $request->validate(
+        $this->validationRules(),
+            [],
+            [
+                'translations.nl.name' => __('Nederlandse naam'),
+                'translations.en.name' => __('Engelse naam'),
+                'translations.de.name' => __('Duitse naam'),
+                'translations.fr.name' => __('Franse naam'),
+                'translations.es.name' => __('Spaanse naam'),
+            ]
+        );
 
         if ($this->hasInvalidYearRange($validated)) {
             return back()

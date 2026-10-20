@@ -2,7 +2,7 @@
     <div class="flex flex-col gap-6 p-4 md:p-6">
 
         {{-- Paginatitel --}}
-        <div class="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+        <div class="flex flex-col justify-between gap-4 sm:flex-row sm:items-center bg-brown-6 rounded-lg border border-theme-accent-1 p-5">
             <div>
                 <flux:heading size="xl">
                     {{ __('Postzegels beheren') }}
@@ -13,7 +13,7 @@
                 </flux:text>
             </div>
 
-            <flux:button :href="route('backend.stamps.create')" variant="primary" icon="plus">
+            <flux:button :href="route('backend.stamps.create')" variant="primary" icon="plus" class="bg-brown-2!">
                 {{ __('Postzegel toevoegen') }}
             </flux:button>
         </div>
@@ -36,14 +36,14 @@
 
         {{-- Filters --}}
         <form method="GET" action="{{ route('backend.stamps.index') }}"
-            class="flex flex-col gap-4 rounded-xl border border-neutral-200 p-4 dark:border-neutral-700 sm:flex-row sm:items-end">
+            class="flex flex-col gap-4 rounded-xl border border-theme-accent-1 bg-brown-6 p-4 dark:border-neutral-700 sm:flex-row sm:items-end">
             {{-- Land --}}
             <flux:field class="flex-1">
                 <flux:label>
                     {{ __('Land') }}
                 </flux:label>
 
-                <flux:select name="country_id">
+                <flux:select name="country_id"
                     <option value="">
                         {{ __('Alle landen') }}
                     </option>
@@ -68,7 +68,7 @@
 
             {{-- Acties --}}
             <div class="flex gap-2">
-                <flux:button type="submit" variant="primary">
+                <flux:button type="submit" variant="primary" class="bg-brown-2">
                     {{ __('Filteren') }}
                 </flux:button>
 
@@ -79,9 +79,9 @@
         </form>
 
         {{-- Resultaten --}}
-        <div class="overflow-hidden rounded-xl border border-neutral-200 dark:border-neutral-700">
+        <div class="overflow-hidden rounded-xl border border-theme-accent-1 bg-brown-6 dark:border-neutral-700">
 
-            <div class="border-b border-neutral-200 px-4 py-3 dark:border-neutral-700">
+            <div class="border-b border-brown-2 px-4 py-3 dark:border-neutral-700">
                 <flux:heading size="lg">
                     {{ __('Catalogus') }}
                 </flux:heading>
@@ -108,7 +108,7 @@
             @else
                 <div class="overflow-x-auto">
                     <table class="w-full text-left text-sm">
-                        <thead class="bg-neutral-50 text-neutral-600 dark:bg-neutral-900 dark:text-neutral-300">
+                        <thead class="bg-brown-5 text-brown-2 dark:bg-neutral-900 dark:text-neutral-300">
                             <tr>
                                 <th class="px-4 py-3 font-medium">{{ __('Naam') }}</th>
                                 <th class="px-4 py-3 font-medium">{{ __('Land') }}</th>
@@ -118,7 +118,7 @@
                             </tr>
                         </thead>
 
-                        <tbody class="divide-y divide-neutral-200 dark:divide-neutral-700">
+                        <tbody class="divide-y divide-brown-4 dark:divide-neutral-700">
                             @foreach ($stamps as $stamp)
                                 <tr class="hover:bg-neutral-50 dark:hover:bg-neutral-900/50">
                                     <td class="px-4 py-3 font-medium">
@@ -145,29 +145,51 @@
                                         @endif
                                     </td>
 
+                                    {{-- Acties --}}
                                     <td class="px-4 py-3">
-                                        <div class="flex flex-wrap justify-end gap-3">
-                                            <a href="{{ route('backend.stamps.show', $stamp) }}"
-                                                class="underline underline-offset-4">
+                                        <div class="flex flex-wrap justify-end gap-2">
+
+                                            {{-- Bekijken --}}
+                                            <flux:button
+                                                :href="route('backend.stamps.show', $stamp)"
+                                                size="sm"
+                                                variant="ghost"
+                                                icon="eye"
+                                            >
                                                 {{ __('Bekijken') }}
-                                            </a>
+                                            </flux:button>
 
-                                            <a href="{{ route('backend.stamps.edit', $stamp) }}"
-                                                class="underline underline-offset-4">
+                                            {{-- Bewerken --}}
+                                            <flux:button
+                                                :href="route('backend.stamps.edit', $stamp)"
+                                                size="sm"
+                                                variant="ghost"
+                                                icon="pencil"
+                                            >
                                                 {{ __('Bewerken') }}
-                                            </a>
+                                            </flux:button>
 
-                                            <form method="POST" action="{{ route('backend.stamps.destroy', $stamp) }}"
-                                                class="delete-confirm-form">
+                                            {{-- Verwijderen --}}
+                                            <form
+                                                method="POST"
+                                                action="{{ route('backend.stamps.destroy', $stamp) }}"
+                                                class="delete-confirm-form"
+                                            >
                                                 @csrf
                                                 @method('DELETE')
 
-                                                <button type="button"
-                                                    class="text-red-600 underline underline-offset-4 hover:text-red-800"
-                                                    onclick="openDeleteModal(this.form)">
+                                                <flux:button
+                                                    type="button"
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    icon="trash"
+                                                    class="text-red-600 dark:text-red-400"
+                                                    onclick="openDeleteModal(this.closest('form'))"
+                                                >
                                                     {{ __('Verwijderen') }}
-                                                </button>
+                                                </flux:button>
                                             </form>
+
                                         </div>
                                     </td>
                                 </tr>
@@ -177,7 +199,7 @@
                 </div>
 
                 {{-- Paginering --}}
-                <div class="border-t border-neutral-200 p-4 dark:border-neutral-700">
+                <div class="border-t border-brown-4 p-4 dark:border-neutral-700">
                     {{ $stamps->links() }}
                 </div>
             @endif
