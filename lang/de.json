@@ -20,7 +20,6 @@
     "Bewerken": "Bearbeiten",
     "Verwijderen": "Löschen",
     "Weet je zeker dat je deze postzegel wilt verwijderen?": "Möchten Sie diese Briefmarke wirklich löschen?",
-
     "Voeg een postzegel toe aan je catalogus.": "Fügen Sie Ihrem Katalog eine Briefmarke hinzu.",
     "Algemene gegevens": "Allgemeine Angaben",
     "Selecteer een land": "Land auswählen",
@@ -35,7 +34,6 @@
     "Notities": "Notizen",
     "Annuleren": "Abbrechen",
     "Postzegel opslaan": "Briefmarke speichern",
-
     "Postzegel bekijken": "Briefmarke ansehen",
     "Details van deze postzegel.": "Details zu dieser Briefmarke.",
     "Terug naar overzicht": "Zurück zur Übersicht",
@@ -47,48 +45,40 @@
     "Aankoopprijs": "Kaufpreis",
     "Er zijn nog geen fysieke exemplaren geregistreerd.": "Es wurden noch keine physischen Exemplare registriert.",
     ":count stamp found|:count stamps found": ":count Briefmarke gefunden|:count Briefmarken gefunden",
-
     "Pas de gegevens van deze postzegel aan.": "Passen Sie die Angaben zu dieser Briefmarke an.",
     "Wijzigingen opslaan": "Änderungen speichern",
     "Verwijderen bevestigen": "Löschen bestätigen",
     "Weet je zeker dat je dit item wilt verwijderen?": "Möchten Sie diesen Eintrag wirklich löschen?",
-
     "Postzegelseries beheren": "Briefmarkenserien verwalten",
     "Beheer de postzegelseries waartoe je postzegels behoren.": "Verwalten Sie die Briefmarkenserien, zu denen Ihre Briefmarken gehören.",
     "Postzegelserie toevoegen": "Briefmarkenserie hinzufügen",
     "Postzegelseries": "Briefmarkenserien",
     "Geen postzegelseries gevonden": "Keine Briefmarkenserien gefunden",
     "Voeg een postzegelserie toe om je postzegels te groeperen.": "Fügen Sie eine Briefmarkenserie hinzu, um Ihre Briefmarken zu gruppieren.",
-
     "Eerste postzegelserie toevoegen": "Erste Briefmarkenserie hinzufügen",
     "Aantal postzegels": "Anzahl der Briefmarken",
     "Weet je zeker dat je deze postzegelserie wilt verwijderen?": "Möchten Sie diese Briefmarkenserie wirklich löschen?",
     ":count stamp series found|:count stamp series found": ":count Briefmarkenserie gefunden|:count Briefmarkenserien gefunden",
-
     "Voeg een postzegelserie toe aan je catalogus.": "Fügen Sie Ihrem Katalog eine Briefmarkenserie hinzu.",
     "Controleer de volgende gegevens:": "Bitte überprüfen Sie die folgenden Angaben:",
     "Naam van de postzegelserie": "Name der Briefmarkenserie",
     "Bijvoorbeeld: Nederlandse molens": "Zum Beispiel: Niederländische Windmühlen",
     "Beschrijf deze postzegelserie...": "Beschreiben Sie diese Briefmarkenserie...",
     "Postzegelserie opslaan": "Briefmarkenserie speichern",
-
     "Postzegelserie bekijken": "Briefmarkenserie ansehen",
     "Details van deze postzegelserie.": "Details zu dieser Briefmarkenserie.",
     "Postzegels in deze serie": "Briefmarken in dieser Serie",
     "Geen postzegels gekoppeld": "Keine Briefmarken zugeordnet",
     "Er zijn nog geen postzegels aan deze serie gekoppeld.": "Dieser Serie sind noch keine Briefmarken zugeordnet.",
-
     "Postzegelserie bewerken": "Briefmarkenserie bearbeiten",
     "Pas de gegevens van deze postzegelserie aan.": "Bearbeiten Sie die Angaben zu dieser Briefmarkenserie.",
     "Terug naar serie": "Zurück zur Serie",
-
     "Taal": "Sprache",
     "Dashboard": "Dashboard",
     "Settings": "Einstellungen",
     "Log out": "Abmelden",
     "Repository": "Repository",
     "Documentation": "Dokumentation",
-
     "Landen en gebieden beheren": "Länder und Gebiete verwalten",
     "Beheer huidige landen, historische staten en postzegeluitgevende gebieden.": "Verwalten Sie aktuelle Länder, historische Staaten sowie Gebiete, die Briefmarken herausgeben.",
     "Land of gebied toevoegen": "Land oder Region hinzufügen",
@@ -124,7 +114,6 @@
     "Het land of gebied is succesvol toegevoegd.": "Das Land oder Gebiet wurde erfolgreich hinzugefügt.",
     "Dit land of gebied kan niet worden verwijderd omdat er nog postzegels, series of catalogi aan gekoppeld zijn.": "Dieses Land oder Gebiet kann nicht gelöscht werden, da noch Briefmarken, Serien oder Kataloge damit verknüpft sind.",
     "Het land of gebied is verwijderd.": "Das Land oder Gebiet wurde gelöscht.",
-
     "Details van dit land of gebied.": "Details zu diesem Land oder Gebiet.",
     "Nederlandse naam": "Niederländischer Name",
     "Engelse naam": "Englischer Name",
@@ -139,7 +128,6 @@
     "Aantal records dat aan dit land of gebied gekoppeld is.": "Anzahl der Datensätze, die mit diesem Land oder Gebiet verknüpft sind.",
     "Vertalingen": "Übersetzungen",
     "Beschikbare namen en beschrijvingen per taal.": "Verfügbare Namen und Beschreibungen nach Sprache.",
-
     "Land of gebied bewerken": "Land oder Region bearbeiten",
     "Bewerk de gegevens en vertalingen van": "Bearbeiten Sie die Daten und Übersetzungen von",
     "Terug naar details": "Zurück zu den Details",
@@ -147,7 +135,6 @@
     "Geef aan of deze entiteit actief in de catalogus gebruikt mag worden.": "Geben Sie an, ob diese Entität im Katalog aktiv verwendet werden darf.",
     "Vul de naam en eventueel de beschrijving in voor iedere taal.": "Geben Sie für jede Sprache den Namen und gegebenenfalls die Beschreibung ein.",
     "Deze naam wordt gelijk gehouden aan de Nederlandse naam hierboven.": "Dieser Name entspricht dem oben genannten niederländischen Namen.",
-
     "Voeg een huidig land, historische staat of postzegeluitgevend gebied toe.": "Fügen Sie ein aktuelles Land, einen historischen Staat oder ein Gebiet hinzu, das Briefmarken herausgibt.",
     "Controleer de volgende velden:": "Bitte überprüfen Sie die folgenden Felder:",
     "Algemene gegevens van het land of gebied.": "Allgemeine Angaben zum Land oder zur Region.",
@@ -160,7 +147,6 @@
     "Bijvoorbeeld: 1990": "Zum Beispiel: 1990",
     "Optioneel. Laat leeg als je deze vertaling nog niet hebt.": "Optional. Bitte leer lassen, wenn du diese Übersetzung noch nicht hast.",
     "Land of gebied opslaan": "Land oder Region speichern",
-
     "Catalogi beheren": "Kataloge verwalten",
     "Beheer postzegelcatalogi en hun edities.": "Verwalten Sie Briefmarkenkataloge und ihre Ausgaben.",
     "Catalogus toevoegen": "Katalog hinzufügen",
@@ -195,7 +181,6 @@
     "Terug naar catalogus": "Zurück zum Katalog",
     "De catalogus is succesvol bijgewerkt.": "Der Katalog wurde erfolgreich aktualisiert.",
     "Er zijn geen landen of gebieden gevonden.": "Keine Länder oder Gebiete gefunden.",
-
     "Editie toevoegen": "Ausgabe hinzufügen",
     "Geen catalogusedities gevonden": "Keine Katalogausgaben gefunden",
     "Editienaam": "Ausgabenname",
@@ -218,5 +203,28 @@
     "Wijzig de gegevens van de geselecteerde cataloguseditie.": "Bearbeiten Sie die Angaben zur ausgewählten Katalogausgabe.",
     "Terug naar cataloguseditie": "Zurück zur Katalogausgabe",
     "Deze cataloguseditie kan niet worden verwijderd omdat er nog catalogusvermeldingen, cataloguswaarden of gebruikers aan gekoppeld zijn.": "Diese Katalogausgabe kann nicht gelöscht werden, da noch Katalogeinträge, Katalogwerte oder Benutzer mit ihr verknüpft sind.",
-    "De cataloguseditie is succesvol verwijderd.": "Die Katalogausgabe wurde erfolgreich gelöscht."
-    }
+    "De cataloguseditie is succesvol verwijderd.": "Die Katalogausgabe wurde erfolgreich gelöscht.",
+    "Verzamelobject :name is toegevoegd.": "Sammlerobjekt :name wurde hinzugefügt.",
+    "Verzamelobject :name is bijgewerkt.": "Sammlerobjekt :name wurde aktualisiert.",
+    "Verzamelobject :name kan niet worden verwijderd omdat er nog gekoppelde gegevens bestaan.": "Sammlerobjekt :name kann nicht gelöscht werden, da noch verknüpfte Datensätze vorhanden sind.",
+    "Verzamelobject :name is verwijderd.": "Sammlerobjekt :name wurde gelöscht.",
+    "Bijzondere verzamelobjecten beheren": "Besondere Sammelobjekte verwalten",
+    "Beheer de bijzondere verzamelobjecten in je catalogus.": "Verwalte die besonderen Sammelobjekte in deinem Katalog.",
+    "Verzamelobject toevoegen": "Sammelobjekt hinzufügen",
+    "Type verzamelobject": "Art des Sammelobjekts",
+    "Bijzondere verzamelobjecten": "Besondere Sammelobjekte",
+    "Geen bijzondere verzamelobjecten gevonden": "Keine besonderen Sammelobjekte gefunden",
+    "Voeg een bijzonder verzamelobject toe of pas de filters aan.": "Füge ein besonderes Sammelobjekt hinzu oder passe die Filter an.",
+    "Eerste verzamelobject toevoegen": "Erstes Sammelobjekt hinzufügen",
+    "Voeg een bijzonder verzamelobject toe aan je catalogus.": "Füge deinem Katalog ein besonderes Sammelobjekt hinzu.",
+    "Verzamelobject opslaan": "Sammelobjekt speichern",
+    "Beschrijving en opmerkingen": "Beschreibung und Anmerkungen",
+    "Bewerk de gegevens van dit bijzondere verzamelobject.": "Bearbeiten Sie die Angaben zu diesem besonderen Sammlerstück.",
+    "Bijzonder verzamelobject": "Besonderes Sammlerstück",
+    "Er zijn nog geen postzegels gekoppeld aan dit verzamelobject.": "Diesem Sammlerstück sind noch keine Briefmarken zugeordnet.",
+    "Gekoppelde postzegels": "Zugeordnete Briefmarken",
+    "Houd Ctrl ingedrukt om meerdere postzegels te selecteren.": "Halten Sie die Strg-Taste gedrückt, um mehrere Briefmarken auszuwählen.",
+    "Postzegel": "Briefmarke",
+    "Selecteer de postzegels die bij dit verzamelobject horen.": "Wählen Sie die Briefmarken aus, die zu diesem Sammlerstück gehören.",
+    "Verzamelobject bewerken": "Sammlerstück bearbeiten"
+}

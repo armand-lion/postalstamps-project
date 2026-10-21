@@ -15,13 +15,13 @@ return new class extends Migration
             $table->id();
 
             $table->foreignId('country_id')
-                  ->constrained()
-                  ->restrictOnDelete();
+                ->constrained()
+                ->restrictOnDelete();
 
             $table->foreignId('stamp_series_id')
-                  ->nullable()
-                  ->constrained('stamp_series')
-                  ->nullOnDelete();
+                ->nullable()
+                ->constrained('stamp_series')
+                ->nullOnDelete();
 
             $table->string('name', 200);
             $table->text('description')->nullable();

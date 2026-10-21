@@ -15,12 +15,12 @@ return new class extends Migration
             $table->id();
 
             $table->foreignId('catalog_id')
-                  ->constrained()
-                  ->cascadeOnDelete();
+                ->constrained()
+                ->cascadeOnDelete();
 
             $table->foreignId('country_id')
-                  ->constrained()
-                  ->cascadeOnDelete();
+                ->constrained()
+                ->cascadeOnDelete();
 
             $table->timestamps();
 

@@ -33,6 +33,14 @@ class Country extends Model
         return $this->hasMany(Stamp::class);
     }
 
+    /**
+     * De bijzondere verzamelobjecten van dit land.
+     */
+    public function collectibles(): HasMany
+    {
+        return $this->hasMany(Collectible::class);
+    }
+
     public function stampSeries(): HasMany
     {
         return $this->hasMany(StampSeries::class);

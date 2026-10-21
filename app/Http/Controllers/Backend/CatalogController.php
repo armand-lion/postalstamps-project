@@ -67,19 +67,19 @@ class CatalogController extends Controller
         ]);
     }
 
- /**
- * Show the form for editing the specified resource.
- */
-public function edit(Catalog $catalog)
-{
-    $catalog->load([
-        'countries.translations',
-    ]);
+    /**
+     * Show the form for editing the specified resource.
+     */
+    public function edit(Catalog $catalog)
+    {
+        $catalog->load([
+            'countries.translations',
+        ]);
 
-    return view('backend.catalogs.edit', [
-        'catalog' => $catalog,
-    ]);
-}
+        return view('backend.catalogs.edit', [
+            'catalog' => $catalog,
+        ]);
+    }
 
     /**
      * Update the specified resource in storage.

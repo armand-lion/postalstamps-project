@@ -45,9 +45,27 @@ class Condition extends Model
         return $this->hasMany(StampCopy::class);
     }
 
+    /**
+     * De persoonlijke exemplaren van bijzondere verzamelobjecten
+     * met deze conditie.
+     */
+    public function collectibleCopies(): HasMany
+    {
+        return $this->hasMany(CollectibleCopy::class);
+    }
+
     public function stampCatalogValues(): HasMany
     {
         return $this->hasMany(StampCatalogValue::class);
+    }
+
+    /**
+     * De cataloguswaarden van bijzondere verzamelobjecten
+     * die bij deze conditie horen.
+     */
+    public function collectibleCatalogValues(): HasMany
+    {
+        return $this->hasMany(CollectibleCatalogValue::class);
     }
 
     public function seriesCatalogValues(): HasMany

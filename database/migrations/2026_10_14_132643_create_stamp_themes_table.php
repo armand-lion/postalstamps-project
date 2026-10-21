@@ -15,12 +15,12 @@ return new class extends Migration
             $table->id();
 
             $table->foreignId('stamp_id')
-                  ->constrained()
-                  ->cascadeOnDelete();
+                ->constrained()
+                ->cascadeOnDelete();
 
             $table->foreignId('theme_id')
-                  ->constrained()
-                  ->cascadeOnDelete();
+                ->constrained()
+                ->cascadeOnDelete();
 
             $table->timestamps();
 

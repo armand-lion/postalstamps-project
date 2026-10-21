@@ -89,7 +89,7 @@ class CountryController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate(
-        $this->validationRules(),
+            $this->validationRules(),
             [],
             [
                 'translations.nl.name' => __('Nederlandse naam'),
@@ -127,8 +127,7 @@ class CountryController extends Controller
         if (Country::where('name', $validated['name'])->exists()) {
             return back()
                 ->withErrors([
-                    "translations.{$locale}.name" =>
-                        __('Deze naam bestaat al.'),
+                    "translations.{$locale}.name" => __('Deze naam bestaat al.'),
                 ])
                 ->withInput();
         }
@@ -243,7 +242,7 @@ class CountryController extends Controller
             ->route('backend.countries.show', $country)
             ->with(
                 'success',
-                 __('De gegevens zijn succesvol bijgewerkt.')
+                __('De gegevens zijn succesvol bijgewerkt.')
             );
     }
 

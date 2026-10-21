@@ -32,6 +32,14 @@ class StampSeries extends Model
         return $this->hasMany(Stamp::class);
     }
 
+    /**
+     * De bijzondere verzamelobjecten die bij deze serie horen.
+     */
+    public function collectibles(): HasMany
+    {
+        return $this->hasMany(Collectible::class);
+    }
+
     public function catalogValues(): HasMany
     {
         return $this->hasMany(SeriesCatalogValue::class);

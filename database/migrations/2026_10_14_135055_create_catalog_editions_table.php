@@ -15,8 +15,8 @@ return new class extends Migration
             $table->id();
 
             $table->foreignId('catalog_id')
-                  ->constrained()
-                  ->restrictOnDelete();
+                ->constrained()
+                ->restrictOnDelete();
 
             $table->string('edition_name', 150);
             $table->unsignedSmallInteger('edition_year');

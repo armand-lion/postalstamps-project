@@ -198,7 +198,6 @@ return [
     |
     */
 
-
     'attributes' => [
         'country_id' => 'pays',
         'stamp_series_id' => 'série de timbres',

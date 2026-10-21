@@ -164,3 +164,94 @@ When stamps are connected with an catalog-edition, that edition can not be delet
 All translations in 5 languages are modified.
 
 Fase 9 completed
+
+## Phase 10 – Special Collectibles and Digital Catalog Structure
+
+Phase 10 introduces support for special philatelic collectibles alongside
+individual postage stamps.
+
+The application now provides a database structure and backend functionality
+for managing special collectibles, such as First Day Covers (FDCs).
+
+### Database Structure
+
+The following database tables have been introduced:
+
+- `collectible_types` – Categories of special collectibles.
+- `collectible_type_translations` – Multilingual collectible type names.
+- `collectibles` – General information about special collectibles.
+- `collectible_stamps` – Many-to-many relationships between collectibles and stamps.
+- `collectible_images` – Images associated with collectibles.
+- `collectible_catalog_entries` – Catalog registrations for collectibles.
+- `collectible_catalog_values` – Catalog values for collectibles.
+- `collectible_copies` – Individual collectible copies in a personal collection.
+
+### Laravel Models and Relationships
+
+New Eloquent models have been implemented for the collectible database structure.
+
+Relationships have also been added to existing models, including:
+
+- `Stamp`
+- `Country`
+- `StampSeries`
+- `Condition`
+- `CatalogEdition`
+
+These relationships integrate special collectibles with the existing
+stamp collection and catalog structure.
+
+### Backend Functionality
+
+The backend now supports:
+
+- Creating special collectibles.
+- Viewing collectible details.
+- Editing existing collectibles.
+- Deleting collectibles with confirmation.
+- Assigning collectible types and countries.
+- Linking collectibles to existing stamp series.
+- Linking multiple postage stamps to a collectible.
+- Filtering available stamps by country.
+- Updating and removing stamp relationships.
+
+Deleting a collectible removes its stamp relationships without deleting
+the associated postage stamps.
+
+Collectibles with dependent images, catalog entries, or personal copies
+are protected against deletion.
+
+### Multilingual Support
+
+The application supports five languages:
+
+- Dutch
+- English
+- German
+- French
+- Spanish
+
+Translation files have been updated for the new collectible functionality.
+
+### Code Quality and Testing
+
+The following checks have been completed:
+
+- PHP syntax validation.
+- Laravel automated tests: 34 passed, 83 assertions.
+- Laravel Pint: 132 files passed.
+- JSON translation validation.
+- Manual testing of collectible creation, editing, stamp linking, and deletion.
+
+### Status
+
+The basic management functionality and database foundation for special
+collectibles have been implemented and tested.
+
+The database structure also prepares the application for further
+development of collectible images, catalog registrations, catalog values,
+and personal collection copies.
+
+Fase 10 completed
+
+## Fase 11

@@ -15,9 +15,9 @@ return new class extends Migration
             $table->id();
 
             $table->foreignId('country_id')
-                  ->constrained()
-                  ->restrictOnDelete();
-                  
+                ->constrained()
+                ->restrictOnDelete();
+
             $table->string('name', 200);
             $table->unsignedSmallInteger('issue_year')->nullable();
             $table->text('description')->nullable();

@@ -36,6 +36,14 @@ class CatalogEdition extends Model
         return $this->hasMany(StampCatalogEntry::class);
     }
 
+    /**
+     * De catalogusregistraties van bijzondere verzamelobjecten.
+     */
+    public function collectibleEntries(): HasMany
+    {
+        return $this->hasMany(CollectibleCatalogEntry::class);
+    }
+
     public function stampValues(): HasManyThrough
     {
         return $this->hasManyThrough(
@@ -43,6 +51,22 @@ class CatalogEdition extends Model
             StampCatalogEntry::class,
             'catalog_edition_id',
             'stamp_catalog_entry_id',
+            'id',
+            'id'
+        );
+    }
+
+    /**
+     * De cataloguswaarden van bijzondere verzamelobjecten
+     * binnen deze cataloguseditie.
+     */
+    public function collectibleValues(): HasManyThrough
+    {
+        return $this->hasManyThrough(
+            CollectibleCatalogValue::class,
+            CollectibleCatalogEntry::class,
+            'catalog_edition_id',
+            'collectible_catalog_entry_id',
             'id',
             'id'
         );

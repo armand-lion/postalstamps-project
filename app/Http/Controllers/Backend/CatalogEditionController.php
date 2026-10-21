@@ -35,6 +35,7 @@ class CatalogEditionController extends Controller
             'catalog' => $catalog,
         ]);
     }
+
     /**
      * Store a newly created resource in storage.
      */

@@ -20,7 +20,6 @@
     "Bewerken": "Editar",
     "Verwijderen": "Eliminar",
     "Weet je zeker dat je deze postzegel wilt verwijderen?": "¿Seguro que quieres eliminar este sello?",
-
     "Voeg een postzegel toe aan je catalogus.": "Añade un sello a tu catálogo.",
     "Algemene gegevens": "Datos generales",
     "Selecteer een land": "Selecciona un país",
@@ -35,7 +34,6 @@
     "Notities": "Notas",
     "Annuleren": "Cancelar",
     "Postzegel opslaan": "Guardar sello",
-
     "Postzegel bekijken": "Ver sello",
     "Details van deze postzegel.": "Detalles de este sello.",
     "Terug naar overzicht": "Volver al listado",
@@ -47,12 +45,10 @@
     "Aankoopprijs": "Precio de compra",
     "Er zijn nog geen fysieke exemplaren geregistreerd.": "Todavía no se han registrado ejemplares físicos.",
     ":count stamp found|:count stamps found": ":count sello encontrado|:count sellos encontrados",
-
     "Pas de gegevens van deze postzegel aan.": "Modifica los datos de este sello.",
     "Wijzigingen opslaan": "Guardar cambios",
     "Verwijderen bevestigen": "Confirmar eliminación",
     "Weet je zeker dat je dit item wilt verwijderen?": "¿Seguro que quieres eliminar este elemento?",
-
     "Postzegelseries beheren": "Gestionar series de sellos",
     "Beheer de postzegelseries waartoe je postzegels behoren.": "Gestiona las series a las que pertenecen tus sellos.",
     "Postzegelserie toevoegen": "Añadir serie de sellos",
@@ -63,31 +59,26 @@
     "Aantal postzegels": "Número de sellos",
     "Weet je zeker dat je deze postzegelserie wilt verwijderen?": "¿Seguro que quieres eliminar esta serie de sellos?",
     ":count stamp series found|:count stamp series found": ":count serie de sellos encontrada|:count series de sellos encontradas",
-
     "Voeg een postzegelserie toe aan je catalogus.": "Añade una serie de sellos a tu catálogo.",
     "Controleer de volgende gegevens:": "Comprueba los siguientes datos:",
     "Naam van de postzegelserie": "Nombre de la serie de sellos",
     "Bijvoorbeeld: Nederlandse molens": "Por ejemplo: molinos neerlandeses",
     "Beschrijf deze postzegelserie...": "Describe esta serie de sellos...",
     "Postzegelserie opslaan": "Guardar serie de sellos",
-
     "Postzegelserie bekijken": "Ver serie de sellos",
     "Details van deze postzegelserie.": "Detalles de esta serie de sellos.",
     "Postzegels in deze serie": "Sellos de esta serie",
     "Geen postzegels gekoppeld": "No hay sellos asociados",
     "Er zijn nog geen postzegels aan deze serie gekoppeld.": "Todavía no hay sellos asociados a esta serie.",
-
     "Postzegelserie bewerken": "Editar serie de sellos",
     "Pas de gegevens van deze postzegelserie aan.": "Modifica los datos de esta serie de sellos.",
     "Terug naar serie": "Volver a la serie",
-
     "Taal": "Idioma",
     "Dashboard": "Panel de control",
     "Settings": "Configuración",
     "Log out": "Cerrar sesión",
     "Repository": "Repositorio",
     "Documentation": "Documentación",
-
     "Landen en gebieden beheren": "Gestionar países y territorios",
     "Beheer huidige landen, historische staten en postzegeluitgevende gebieden.": "Gestionar países y territorios",
     "Land of gebied toevoegen": "Añadir país o región",
@@ -123,7 +114,6 @@
     "Het land of gebied is succesvol toegevoegd.": "El país o territorio se ha añadido correctamente.",
     "Dit land of gebied kan niet worden verwijderd omdat er nog postzegels, series of catalogi aan gekoppeld zijn.": "Este país o territorio no se puede eliminar porque todavía tiene sellos, series o catálogos asociados.",
     "Het land of gebied is verwijderd.": "El país o territorio se ha eliminado.",
-
     "Details van dit land of gebied.": "Datos sobre este país o región.",
     "Nederlandse naam": "Nombre en neerlandés",
     "Engelse naam": "Nombre en inglés",
@@ -138,7 +128,6 @@
     "Aantal records dat aan dit land of gebied gekoppeld is.": "Número de registros asociados a este país o territorio.",
     "Vertalingen": "Traducciones",
     "Beschikbare namen en beschrijvingen per taal.": "Nombres y descripciones disponibles por idioma.",
-
     "Land of gebied bewerken": "Editar país o región",
     "Bewerk de gegevens en vertalingen van": "Edita los datos y las traducciones de",
     "Terug naar details": "Volver a los detalles",
@@ -146,7 +135,6 @@
     "Geef aan of deze entiteit actief in de catalogus gebruikt mag worden.": "Indique si esta entidad puede ser utilizada en el catálogo.",
     "Vul de naam en eventueel de beschrijving in voor iedere taal.": "Rellene el nombre y, si es necesario, la descripción para cada idioma.",
     "Deze naam wordt gelijk gehouden aan de Nederlandse naam hierboven.": "Este nombre se mantiene igual al nombre néerlandés de arriba.",
-
     "Voeg een huidig land, historische staat of postzegeluitgevend gebied toe.": "Añade un país actual, un estado histórico o una región emisora de sellos.",
     "Controleer de volgende velden:": "Vérifiez les champs suivants:",
     "Algemene gegevens van het land of gebied.": "Datos generales del país o región.",
@@ -159,7 +147,6 @@
     "Bijvoorbeeld: 1990": "Por ejemplo: 1990",
     "Optioneel. Laat leeg als je deze vertaling nog niet hebt.": "Opcional. Deje en blanco si aún no tiene esta traducción.",
     "Land of gebied opslaan": "Guardar país o región",
-
     "Catalogi beheren": "Gestionar catálogos",
     "Beheer postzegelcatalogi en hun edities.": "Gestiona los catálogos de sellos y sus ediciones.",
     "Catalogus toevoegen": "Añadir catálogo",
@@ -194,7 +181,6 @@
     "Terug naar catalogus": "Volver al catálogo",
     "De catalogus is succesvol bijgewerkt.": "El catálogo se ha actualizado correctamente.",
     "Er zijn geen landen of gebieden gevonden.": "No se encontraron países ni territorios.",
-
     "Editie toevoegen": "Añadir edición",
     "Geen catalogusedities gevonden": "No se encontraron ediciones del catálogo",
     "Editienaam": "Nombre de la edición",
@@ -217,6 +203,28 @@
     "Wijzig de gegevens van de geselecteerde cataloguseditie.": "Modifique los datos de la edición del catálogo seleccionada.",
     "Terug naar cataloguseditie": "Volver a la edición del catálogo",
     "Deze cataloguseditie kan niet worden verwijderd omdat er nog catalogusvermeldingen, cataloguswaarden of gebruikers aan gekoppeld zijn.": "Esta edición del catálogo no se puede eliminar porque todavía tiene entradas de catálogo, valores de catálogo o usuarios asociados.",
-    "De cataloguseditie is succesvol verwijderd.": "La edición del catálogo se ha eliminado correctamente."
-
+    "De cataloguseditie is succesvol verwijderd.": "La edición del catálogo se ha eliminado correctamente.",
+    "Verzamelobject :name is toegevoegd.": "El objeto de colección :name se ha añadido.",
+    "Verzamelobject :name is bijgewerkt.": "El objeto de colección :name se ha actualizado.",
+    "Verzamelobject :name kan niet worden verwijderd omdat er nog gekoppelde gegevens bestaan.": "No se puede eliminar el objeto de colección :name porque todavía existen registros relacionados.",
+    "Verzamelobject :name is verwijderd.": "El objeto de colección :name se ha eliminado.",
+    "Bijzondere verzamelobjecten beheren": "Gestionar objetos de colección especiales",
+    "Beheer de bijzondere verzamelobjecten in je catalogus.": "Gestiona los objetos de colección especiales de tu catálogo.",
+    "Verzamelobject toevoegen": "Añadir objeto de colección",
+    "Type verzamelobject": "Tipo de objeto de colección",
+    "Bijzondere verzamelobjecten": "Objetos de colección especiales",
+    "Geen bijzondere verzamelobjecten gevonden": "No se encontraron objetos de colección especiales",
+    "Voeg een bijzonder verzamelobject toe of pas de filters aan.": "Añade un objeto de colección especial o ajusta los filtros.",
+    "Eerste verzamelobject toevoegen": "Añadir el primer objeto de colección",
+    "Voeg een bijzonder verzamelobject toe aan je catalogus.": "Añade un objeto de colección especial a tu catálogo.",
+    "Verzamelobject opslaan": "Guardar objeto de colección",
+    "Beschrijving en opmerkingen": "Descripción y observaciones",
+    "Bewerk de gegevens van dit bijzondere verzamelobject.": "Edite los datos de este objeto de colección especial.",
+    "Bijzonder verzamelobject": "Objeto de colección especial",
+    "Er zijn nog geen postzegels gekoppeld aan dit verzamelobject.": "Todavía no hay sellos vinculados a este objeto de colección.",
+    "Gekoppelde postzegels": "Sellos vinculados",
+    "Houd Ctrl ingedrukt om meerdere postzegels te selecteren.": "Mantenga pulsada la tecla Ctrl para seleccionar varios sellos.",
+    "Postzegel": "Sello",
+    "Selecteer de postzegels die bij dit verzamelobject horen.": "Seleccione los sellos asociados a este objeto de colección.",
+    "Verzamelobject bewerken": "Editar objeto de colección"
 }

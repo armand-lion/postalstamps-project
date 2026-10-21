@@ -15,17 +15,17 @@ return new class extends Migration
             $table->id();
 
             $table->foreignId('catalog_edition_id')
-                  ->constrained()
-                  ->restrictOnDelete();
+                ->constrained()
+                ->restrictOnDelete();
 
             $table->foreignId('stamp_id')
-                  ->constrained()
-                  ->restrictOnDelete();
+                ->constrained()
+                ->restrictOnDelete();
 
             $table->foreignId('condition_id')
-                  ->nullable()
-                  ->constrained()
-                  ->nullOnDelete();
+                ->nullable()
+                ->constrained()
+                ->nullOnDelete();
 
             $table->string('catalog_number', 100);
 

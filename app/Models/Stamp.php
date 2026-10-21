@@ -51,6 +51,19 @@ class Stamp extends Model
             ->withTimestamps();
     }
 
+    /**
+     * De verzamelobjecten waaraan deze postzegel gekoppeld is.
+     */
+    public function collectibles(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            Collectible::class,
+            'collectible_stamps',
+            'stamp_id',
+            'collectible_id'
+        )->withTimestamps();
+    }
+
     public function copies(): HasMany
     {
         return $this->hasMany(StampCopy::class);
