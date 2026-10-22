@@ -24,16 +24,25 @@ class SeriesCatalogValue extends Model
         ];
     }
 
+    /**
+     * @return BelongsTo<CatalogEdition, $this>
+     */
     public function catalogEdition(): BelongsTo
     {
         return $this->belongsTo(CatalogEdition::class);
     }
 
+    /**
+     * @return BelongsTo<StampSeries, $this>
+     */
     public function stampSeries(): BelongsTo
     {
         return $this->belongsTo(StampSeries::class);
     }
 
+    /**
+     * @return BelongsTo<Condition, $this>
+     */
     public function condition(): BelongsTo
     {
         return $this->belongsTo(Condition::class);

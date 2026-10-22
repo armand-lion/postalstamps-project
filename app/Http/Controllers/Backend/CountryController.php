@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Backend;
 
 use App\Http\Controllers\Controller;
 use App\Models\Country;
+use Illuminate\Contracts\View\View;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -30,7 +32,7 @@ class CountryController extends Controller
     /**
      * Display countries and territories.
      */
-    public function index(Request $request)
+    public function index(Request $request): View
     {
         $query = Country::query();
 
@@ -75,7 +77,7 @@ class CountryController extends Controller
     /**
      * Show the creation form.
      */
-    public function create()
+    public function create(): View
     {
         return view('backend.countries.create', [
             'entityTypes' => self::ENTITY_TYPES,
@@ -86,7 +88,7 @@ class CountryController extends Controller
     /**
      * Store a new country or territory.
      */
-    public function store(Request $request)
+    public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate(
             $this->validationRules(),
@@ -161,7 +163,7 @@ class CountryController extends Controller
     /**
      * Display a country or territory.
      */
-    public function show(Country $country)
+    public function show(Country $country): View
     {
         $country->load('translations');
 
@@ -181,7 +183,7 @@ class CountryController extends Controller
     /**
      * Show the editing form.
      */
-    public function edit(Country $country)
+    public function edit(Country $country): View
     {
         $country->load('translations');
 
@@ -195,7 +197,7 @@ class CountryController extends Controller
     /**
      * Update a country or territory.
      */
-    public function update(Request $request, Country $country)
+    public function update(Request $request, Country $country): RedirectResponse
     {
         $validated = $request->validate(
             $this->validationRules($country),
@@ -249,7 +251,7 @@ class CountryController extends Controller
     /**
      * Delete only when no dependent records exist.
      */
-    public function destroy(Country $country)
+    public function destroy(Country $country): RedirectResponse
     {
         if (
             $country->stamps()->exists()
@@ -276,6 +278,8 @@ class CountryController extends Controller
 
     /**
      * Validation rules for country data and translations.
+     *
+     * @return array<string, array<int, mixed>>
      */
     private function validationRules(?Country $country = null): array
     {
@@ -354,6 +358,8 @@ class CountryController extends Controller
 
     /**
      * Check that the end year does not precede the start year.
+     *
+     * @param  array<string, mixed>  $validated
      */
     private function hasInvalidYearRange(array $validated): bool
     {
@@ -366,6 +372,8 @@ class CountryController extends Controller
     /**
      * Save translations without deleting existing translations
      * when a translated name is left blank.
+     *
+     * @param  array<string, array<string, mixed>>  $translations
      */
     private function saveTranslations(
         Country $country,

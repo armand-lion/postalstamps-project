@@ -25,6 +25,8 @@ class CollectibleCatalogEntry extends Model
 
     /**
      * De cataloguseditie waartoe deze registratie behoort.
+     *
+     * @return BelongsTo<CatalogEdition, $this>
      */
     public function catalogEdition(): BelongsTo
     {
@@ -33,6 +35,8 @@ class CollectibleCatalogEntry extends Model
 
     /**
      * Het verzamelobject waarop deze registratie betrekking heeft.
+     *
+     * @return BelongsTo<Collectible, $this>
      */
     public function collectible(): BelongsTo
     {
@@ -41,6 +45,8 @@ class CollectibleCatalogEntry extends Model
 
     /**
      * De cataloguswaarden die bij deze catalogusregistratie horen.
+     *
+     * @return HasMany<CollectibleCatalogValue, $this>
      */
     public function catalogValues(): HasMany
     {

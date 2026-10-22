@@ -22,6 +22,9 @@ class StampImage extends Model
         ];
     }
 
+    /**
+     * @return BelongsTo<Stamp, $this>
+     */
     public function stamp(): BelongsTo
     {
         return $this->belongsTo(Stamp::class);

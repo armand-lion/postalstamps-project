@@ -24,11 +24,17 @@ class UserCatalog extends Model
         ];
     }
 
+    /**
+     * @return BelongsTo<User, $this>
+     */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
+    /**
+     * @return BelongsTo<CatalogEdition, $this>
+     */
     public function catalogEdition(): BelongsTo
     {
         return $this->belongsTo(CatalogEdition::class);

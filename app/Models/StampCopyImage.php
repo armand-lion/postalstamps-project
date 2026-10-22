@@ -22,6 +22,9 @@ class StampCopyImage extends Model
         ];
     }
 
+    /**
+     * @return BelongsTo<StampCopy, $this>
+     */
     public function stampCopy(): BelongsTo
     {
         return $this->belongsTo(StampCopy::class);

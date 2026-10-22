@@ -15,16 +15,25 @@ class StampCatalogEntry extends Model
         'notes',
     ];
 
+    /**
+     * @return BelongsTo<CatalogEdition, $this>
+     */
     public function catalogEdition(): BelongsTo
     {
         return $this->belongsTo(CatalogEdition::class);
     }
 
+    /**
+     * @return BelongsTo<Stamp, $this>
+     */
     public function stamp(): BelongsTo
     {
         return $this->belongsTo(Stamp::class);
     }
 
+    /**
+     * @return HasMany<StampCatalogValue, $this>
+     */
     public function values(): HasMany
     {
         return $this->hasMany(StampCatalogValue::class);

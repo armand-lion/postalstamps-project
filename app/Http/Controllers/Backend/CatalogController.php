@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Backend;
 
 use App\Http\Controllers\Controller;
 use App\Models\Catalog;
+use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
 
 class CatalogController extends Controller
@@ -11,7 +12,7 @@ class CatalogController extends Controller
     /**
      * Display a listing of the catalogs.
      */
-    public function index(Request $request)
+    public function index(Request $request): View
     {
         $query = Catalog::query();
 
@@ -39,7 +40,7 @@ class CatalogController extends Controller
     /**
      * Show the form for creating a new catalog.
      */
-    public function create()
+    public function create(): View
     {
         return view('backend.catalogs.create');
     }
@@ -47,7 +48,7 @@ class CatalogController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
+    public function store(Request $request): void
     {
         //
     }
@@ -55,7 +56,7 @@ class CatalogController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(Catalog $catalog)
+    public function show(Catalog $catalog): View
     {
         $catalog->load([
             'countries.translations',
@@ -70,7 +71,7 @@ class CatalogController extends Controller
     /**
      * Show the form for editing the specified resource.
      */
-    public function edit(Catalog $catalog)
+    public function edit(Catalog $catalog): View
     {
         $catalog->load([
             'countries.translations',
@@ -84,7 +85,7 @@ class CatalogController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, Catalog $catalog)
+    public function update(Request $request, Catalog $catalog): void
     {
         //
     }
@@ -92,7 +93,7 @@ class CatalogController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Catalog $catalog)
+    public function destroy(Catalog $catalog): void
     {
         //
     }

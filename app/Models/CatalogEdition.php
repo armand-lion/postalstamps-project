@@ -26,11 +26,17 @@ class CatalogEdition extends Model
         ];
     }
 
+    /**
+     * @return BelongsTo<Catalog, $this>
+     */
     public function catalog(): BelongsTo
     {
         return $this->belongsTo(Catalog::class);
     }
 
+    /**
+     * @return HasMany<StampCatalogEntry, $this>
+     */
     public function stampEntries(): HasMany
     {
         return $this->hasMany(StampCatalogEntry::class);
@@ -38,12 +44,17 @@ class CatalogEdition extends Model
 
     /**
      * De catalogusregistraties van bijzondere verzamelobjecten.
+     *
+     * @return HasMany<CollectibleCatalogEntry, $this>
      */
     public function collectibleEntries(): HasMany
     {
         return $this->hasMany(CollectibleCatalogEntry::class);
     }
 
+    /**
+     * @return HasManyThrough<StampCatalogValue, StampCatalogEntry, $this>
+     */
     public function stampValues(): HasManyThrough
     {
         return $this->hasManyThrough(
@@ -59,6 +70,8 @@ class CatalogEdition extends Model
     /**
      * De cataloguswaarden van bijzondere verzamelobjecten
      * binnen deze cataloguseditie.
+     *
+     * @return HasManyThrough<CollectibleCatalogValue, CollectibleCatalogEntry, $this>
      */
     public function collectibleValues(): HasManyThrough
     {
@@ -72,11 +85,17 @@ class CatalogEdition extends Model
         );
     }
 
+    /**
+     * @return HasMany<SeriesCatalogValue, $this>
+     */
     public function seriesValues(): HasMany
     {
         return $this->hasMany(SeriesCatalogValue::class);
     }
 
+    /**
+     * @return HasMany<UserCatalog, $this>
+     */
     public function userCatalogs(): HasMany
     {
         return $this->hasMany(UserCatalog::class);

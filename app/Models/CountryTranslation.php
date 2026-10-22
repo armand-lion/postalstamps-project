@@ -14,6 +14,9 @@ class CountryTranslation extends Model
         'description',
     ];
 
+    /**
+     * @return BelongsTo<Country, $this>
+     */
     public function country(): BelongsTo
     {
         return $this->belongsTo(Country::class);

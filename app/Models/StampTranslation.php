@@ -14,6 +14,9 @@ class StampTranslation extends Model
         'description',
     ];
 
+    /**
+     * @return BelongsTo<Stamp, $this>
+     */
     public function stamp(): BelongsTo
     {
         return $this->belongsTo(Stamp::class);

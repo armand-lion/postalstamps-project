@@ -14,6 +14,9 @@ class ConditionTranslation extends Model
         'description',
     ];
 
+    /**
+     * @return BelongsTo<Condition, $this>
+     */
     public function condition(): BelongsTo
     {
         return $this->belongsTo(Condition::class);

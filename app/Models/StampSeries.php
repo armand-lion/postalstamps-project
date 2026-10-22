@@ -22,11 +22,17 @@ class StampSeries extends Model
         ];
     }
 
+    /**
+     * @return BelongsTo<Country, $this>
+     */
     public function country(): BelongsTo
     {
         return $this->belongsTo(Country::class);
     }
 
+    /**
+     * @return HasMany<Stamp, $this>
+     */
     public function stamps(): HasMany
     {
         return $this->hasMany(Stamp::class);
@@ -34,22 +40,33 @@ class StampSeries extends Model
 
     /**
      * De bijzondere verzamelobjecten die bij deze serie horen.
+     *
+     * @return HasMany<Collectible, $this>
      */
     public function collectibles(): HasMany
     {
         return $this->hasMany(Collectible::class);
     }
 
+    /**
+     * @return HasMany<SeriesCatalogValue, $this>
+     */
     public function catalogValues(): HasMany
     {
         return $this->hasMany(SeriesCatalogValue::class);
     }
 
+    /**
+     * @return HasMany<SeriesValuation, $this>
+     */
     public function valuations(): HasMany
     {
         return $this->hasMany(SeriesValuation::class);
     }
 
+    /**
+     * @return HasMany<StampSeriesTranslation, $this>
+     */
     public function translations(): HasMany
     {
         return $this->hasMany(StampSeriesTranslation::class);

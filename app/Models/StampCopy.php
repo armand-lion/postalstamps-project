@@ -32,21 +32,33 @@ class StampCopy extends Model
         ];
     }
 
+    /**
+     * @return BelongsTo<Stamp, $this>
+     */
     public function stamp(): BelongsTo
     {
         return $this->belongsTo(Stamp::class);
     }
 
+    /**
+     * @return BelongsTo<Condition, $this>
+     */
     public function condition(): BelongsTo
     {
         return $this->belongsTo(Condition::class);
     }
 
+    /**
+     * @return HasMany<StampCopyImage, $this>
+     */
     public function images(): HasMany
     {
         return $this->hasMany(StampCopyImage::class);
     }
 
+    /**
+     * @return HasMany<StampCopyValuation, $this>
+     */
     public function valuations(): HasMany
     {
         return $this->hasMany(StampCopyValuation::class);

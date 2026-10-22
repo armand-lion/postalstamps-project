@@ -22,6 +22,9 @@ class Condition extends Model
         ];
     }
 
+    /**
+     * @return HasMany<ConditionTranslation, $this>
+     */
     public function translations(): HasMany
     {
         return $this->hasMany(ConditionTranslation::class);
@@ -40,6 +43,9 @@ class Condition extends Model
                 ->first();
     }
 
+    /**
+     * @return HasMany<StampCopy, $this>
+     */
     public function stampCopies(): HasMany
     {
         return $this->hasMany(StampCopy::class);
@@ -48,12 +54,17 @@ class Condition extends Model
     /**
      * De persoonlijke exemplaren van bijzondere verzamelobjecten
      * met deze conditie.
+     *
+     * @return HasMany<CollectibleCopy, $this>
      */
     public function collectibleCopies(): HasMany
     {
         return $this->hasMany(CollectibleCopy::class);
     }
 
+    /**
+     * @return HasMany<StampCatalogValue, $this>
+     */
     public function stampCatalogValues(): HasMany
     {
         return $this->hasMany(StampCatalogValue::class);
@@ -62,27 +73,41 @@ class Condition extends Model
     /**
      * De cataloguswaarden van bijzondere verzamelobjecten
      * die bij deze conditie horen.
+     *
+     * @return HasMany<CollectibleCatalogValue, $this>
      */
     public function collectibleCatalogValues(): HasMany
     {
         return $this->hasMany(CollectibleCatalogValue::class);
     }
 
+    /**
+     * @return HasMany<SeriesCatalogValue, $this>
+     */
     public function seriesCatalogValues(): HasMany
     {
         return $this->hasMany(SeriesCatalogValue::class);
     }
 
+    /**
+     * @return HasMany<StampValuation, $this>
+     */
     public function stampValuations(): HasMany
     {
         return $this->hasMany(StampValuation::class);
     }
 
+    /**
+     * @return HasMany<SeriesValuation, $this>
+     */
     public function seriesValuations(): HasMany
     {
         return $this->hasMany(SeriesValuation::class);
     }
 
+    /**
+     * @return HasOne<ConditionTranslation, $this>
+     */
     public function translation(): HasOne
     {
         return $this->hasOne(ConditionTranslation::class)

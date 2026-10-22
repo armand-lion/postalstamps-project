@@ -28,30 +28,42 @@ class Country extends Model
         ];
     }
 
+    /**
+     * @return HasMany<Stamp, $this>
+     */
     public function stamps(): HasMany
     {
         return $this->hasMany(Stamp::class);
     }
 
     /**
-     * De bijzondere verzamelobjecten van dit land.
+     * @return HasMany<Collectible, $this>
      */
     public function collectibles(): HasMany
     {
         return $this->hasMany(Collectible::class);
     }
 
+    /**
+     * @return HasMany<StampSeries, $this>
+     */
     public function stampSeries(): HasMany
     {
         return $this->hasMany(StampSeries::class);
     }
 
+    /**
+     * @return BelongsToMany<Catalog, $this>
+     */
     public function catalogs(): BelongsToMany
     {
         return $this->belongsToMany(Catalog::class, 'catalog_countries')
             ->withTimestamps();
     }
 
+    /**
+     * @return HasMany<CountryTranslation, $this>
+     */
     public function translations(): HasMany
     {
         return $this->hasMany(CountryTranslation::class);

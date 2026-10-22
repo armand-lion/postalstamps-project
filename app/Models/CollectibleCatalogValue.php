@@ -26,6 +26,8 @@ class CollectibleCatalogValue extends Model
 
     /**
      * De catalogusregistratie waartoe deze waarde behoort.
+     *
+     * @return BelongsTo<CollectibleCatalogEntry, $this>
      */
     public function collectibleCatalogEntry(): BelongsTo
     {
@@ -34,6 +36,8 @@ class CollectibleCatalogValue extends Model
 
     /**
      * De conditie waarop deze cataloguswaarde betrekking heeft.
+     *
+     * @return BelongsTo<Condition, $this>
      */
     public function condition(): BelongsTo
     {

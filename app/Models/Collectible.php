@@ -33,6 +33,8 @@ class Collectible extends Model
 
     /**
      * Het type verzamelobject.
+     *
+     * @return BelongsTo<CollectibleType, $this>
      */
     public function collectibleType(): BelongsTo
     {
@@ -41,6 +43,8 @@ class Collectible extends Model
 
     /**
      * Het land van uitgifte.
+     *
+     * @return BelongsTo<Country, $this>
      */
     public function country(): BelongsTo
     {
@@ -49,6 +53,8 @@ class Collectible extends Model
 
     /**
      * De bijbehorende postzegelserie (optioneel).
+     *
+     * @return BelongsTo<StampSeries, $this>
      */
     public function stampSeries(): BelongsTo
     {
@@ -57,6 +63,8 @@ class Collectible extends Model
 
     /**
      * De postzegels die bij dit verzamelobject horen.
+     *
+     * @return BelongsToMany<Stamp, $this>
      */
     public function stamps(): BelongsToMany
     {
@@ -70,6 +78,8 @@ class Collectible extends Model
 
     /**
      * De afbeeldingen die bij dit verzamelobject horen.
+     *
+     * @return HasMany<CollectibleImage, $this>
      */
     public function images(): HasMany
     {
@@ -78,6 +88,8 @@ class Collectible extends Model
 
     /**
      * De catalogusregistraties van dit verzamelobject.
+     *
+     * @return HasMany<CollectibleCatalogEntry, $this>
      */
     public function catalogEntries(): HasMany
     {
@@ -86,6 +98,8 @@ class Collectible extends Model
 
     /**
      * De persoonlijke exemplaren van dit verzamelobject.
+     *
+     * @return HasMany<CollectibleCopy, $this>
      */
     public function copies(): HasMany
     {

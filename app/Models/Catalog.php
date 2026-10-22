@@ -16,12 +16,18 @@ class Catalog extends Model
         'description',
     ];
 
+    /**
+     * @return BelongsToMany<Country, $this>
+     */
     public function countries(): BelongsToMany
     {
         return $this->belongsToMany(Country::class, 'catalog_countries')
             ->withTimestamps();
     }
 
+    /**
+     * @return HasMany<CatalogEdition, $this>
+     */
     public function editions(): HasMany
     {
         return $this->hasMany(CatalogEdition::class);

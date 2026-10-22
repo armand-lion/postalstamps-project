@@ -25,11 +25,17 @@ class StampValuation extends Model
         ];
     }
 
+    /**
+     * @return BelongsTo<Stamp, $this>
+     */
     public function stamp(): BelongsTo
     {
         return $this->belongsTo(Stamp::class);
     }
 
+    /**
+     * @return BelongsTo<Condition, $this>
+     */
     public function condition(): BelongsTo
     {
         return $this->belongsTo(Condition::class);

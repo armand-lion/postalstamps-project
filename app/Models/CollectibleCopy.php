@@ -33,6 +33,8 @@ class CollectibleCopy extends Model
     /**
      * Het bijzondere verzamelobject waarvan dit
      * een persoonlijk exemplaar is.
+     *
+     * @return BelongsTo<Collectible, $this>
      */
     public function collectible(): BelongsTo
     {
@@ -41,6 +43,8 @@ class CollectibleCopy extends Model
 
     /**
      * De conditie van dit persoonlijke exemplaar.
+     *
+     * @return BelongsTo<Condition, $this>
      */
     public function condition(): BelongsTo
     {

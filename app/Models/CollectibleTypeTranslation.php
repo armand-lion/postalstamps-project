@@ -13,6 +13,9 @@ class CollectibleTypeTranslation extends Model
         'name',
     ];
 
+    /**
+     * @return BelongsTo<CollectibleType, $this>
+     */
     public function collectibleType(): BelongsTo
     {
         return $this->belongsTo(CollectibleType::class);

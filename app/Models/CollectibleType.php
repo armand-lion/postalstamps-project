@@ -22,6 +22,9 @@ class CollectibleType extends Model
         ];
     }
 
+    /**
+     * @return HasMany<CollectibleTypeTranslation, $this>
+     */
     public function translations(): HasMany
     {
         return $this->hasMany(CollectibleTypeTranslation::class);
@@ -40,6 +43,9 @@ class CollectibleType extends Model
                 ->first();
     }
 
+    /**
+     * @return HasOne<CollectibleTypeTranslation, $this>
+     */
     public function translation(): HasOne
     {
         return $this->hasOne(CollectibleTypeTranslation::class)
@@ -48,6 +54,8 @@ class CollectibleType extends Model
 
     /**
      * Alle bijzondere verzamelobjecten van dit type.
+     *
+     * @return HasMany<Collectible, $this>
      */
     public function collectibles(): HasMany
     {

@@ -13,6 +13,9 @@ class Theme extends Model
         'description',
     ];
 
+    /**
+     * @return BelongsToMany<Stamp, $this>
+     */
     public function stamps(): BelongsToMany
     {
         return $this->belongsToMany(Stamp::class, 'stamp_themes')

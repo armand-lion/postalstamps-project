@@ -22,11 +22,17 @@ class StampCatalogValue extends Model
         ];
     }
 
+    /**
+     * @return BelongsTo<StampCatalogEntry, $this>
+     */
     public function catalogEntry(): BelongsTo
     {
         return $this->belongsTo(StampCatalogEntry::class, 'stamp_catalog_entry_id');
     }
 
+    /**
+     * @return BelongsTo<Condition, $this>
+     */
     public function condition(): BelongsTo
     {
         return $this->belongsTo(Condition::class);

@@ -25,6 +25,8 @@ class CollectibleImage extends Model
 
     /**
      * Het verzamelobject waartoe deze afbeelding behoort.
+     *
+     * @return BelongsTo<Collectible, $this>
      */
     public function collectible(): BelongsTo
     {
