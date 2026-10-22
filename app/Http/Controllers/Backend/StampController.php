@@ -14,6 +14,46 @@ use Illuminate\View\View;
 
 class StampController extends Controller
 {
+    private const LOCALES = [
+        'nl',
+        'en',
+        'de',
+        'fr',
+        'es',
+    ];
+
+    /**
+     * Validation rules for stamp translations.
+     *
+     * @return array<string, array<int, string>>
+     */
+    private function translationValidationRules(): array
+    {
+        $rules = [
+            'translations' => ['required', 'array'],
+        ];
+
+        foreach (self::LOCALES as $locale) {
+            $rules["translations.{$locale}"] = [
+                'sometimes',
+                'array',
+            ];
+
+            $rules["translations.{$locale}.name"] = [
+                $locale === app()->getLocale() ? 'required' : 'nullable',
+                'string',
+                'max:255',
+            ];
+
+            $rules["translations.{$locale}.description"] = [
+                'nullable',
+                'string',
+            ];
+        }
+
+        return $rules;
+    }
+
     /**
      * Display a listing of the stamps.
      */
@@ -54,10 +94,11 @@ class StampController extends Controller
             ->orderBy('name')
             ->get();
 
-        return view('backend.stamps.create', compact(
-            'countries',
-            'series'
-        ));
+        return view('backend.stamps.create', [
+            'countries' => $countries,
+            'series' => $series,
+            'locales' => self::LOCALES,
+        ]);
     }
 
     /**
@@ -65,7 +106,7 @@ class StampController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
-        $validated = $request->validate([
+        $validated = $request->validate(array_merge([
             'country_id' => [
                 'required',
                 'integer',
@@ -76,15 +117,6 @@ class StampController extends Controller
                 'integer',
                 Rule::exists('stamp_series', 'id')
                     ->where('country_id', $request->input('country_id')),
-            ],
-            'name' => [
-                'required',
-                'string',
-                'max:255',
-            ],
-            'description' => [
-                'nullable',
-                'string',
             ],
             'issue_year' => [
                 'required',
@@ -125,9 +157,48 @@ class StampController extends Controller
                 'nullable',
                 'string',
             ],
-        ]);
+        ], $this->translationValidationRules()));
 
-        $stamp = Stamp::create($validated);
+        // Haal de vertalingen uit de gevalideerde gegevens.
+        $translations = $validated['translations'];
+
+        unset($validated['translations']);
+
+        // Gebruik de actieve applicatietaal voor de algemene gegevens.
+        $locale = app()->getLocale();
+
+        $validated['name'] = trim(
+            $translations[$locale]['name']
+        );
+
+        $validated['description'] = $translations[$locale]['description'] ?? null;
+
+        $stamp = DB::transaction(function () use ($validated, $translations) {
+
+            // Sla de algemene postzegelgegevens op.
+            $stamp = Stamp::create($validated);
+
+            // Sla de vertalingen op.
+            foreach (self::LOCALES as $locale) {
+
+                $translation = $translations[$locale] ?? [];
+
+                $name = trim((string) ($translation['name'] ?? ''));
+
+                // Maak geen vertaling aan zonder naam.
+                if ($name === '') {
+                    continue;
+                }
+
+                $stamp->translations()->create([
+                    'locale' => $locale,
+                    'name' => $name,
+                    'description' => $translation['description'] ?? null,
+                ]);
+            }
+
+            return $stamp;
+        });
 
         return redirect()
             ->route('backend.stamps.index')
@@ -158,17 +229,21 @@ class StampController extends Controller
      */
     public function edit(Stamp $stamp): View
     {
+        // Laad de bestaande vertalingen.
+        $stamp->load('translations');
+
         $countries = Country::orderBy('name')->get();
 
         $series = StampSeries::with('country')
             ->orderBy('name')
             ->get();
 
-        return view('backend.stamps.edit', compact(
-            'stamp',
-            'countries',
-            'series'
-        ));
+        return view('backend.stamps.edit', [
+            'stamp' => $stamp,
+            'countries' => $countries,
+            'series' => $series,
+            'locales' => self::LOCALES,
+        ]);
     }
 
     /**
@@ -178,7 +253,7 @@ class StampController extends Controller
         Request $request,
         Stamp $stamp
     ): RedirectResponse {
-        $validated = $request->validate([
+        $validated = $request->validate(array_merge([
             'country_id' => [
                 'required',
                 'integer',
@@ -189,15 +264,6 @@ class StampController extends Controller
                 'integer',
                 Rule::exists('stamp_series', 'id')
                     ->where('country_id', $request->input('country_id')),
-            ],
-            'name' => [
-                'required',
-                'string',
-                'max:255',
-            ],
-            'description' => [
-                'nullable',
-                'string',
             ],
             'issue_year' => [
                 'required',
@@ -238,9 +304,48 @@ class StampController extends Controller
                 'nullable',
                 'string',
             ],
-        ]);
+        ], $this->translationValidationRules()));
 
-        $stamp->update($validated);
+        // Haal de vertalingen uit de gevalideerde gegevens.
+        $translations = $validated['translations'];
+
+        unset($validated['translations']);
+
+        // Gebruik de actieve applicatietaal voor de algemene gegevens.
+        $locale = app()->getLocale();
+
+        $validated['name'] = trim(
+            $translations[$locale]['name']
+        );
+
+        $validated['description'] = $translations[$locale]['description'] ?? null;
+
+        DB::transaction(function () use ($stamp, $validated, $translations) {
+
+            // Werk de algemene postzegelgegevens bij.
+            $stamp->update($validated);
+
+            // Werk bestaande vertalingen bij of voeg nieuwe toe.
+            foreach (self::LOCALES as $locale) {
+
+                $translation = $translations[$locale] ?? [];
+
+                $name = trim((string) ($translation['name'] ?? ''));
+
+                // Behoud bestaande vertalingen als de naam leeg is.
+                if ($name === '') {
+                    continue;
+                }
+
+                $stamp->translations()->updateOrCreate(
+                    ['locale' => $locale],
+                    [
+                        'name' => $name,
+                        'description' => $translation['description'] ?? null,
+                    ]
+                );
+            }
+        });
 
         return redirect()
             ->route('backend.stamps.index')

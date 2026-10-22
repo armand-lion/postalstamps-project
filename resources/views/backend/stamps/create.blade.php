@@ -35,21 +35,6 @@
 
                 <div class="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2">
 
-                    {{-- Naam --}}
-                    <flux:field>
-                        <flux:label>
-                            <span class="flex items-center gap-1">
-                                {{ __('Naam') }}
-                                <span class="text-red-600">*</span>
-                            </span>
-                        </flux:label>
-
-                        <flux:input name="name" value="{{ old('name') }}" required autofocus />
-                        <div class="min-h-5">
-                            <flux:error name="name" />
-                        </div>
-                    </flux:field>
-
                     {{-- Land --}}
                     <flux:field>
                         <flux:label>
@@ -162,14 +147,6 @@
                         </div>
                     </flux:field>
 
-                    {{-- Beschrijving --}}
-                    <flux:field class="md:col-span-2">
-                        <flux:label>{{ __('Beschrijving') }}</flux:label>
-                        <flux:textarea name="description" rows="4">{{ old('description') }}</flux:textarea>
-                        <div class="min-h-5">
-                            <flux:error name="description" />
-                        </div>
-                    </flux:field>
 
                     {{-- Notities --}}
                     <flux:field class="md:col-span-2">
@@ -182,6 +159,79 @@
 
                 </div>
             </div>
+
+            {{-- Vertalingen --}}
+            <section class="rounded-xl border border-neutral-200 dark:border-neutral-700">
+
+                <div class="border-b border-neutral-200 px-4 py-3 dark:border-neutral-700">
+                    <flux:heading size="lg">
+                        {{ __('Vertalingen') }}
+                    </flux:heading>
+
+                    <flux:text class="mt-1">
+                        {{ __('Vul de naam en eventueel de beschrijving in voor iedere taal.') }}
+                    </flux:text>
+                </div>
+
+                <div class="flex flex-col gap-6 p-4">
+
+                    @php
+                        $languageNames = [
+                            'nl' => 'Nederlands',
+                            'en' => 'English',
+                            'de' => 'Deutsch',
+                            'fr' => 'Français',
+                            'es' => 'Español',
+                        ];
+                    @endphp
+
+                    @foreach ($locales as $locale)
+                        <div
+                            class="grid gap-5 border-b border-neutral-200 pb-6 last:border-b-0 last:pb-0 dark:border-neutral-700 md:grid-cols-2">
+
+                            <div class="md:col-span-2">
+                                <flux:heading>
+                                    {{ $languageNames[$locale] ?? strtoupper($locale) }}
+                                </flux:heading>
+                            </div>
+
+                            {{-- Vertaalde naam --}}
+                            <flux:field>
+                                <flux:label>
+                                    <span class="flex items-center gap-1">
+                                        {{ __('Naam') }}
+
+                                        @if ($locale === app()->getLocale())
+                                            <span class="text-red-600">*</span>
+                                        @endif
+                                    </span>
+                                </flux:label>
+
+                                <flux:input name="translations[{{ $locale }}][name]"
+                                    :value="old('translations.'.$locale.
+                                        '.name')"
+                                    maxlength="255" @required($locale === app()->getLocale()) />
+
+                                <flux:error name="translations.{{ $locale }}.name" />
+                            </flux:field>
+
+                            {{-- Vertaalde beschrijving --}}
+                            <flux:field>
+                                <flux:label>
+                                    {{ __('Beschrijving') }}
+                                </flux:label>
+
+                                <flux:textarea name="translations[{{ $locale }}][description]" rows="3">
+                                    {{ old("translations.$locale.description") }}</flux:textarea>
+
+                                <flux:error name="translations.{{ $locale }}.description" />
+                            </flux:field>
+
+                        </div>
+                    @endforeach
+
+                </div>
+            </section>
 
             {{-- Acties --}}
             <div class="flex flex-wrap justify-end gap-3">
