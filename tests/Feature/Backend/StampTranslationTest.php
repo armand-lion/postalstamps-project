@@ -1,9 +1,12 @@
 <?php
 
+use App\Models\Catalog;
+use App\Models\CatalogEdition;
 use App\Models\Country;
 use App\Models\Stamp;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 
 uses(RefreshDatabase::class);
 
@@ -363,5 +366,432 @@ test('een Engelstalige gebruiker kan een postzegel zonder Nederlandse naam wijzi
         'locale' => 'en',
         'name' => 'Updated English stamp',
         'description' => 'Updated English description',
+    ]);
+});
+
+test('een postzegel gebruikt de fallbacktaal als de actieve vertaling ontbreekt', function () {
+    app()->setLocale('en');
+
+    $stamp = Stamp::factory()->create([
+        'name' => 'Nederlandse postzegel',
+    ]);
+
+    $stamp->translations()->create([
+        'locale' => 'nl',
+        'name' => 'Nederlandse vertaling',
+        'description' => 'Nederlandse beschrijving',
+    ]);
+
+    $stamp->load('translations');
+
+    $translation = $stamp->translationWithFallback();
+
+    expect($translation)
+        ->not->toBeNull()
+        ->and($translation->locale)->toBe('nl')
+        ->and($translation->name)->toBe('Nederlandse vertaling')
+        ->and($translation->description)->toBe('Nederlandse beschrijving');
+});
+
+test('een postzegel geeft voorrang aan de actieve applicatietaal', function () {
+    app()->setLocale('en');
+
+    $stamp = Stamp::factory()->create([
+        'name' => 'Nederlandse postzegel',
+    ]);
+
+    $stamp->translations()->createMany([
+        [
+            'locale' => 'nl',
+            'name' => 'Nederlandse vertaling',
+            'description' => 'Nederlandse beschrijving',
+        ],
+        [
+            'locale' => 'en',
+            'name' => 'English translation',
+            'description' => 'English description',
+        ],
+    ]);
+
+    $stamp->load('translations');
+
+    $translation = $stamp->translationWithFallback();
+
+    expect($translation)
+        ->not->toBeNull()
+        ->and($translation->locale)->toBe('en')
+        ->and($translation->name)->toBe('English translation')
+        ->and($translation->description)->toBe('English description');
+});
+
+test('vooraf geladen postzegelvertalingen veroorzaken geen extra databasequeries', function () {
+    app()->setLocale('en');
+
+    $stamp = Stamp::factory()->create();
+
+    $stamp->translations()->createMany([
+        [
+            'locale' => 'nl',
+            'name' => 'Nederlandse vertaling',
+        ],
+        [
+            'locale' => 'en',
+            'name' => 'English translation',
+        ],
+    ]);
+
+    $stamp->load('translations');
+
+    DB::enableQueryLog();
+    DB::flushQueryLog();
+
+    try {
+        $firstTranslation = $stamp->translationWithFallback();
+        $secondTranslation = $stamp->translationWithFallback();
+
+        $queries = DB::getQueryLog();
+
+        expect($firstTranslation?->name)
+            ->toBe('English translation')
+            ->and($secondTranslation?->name)
+            ->toBe('English translation')
+            ->and($queries)
+            ->toHaveCount(0);
+    } finally {
+        DB::disableQueryLog();
+        DB::flushQueryLog();
+    }
+});
+
+test('postzegelvertalingen worden automatisch verwijderd met de postzegel', function () {
+    $stamp = Stamp::factory()->create();
+
+    $stamp->translations()->createMany([
+        [
+            'locale' => 'nl',
+            'name' => 'Nederlandse postzegel',
+        ],
+        [
+            'locale' => 'en',
+            'name' => 'English stamp',
+        ],
+    ]);
+
+    expect($stamp->translations()->count())->toBe(2);
+
+    $stampId = $stamp->id;
+
+    $stamp->delete();
+
+    $this->assertDatabaseMissing('stamps', [
+        'id' => $stampId,
+    ]);
+
+    $this->assertDatabaseMissing('stamp_translations', [
+        'stamp_id' => $stampId,
+    ]);
+});
+
+test('de backend kan een postzegel zonder gekoppelde gegevens verwijderen', function () {
+    $user = User::factory()->create();
+
+    $stamp = Stamp::factory()->create([
+        'name' => 'Testpostzegel voor verwijderen',
+    ]);
+
+    $stamp->translations()->createMany([
+        [
+            'locale' => 'nl',
+            'name' => 'Nederlandse testpostzegel',
+        ],
+        [
+            'locale' => 'en',
+            'name' => 'English test stamp',
+        ],
+    ]);
+
+    $stampId = $stamp->id;
+
+    $response = $this
+        ->actingAs($user)
+        ->delete(route('backend.stamps.destroy', $stamp));
+
+    $response->assertRedirect(route('backend.stamps.index'));
+
+    $response->assertSessionHas('success');
+
+    $this->assertDatabaseMissing('stamps', [
+        'id' => $stampId,
+    ]);
+
+    $this->assertDatabaseMissing('stamp_translations', [
+        'stamp_id' => $stampId,
+    ]);
+});
+
+test('de backend weigert een postzegel met gekoppelde exemplaren te verwijderen', function () {
+    $user = User::factory()->create();
+
+    $stamp = Stamp::factory()->create([
+        'name' => 'Postzegel met exemplaar',
+    ]);
+
+    $stamp->translations()->create([
+        'locale' => 'nl',
+        'name' => 'Nederlandse postzegel',
+    ]);
+
+    // Maak een gekoppeld exemplaar aan.
+    $stamp->copies()->create([]);
+
+    $stampId = $stamp->id;
+
+    // Probeer de postzegel via de backend te verwijderen.
+    $response = $this
+        ->actingAs($user)
+        ->delete(route('backend.stamps.destroy', $stamp));
+
+    // De gebruiker wordt teruggestuurd met een foutmelding.
+    $response->assertRedirect(route('backend.stamps.index'));
+    $response->assertSessionHas('error');
+
+    // De postzegel moet blijven bestaan.
+    $this->assertDatabaseHas('stamps', [
+        'id' => $stampId,
+    ]);
+
+    // Het gekoppelde exemplaar moet behouden blijven.
+    $this->assertDatabaseHas('stamp_copies', [
+        'stamp_id' => $stampId,
+    ]);
+
+    // Ook de vertaling mag niet worden verwijderd.
+    $this->assertDatabaseHas('stamp_translations', [
+        'stamp_id' => $stampId,
+        'locale' => 'nl',
+        'name' => 'Nederlandse postzegel',
+    ]);
+});
+
+test('de backend weigert een postzegel met gekoppelde afbeeldingen te verwijderen', function () {
+    $user = User::factory()->create();
+
+    $stamp = Stamp::factory()->create([
+        'name' => 'Postzegel met afbeelding',
+    ]);
+
+    $stamp->translations()->create([
+        'locale' => 'nl',
+        'name' => 'Nederlandse postzegel met afbeelding',
+    ]);
+
+    // Maak een gekoppelde testafbeelding aan.
+    $image = $stamp->images()->create([
+        'path' => 'stamps/test-afbeelding.jpg',
+        'image_type' => 'front',
+        'is_primary' => true,
+    ]);
+
+    // Probeer de postzegel via de backend te verwijderen.
+    $response = $this
+        ->actingAs($user)
+        ->delete(route('backend.stamps.destroy', $stamp));
+
+    // De backend moet de verwijdering weigeren.
+    $response->assertRedirect(route('backend.stamps.index'));
+    $response->assertSessionHas('error');
+
+    // De postzegel moet behouden blijven.
+    $this->assertDatabaseHas('stamps', [
+        'id' => $stamp->id,
+    ]);
+
+    // De gekoppelde afbeelding moet behouden blijven.
+    $this->assertDatabaseHas('stamp_images', [
+        'id' => $image->id,
+        'stamp_id' => $stamp->id,
+        'path' => 'stamps/test-afbeelding.jpg',
+    ]);
+
+    // Ook de vertaling moet behouden blijven.
+    $this->assertDatabaseHas('stamp_translations', [
+        'stamp_id' => $stamp->id,
+        'locale' => 'nl',
+        'name' => 'Nederlandse postzegel met afbeelding',
+    ]);
+});
+
+test('de backend weigert een postzegel met catalogusvermeldingen te verwijderen', function () {
+    $user = User::factory()->create();
+
+    $stamp = Stamp::factory()->create([
+        'name' => 'Postzegel met catalogusvermelding',
+    ]);
+
+    $stamp->translations()->create([
+        'locale' => 'nl',
+        'name' => 'Nederlandse cataloguspostzegel',
+    ]);
+
+    // Maak een catalogus aan.
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus',
+    ]);
+
+    // Maak een editie van deze catalogus aan.
+    $edition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Testeditie',
+        'edition_year' => 2026,
+    ]);
+
+    // Koppel de postzegel aan de cataloguseditie.
+    $entry = $stamp->catalogEntries()->create([
+        'catalog_edition_id' => $edition->id,
+        'catalog_number' => 'TEST-001',
+    ]);
+
+    // Probeer de postzegel te verwijderen.
+    $response = $this
+        ->actingAs($user)
+        ->delete(route('backend.stamps.destroy', $stamp));
+
+    // De backend moet de verwijdering blokkeren.
+    $response->assertRedirect(route('backend.stamps.index'));
+    $response->assertSessionHas('error');
+
+    // De postzegel moet behouden blijven.
+    $this->assertDatabaseHas('stamps', [
+        'id' => $stamp->id,
+    ]);
+
+    // De catalogusvermelding moet behouden blijven.
+    $this->assertDatabaseHas('stamp_catalog_entries', [
+        'id' => $entry->id,
+        'stamp_id' => $stamp->id,
+        'catalog_edition_id' => $edition->id,
+        'catalog_number' => 'TEST-001',
+    ]);
+
+    // De cataloguseditie moet behouden blijven.
+    $this->assertDatabaseHas('catalog_editions', [
+        'id' => $edition->id,
+        'catalog_id' => $catalog->id,
+    ]);
+
+    // De catalogus moet behouden blijven.
+    $this->assertDatabaseHas('catalogs', [
+        'id' => $catalog->id,
+        'name' => 'Testcatalogus',
+    ]);
+
+    // Ook de vertaling moet behouden blijven.
+    $this->assertDatabaseHas('stamp_translations', [
+        'stamp_id' => $stamp->id,
+        'locale' => 'nl',
+        'name' => 'Nederlandse cataloguspostzegel',
+    ]);
+});
+
+test('de backend weigert een postzegel met gekoppelde waarderingen te verwijderen', function () {
+    $user = User::factory()->create();
+
+    $stamp = Stamp::factory()->create([
+        'name' => 'Postzegel met waardering',
+    ]);
+
+    $stamp->translations()->create([
+        'locale' => 'nl',
+        'name' => 'Nederlandse postzegel met waardering',
+    ]);
+
+    // Maak een gekoppelde waardering aan.
+    $valuation = $stamp->valuations()->create([
+        'valuation_date' => '2026-10-22',
+        'value' => 125.50,
+        'currency' => 'EUR',
+        'source' => 'Testcatalogus',
+    ]);
+
+    // Probeer de postzegel via de backend te verwijderen.
+    $response = $this
+        ->actingAs($user)
+        ->delete(route('backend.stamps.destroy', $stamp));
+
+    // De backend moet de verwijdering blokkeren.
+    $response->assertRedirect(route('backend.stamps.index'));
+    $response->assertSessionHas('error');
+
+    // De postzegel moet behouden blijven.
+    $this->assertDatabaseHas('stamps', [
+        'id' => $stamp->id,
+    ]);
+
+    // De gekoppelde waardering moet behouden blijven.
+    $this->assertDatabaseHas('stamp_valuations', [
+        'id' => $valuation->id,
+        'stamp_id' => $stamp->id,
+        'value' => 125.50,
+        'currency' => 'EUR',
+    ]);
+
+    // Controleer de datum via de bestaande Laravel date-cast.
+    expect($valuation->fresh()->valuation_date->toDateString())
+        ->toBe('2026-10-22');
+
+    // Ook de vertaling moet behouden blijven.
+    $this->assertDatabaseHas('stamp_translations', [
+        'stamp_id' => $stamp->id,
+        'locale' => 'nl',
+        'name' => 'Nederlandse postzegel met waardering',
+    ]);
+});
+
+test('de backend weigert een hoofdpostzegel met gekoppelde varianten te verwijderen', function () {
+    $user = User::factory()->create();
+
+    // Maak een hoofdpostzegel aan.
+    $stamp = Stamp::factory()->create([
+        'name' => 'Hoofdpostzegel',
+    ]);
+
+    $stamp->translations()->create([
+        'locale' => 'nl',
+        'name' => 'Nederlandse hoofdpostzegel',
+    ]);
+
+    // Maak een variant van de hoofdpostzegel aan.
+    $variant = Stamp::factory()->create([
+        'name' => 'Variant van hoofdpostzegel',
+        'parent_stamp_id' => $stamp->id,
+    ]);
+
+    // Probeer de hoofdpostzegel te verwijderen.
+    $response = $this
+        ->actingAs($user)
+        ->delete(route('backend.stamps.destroy', $stamp));
+
+    // De backend moet de verwijdering blokkeren.
+    $response->assertRedirect(route('backend.stamps.index'));
+    $response->assertSessionHas('error');
+
+    // De hoofdpostzegel moet behouden blijven.
+    $this->assertDatabaseHas('stamps', [
+        'id' => $stamp->id,
+        'name' => 'Hoofdpostzegel',
+    ]);
+
+    // De variant moet behouden blijven én gekoppeld blijven.
+    $this->assertDatabaseHas('stamps', [
+        'id' => $variant->id,
+        'parent_stamp_id' => $stamp->id,
+        'name' => 'Variant van hoofdpostzegel',
+    ]);
+
+    // Ook de vertaling moet behouden blijven.
+    $this->assertDatabaseHas('stamp_translations', [
+        'stamp_id' => $stamp->id,
+        'locale' => 'nl',
+        'name' => 'Nederlandse hoofdpostzegel',
     ]);
 });

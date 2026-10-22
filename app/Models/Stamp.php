@@ -160,11 +160,9 @@ class Stamp extends Model
         $locale = app()->getLocale();
         $fallbackLocale = config('app.fallback_locale', 'nl');
 
-        return $this->translations()
-            ->where('locale', $locale)
-            ->first()
-            ?? $this->translations()
-                ->where('locale', $fallbackLocale)
-                ->first();
+        $translations = $this->translations;
+
+        return $translations->firstWhere('locale', $locale)
+            ?? $translations->firstWhere('locale', $fallbackLocale);
     }
 }

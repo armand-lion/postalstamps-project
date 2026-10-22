@@ -219,6 +219,7 @@ class StampController extends Controller
             'themes',
             'copies.condition.translation',
             'images',
+            'translations',
         ]);
 
         return view('backend.stamps.show', compact('stamp'));
