@@ -370,6 +370,7 @@ test('een Engelstalige gebruiker kan een postzegel zonder Nederlandse naam wijzi
 });
 
 test('een postzegel gebruikt de fallbacktaal als de actieve vertaling ontbreekt', function () {
+    config()->set('app.fallback_locale', 'nl');
     app()->setLocale('en');
 
     $stamp = Stamp::factory()->create([
