@@ -1100,6 +1100,7 @@ test('de backend werkt een bestaande cataloguskoppeling bij zonder duplicaat', f
 });
 
 test('de backend koppelt een variant aan een hoofdpostzegel', function () {
+    app()->setLocale('nl');
     $country = Country::factory()->create();
 
     $parentStamp = Stamp::factory()->create([
