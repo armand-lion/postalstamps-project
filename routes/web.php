@@ -5,7 +5,9 @@ use App\Http\Controllers\Backend\CatalogEditionController;
 use App\Http\Controllers\Backend\CollectibleController;
 use App\Http\Controllers\Backend\CountryController;
 use App\Http\Controllers\Backend\StampController;
+use App\Http\Controllers\Backend\StampImageController;
 use App\Http\Controllers\Backend\StampSeriesController;
+use App\Http\Controllers\Backend\ThemeController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -32,10 +34,14 @@ Route::middleware(['auth'])->group(function () { //
         ->name('backend.')
         ->group(function () {
             Route::resource('countries', CountryController::class);
+            Route::resource('themes', ThemeController::class);
             Route::resource('stamps', StampController::class);
             Route::resource('collectibles', CollectibleController::class);
             Route::resource('stamp-series', StampSeriesController::class);
             Route::resource('catalogs', CatalogController::class);
+            Route::resource('stamps.images', StampImageController::class)
+                ->only(['store', 'update', 'destroy']);
+
             // Catalogusedities
             Route::resource('catalogs.editions', CatalogEditionController::class);
         });

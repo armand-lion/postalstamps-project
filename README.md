@@ -254,18 +254,28 @@ and personal collection copies.
 
 Fase 10 completed
 
-## Fase 11
+## Fase 11 - Stamp Management
 
-We gaan de volgende onderdelen ontwikkelen:
+The following features will be developed during this phase:
 
-1. Postzegels beheren: toevoegen, bekijken, bewerken en verwijderen.
-2. Catalogusoverzicht: zoeken, filteren, sorteren en pagineren.
-3. Postzegelgegevens: land, uitgiftejaar, nominale waarde, valuta, serienummer en overige kenmerken.
-4. Meertaligheid: omschrijvingen en andere vertaalbare gegevens in vijf talen.
-5. Afbeeldingen: uploaden, vervangen en verwijderen.
-6. Series: postzegels aan bestaande series koppelen.
-7. Catalogusgegevens: koppelingen met catalogi en catalogusedities uit fase 10.
-8. Validatie: invoer controleren en dubbele catalogusgegevens voorkomen waar nodig.
-9. Vormgeving: de bestaande bruine backendstijl behouden.
-10. Kwaliteitscontrole: Laravel Pint, PHPStan, Laravel-tests en GitHub Actions.
-    We gebruiken zoveel mogelijk de bestaande modellen, relaties en databasevelden. We gaan dus niet opnieuw bouwen wat in eerdere fasen al is gerealiseerd.
+Stamp Management: Create, view, edit, and delete stamps.
+
+Catalog Overview: Search, filter, sort, and paginate stamp records.
+
+Stamp Details: Manage countries, issue years, face values, currencies, serial numbers, and other stamp attributes.
+
+Multilingual Support: Manage descriptions and other translatable content in five languages.
+
+Image Management: Upload, replace, and delete stamp images.
+
+Stamp Series: Associate stamps with existing stamp series.
+
+Catalog Integration: Link stamps to catalogs and catalog editions established in Phase 10.
+
+Data Validation: Validate user input and prevent duplicate catalog entries where applicable.
+
+User Interface: Maintain the existing brown-themed backend design.
+
+Quality Assurance: Use Laravel Pint, PHPStan, Laravel tests, and GitHub Actions to maintain code quality and reliability.
+
+Existing models, relationships, and database fields will be reused wherever possible to avoid duplicating functionality implemented in previous phases.

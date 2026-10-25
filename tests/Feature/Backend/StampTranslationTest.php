@@ -4,6 +4,7 @@ use App\Models\Catalog;
 use App\Models\CatalogEdition;
 use App\Models\Country;
 use App\Models\Stamp;
+use App\Models\Theme;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -97,6 +98,131 @@ test('de backend slaat een postzegel met vijf vertalingen op', function () {
             'description' => $translation['description'],
         ]);
     }
+});
+
+test('de backend koppelt meerdere thema’s aan een nieuwe postzegel', function () {
+    app()->setLocale('nl');
+
+    $user = User::factory()->create();
+    $country = Country::factory()->create();
+
+    $theme1 = Theme::create([
+        'name' => 'Testthema natuur',
+        'slug' => 'testthema-natuur',
+    ]);
+
+    $theme2 = Theme::create([
+        'name' => 'Testthema dieren',
+        'slug' => 'testthema-dieren',
+    ]);
+
+    $response = $this
+        ->actingAs($user)
+        ->post(route('backend.stamps.store'), [
+            'country_id' => $country->id,
+            'issue_year' => 2026,
+            'theme_ids' => [
+                $theme1->id,
+                $theme2->id,
+            ],
+            'translations' => [
+                'nl' => [
+                    'name' => 'Postzegel met twee thema’s',
+                    'description' => null,
+                ],
+            ],
+        ]);
+
+    $response->assertRedirect(route('backend.stamps.index'));
+    $response->assertSessionHasNoErrors();
+
+    $stamp = Stamp::query()
+        ->where('country_id', $country->id)
+        ->firstOrFail();
+
+    $this->assertDatabaseHas('stamp_themes', [
+        'stamp_id' => $stamp->id,
+        'theme_id' => $theme1->id,
+    ]);
+
+    $this->assertDatabaseHas('stamp_themes', [
+        'stamp_id' => $stamp->id,
+        'theme_id' => $theme2->id,
+    ]);
+
+    expect($stamp->themes)->toHaveCount(2);
+});
+
+test('de backend kan themakoppelingen van een postzegel wijzigen en verwijderen', function () {
+    app()->setLocale('nl');
+
+    $user = User::factory()->create();
+    $stamp = Stamp::factory()->create();
+
+    $theme1 = Theme::create([
+        'name' => 'Testthema natuur',
+        'slug' => 'testthema-natuur',
+    ]);
+
+    $theme2 = Theme::create([
+        'name' => 'Testthema dieren',
+        'slug' => 'testthema-dieren',
+    ]);
+
+    $theme3 = Theme::create([
+        'name' => 'Testthema bloemen',
+        'slug' => 'testthema-bloemen',
+    ]);
+
+    // Koppel aanvankelijk twee thema's.
+    $stamp->themes()->sync([
+        $theme1->id,
+        $theme2->id,
+    ]);
+
+    $data = [
+        'country_id' => $stamp->country_id,
+        'issue_year' => $stamp->issue_year,
+        'translations' => [
+            'nl' => [
+                'name' => 'Postzegel met thema’s',
+                'description' => null,
+            ],
+        ],
+    ];
+
+    // Verwijder thema 1, behoud thema 2 en voeg thema 3 toe.
+    $response = $this
+        ->actingAs($user)
+        ->put(route('backend.stamps.update', $stamp), array_merge(
+            $data,
+            [
+                'theme_ids' => [
+                    $theme2->id,
+                    $theme3->id,
+                ],
+            ]
+        ));
+
+    $response->assertRedirect(route('backend.stamps.index'));
+    $response->assertSessionHasNoErrors();
+
+    expect(
+        $stamp->fresh()->themes()->pluck('themes.id')->sort()->values()->all()
+    )->toBe([
+        $theme2->id,
+        $theme3->id,
+    ]);
+
+    // Verstuur geen theme_ids: alle selectievakjes zijn uitgevinkt.
+    $response = $this
+        ->actingAs($user)
+        ->put(route('backend.stamps.update', $stamp), $data);
+
+    $response->assertRedirect(route('backend.stamps.index'));
+    $response->assertSessionHasNoErrors();
+
+    expect($stamp->fresh()->themes)->toHaveCount(0);
 });
 
 test('de backend werkt bestaande postzegelvertalingen bij', function () {
@@ -795,4 +921,431 @@ test('de backend weigert een hoofdpostzegel met gekoppelde varianten te verwijde
         'locale' => 'nl',
         'name' => 'Nederlandse hoofdpostzegel',
     ]);
+});
+
+test('de backend slaat een officieel catalogusnummer bij een nieuwe postzegel op', function () {
+    app()->setLocale('nl');
+
+    $user = User::factory()->create();
+    $country = Country::factory()->create();
+
+    $catalog = Catalog::create([
+        'name' => 'Nederlandse Vereniging van Postzegelhandelaren',
+        'abbreviation' => 'NVPH',
+    ]);
+
+    $edition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'NVPH 2026',
+        'edition_year' => 2026,
+    ]);
+
+    $response = $this
+        ->actingAs($user)
+        ->post(route('backend.stamps.store'), [
+            'country_id' => $country->id,
+            'issue_year' => 2026,
+            'catalog_edition_id' => $edition->id,
+            'catalog_number' => 'AU 10',
+            'translations' => [
+                'nl' => [
+                    'name' => 'Testzegel met catalogusnummer',
+                    'description' => 'Testbeschrijving',
+                ],
+            ],
+        ]);
+
+    $response->assertRedirect(route('backend.stamps.index'));
+    $response->assertSessionHasNoErrors();
+
+    $stamp = Stamp::query()
+        ->where('name', 'Testzegel met catalogusnummer')
+        ->firstOrFail();
+
+    $this->assertDatabaseHas('stamp_catalog_entries', [
+        'stamp_id' => $stamp->id,
+        'catalog_edition_id' => $edition->id,
+        'catalog_number' => 'AU 10',
+    ]);
+
+    expect($stamp->catalogEntries)->toHaveCount(1);
+});
+test('de backend voegt een tweede cataloguskoppeling toe zonder de eerste te verwijderen', function () {
+    app()->setLocale('nl');
+
+    $user = User::factory()->create();
+    $stamp = Stamp::factory()->create();
+
+    $catalog = Catalog::create([
+        'name' => 'Nederlandse Vereniging van Postzegelhandelaren',
+        'abbreviation' => 'NVPH',
+    ]);
+
+    $firstEdition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'NVPH 2026',
+        'edition_year' => 2026,
+    ]);
+
+    $secondEdition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'NVPH 2027',
+        'edition_year' => 2027,
+    ]);
+
+    // Bestaande cataloguskoppeling.
+    $stamp->catalogEntries()->create([
+        'catalog_edition_id' => $firstEdition->id,
+        'catalog_number' => '123a',
+    ]);
+
+    // Voeg via de backend een tweede cataloguskoppeling toe.
+    $response = $this
+        ->actingAs($user)
+        ->put(route('backend.stamps.update', $stamp), [
+            'country_id' => $stamp->country_id,
+            'issue_year' => $stamp->issue_year,
+            'catalog_edition_id' => $secondEdition->id,
+            'catalog_number' => 'AU 10',
+            'translations' => [
+                'nl' => [
+                    'name' => 'Postzegel met twee catalogusnummers',
+                    'description' => null,
+                ],
+            ],
+        ]);
+
+    $response->assertRedirect(route('backend.stamps.index'));
+    $response->assertSessionHasNoErrors();
+
+    // De oorspronkelijke koppeling moet behouden blijven.
+    $this->assertDatabaseHas('stamp_catalog_entries', [
+        'stamp_id' => $stamp->id,
+        'catalog_edition_id' => $firstEdition->id,
+        'catalog_number' => '123a',
+    ]);
+
+    // De nieuwe koppeling moet zijn toegevoegd.
+    $this->assertDatabaseHas('stamp_catalog_entries', [
+        'stamp_id' => $stamp->id,
+        'catalog_edition_id' => $secondEdition->id,
+        'catalog_number' => 'AU 10',
+    ]);
+
+    expect($stamp->fresh()->catalogEntries)->toHaveCount(2);
+});
+
+test('de backend werkt een bestaande cataloguskoppeling bij zonder duplicaat', function () {
+    app()->setLocale('nl');
+
+    $user = User::factory()->create();
+    $stamp = Stamp::factory()->create();
+
+    $catalog = Catalog::create([
+        'name' => 'Nederlandse Vereniging van Postzegelhandelaren',
+        'abbreviation' => 'NVPH',
+    ]);
+
+    $edition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'NVPH 2026',
+        'edition_year' => 2026,
+    ]);
+
+    // De postzegel heeft al een cataloguskoppeling.
+    $stamp->catalogEntries()->create([
+        'catalog_edition_id' => $edition->id,
+        'catalog_number' => '123a',
+    ]);
+
+    // Wijzig het catalogusnummer binnen dezelfde cataloguseditie.
+    $response = $this
+        ->actingAs($user)
+        ->put(route('backend.stamps.update', $stamp), [
+            'country_id' => $stamp->country_id,
+            'issue_year' => $stamp->issue_year,
+            'catalog_edition_id' => $edition->id,
+            'catalog_number' => 'AU 10',
+            'translations' => [
+                'nl' => [
+                    'name' => 'Postzegel met catalogusnummer',
+                    'description' => null,
+                ],
+            ],
+        ]);
+
+    // De wijziging moet succesvol worden opgeslagen.
+    $response->assertSessionHasNoErrors();
+
+    $response->assertRedirect(
+        route('backend.stamps.index')
+    );
+
+    // Het nieuwe catalogusnummer moet zijn opgeslagen.
+    $this->assertDatabaseHas('stamp_catalog_entries', [
+        'stamp_id' => $stamp->id,
+        'catalog_edition_id' => $edition->id,
+        'catalog_number' => 'AU 10',
+    ]);
+
+    // Het oude catalogusnummer mag niet meer bestaan.
+    $this->assertDatabaseMissing('stamp_catalog_entries', [
+        'stamp_id' => $stamp->id,
+        'catalog_edition_id' => $edition->id,
+        'catalog_number' => '123a',
+    ]);
+
+    // Er mag geen tweede koppeling zijn aangemaakt.
+    expect($stamp->fresh()->catalogEntries)->toHaveCount(1);
+});
+
+test('de backend koppelt een variant aan een hoofdpostzegel', function () {
+    $country = Country::factory()->create();
+
+    $parentStamp = Stamp::factory()->create([
+        'country_id' => $country->id,
+        'parent_stamp_id' => null,
+    ]);
+
+    $this->actingAs(User::factory()->create());
+
+    $response = $this->post(route('backend.stamps.store'), [
+        'country_id' => $country->id,
+        'parent_stamp_id' => $parentStamp->id,
+        'issue_year' => 2026,
+        'translations' => [
+            'nl' => [
+                'name' => 'Testvariant 2026',
+                'description' => 'Variant van een bestaande postzegel.',
+            ],
+        ],
+    ]);
+
+    $response->assertRedirect(route('backend.stamps.index'));
+    $response->assertSessionHasNoErrors();
+
+    $this->assertDatabaseHas('stamps', [
+        'name' => 'Testvariant 2026',
+        'country_id' => $country->id,
+        'parent_stamp_id' => $parentStamp->id,
+    ]);
+
+    expect($parentStamp->variants()->count())->toBe(1);
+});
+
+test('de backend weigert een hoofdpostzegel uit een ander land', function () {
+    app()->setLocale('nl');
+
+    $netherlands = Country::factory()->create();
+    $germany = Country::factory()->create();
+
+    $parentStamp = Stamp::factory()->create([
+        'country_id' => $netherlands->id,
+        'parent_stamp_id' => null,
+    ]);
+
+    $this->actingAs(User::factory()->create());
+
+    $response = $this->post(route('backend.stamps.store'), [
+        'country_id' => $germany->id,
+        'parent_stamp_id' => $parentStamp->id,
+        'issue_year' => 2026,
+        'translations' => [
+            'nl' => [
+                'name' => 'Ongeldige variant',
+            ],
+        ],
+    ]);
+
+    $response->assertSessionHasErrors(['parent_stamp_id']);
+
+    $this->assertDatabaseMissing('stamps', [
+        'name' => 'Ongeldige variant',
+        'parent_stamp_id' => $parentStamp->id,
+    ]);
+});
+
+test('de backend weigert een variant als hoofdpostzegel', function () {
+    app()->setLocale('nl');
+
+    $country = Country::factory()->create();
+
+    $parentStamp = Stamp::factory()->create([
+        'country_id' => $country->id,
+        'parent_stamp_id' => null,
+    ]);
+
+    $existingVariant = Stamp::factory()->create([
+        'country_id' => $country->id,
+        'parent_stamp_id' => $parentStamp->id,
+    ]);
+
+    $this->actingAs(User::factory()->create());
+
+    $response = $this->post(route('backend.stamps.store'), [
+        'country_id' => $country->id,
+        'parent_stamp_id' => $existingVariant->id,
+        'issue_year' => 2026,
+        'translations' => [
+            'nl' => [
+                'name' => 'Ongeldige geneste variant',
+            ],
+        ],
+    ]);
+
+    $response->assertSessionHasErrors(['parent_stamp_id']);
+
+    $this->assertDatabaseMissing('stamps', [
+        'name' => 'Ongeldige geneste variant',
+        'parent_stamp_id' => $existingVariant->id,
+    ]);
+});
+
+test('de backend weigert een hoofdpostzegel met varianten om te zetten naar een variant', function () {
+    app()->setLocale('nl');
+
+    $country = Country::factory()->create();
+
+    // Een zelfstandige hoofdpostzegel.
+    $parentStamp = Stamp::factory()->create([
+        'country_id' => $country->id,
+        'parent_stamp_id' => null,
+    ]);
+
+    // Deze hoofdpostzegel heeft al een variant.
+    Stamp::factory()->create([
+        'country_id' => $country->id,
+        'parent_stamp_id' => $parentStamp->id,
+    ]);
+
+    // Een andere zelfstandige hoofdpostzegel.
+    $otherParentStamp = Stamp::factory()->create([
+        'country_id' => $country->id,
+        'parent_stamp_id' => null,
+    ]);
+
+    $this->actingAs(User::factory()->create());
+
+    // Probeer de eerste hoofdpostzegel zelf een variant te maken.
+    $response = $this->put(
+        route('backend.stamps.update', $parentStamp),
+        [
+            'country_id' => $country->id,
+            'parent_stamp_id' => $otherParentStamp->id,
+            'issue_year' => 2026,
+            'translations' => [
+                'nl' => [
+                    'name' => 'Gewijzigde hoofdpostzegel',
+                ],
+            ],
+        ]
+    );
+
+    // Laravel moet deze wijziging weigeren.
+    $response->assertSessionHasErrors(['parent_stamp_id']);
+
+    // De oorspronkelijke hoofdpostzegel blijft zelfstandig.
+    $this->assertDatabaseHas('stamps', [
+        'id' => $parentStamp->id,
+        'parent_stamp_id' => null,
+    ]);
+
+    // De bestaande variant blijft gekoppeld.
+    expect($parentStamp->variants()->count())->toBe(1);
+});
+
+test('de backend kan een bestaande variant aan een andere hoofdpostzegel koppelen', function () {
+    app()->setLocale('nl');
+
+    $country = Country::factory()->create();
+
+    // Twee zelfstandige hoofdpostzegels uit hetzelfde land.
+    $firstParent = Stamp::factory()->create([
+        'country_id' => $country->id,
+        'parent_stamp_id' => null,
+    ]);
+
+    $secondParent = Stamp::factory()->create([
+        'country_id' => $country->id,
+        'parent_stamp_id' => null,
+    ]);
+
+    // De variant is oorspronkelijk gekoppeld aan de eerste hoofdpostzegel.
+    $variant = Stamp::factory()->create([
+        'country_id' => $country->id,
+        'parent_stamp_id' => $firstParent->id,
+    ]);
+
+    $this->actingAs(User::factory()->create());
+
+    $response = $this->put(
+        route('backend.stamps.update', $variant),
+        [
+            'country_id' => $country->id,
+            'parent_stamp_id' => $secondParent->id,
+            'issue_year' => 2026,
+            'translations' => [
+                'nl' => [
+                    'name' => 'Variant met gewijzigde hoofdpostzegel',
+                ],
+            ],
+        ]
+    );
+
+    $response->assertRedirect(route('backend.stamps.index'));
+    $response->assertSessionHasNoErrors();
+
+    // De variant moet nu gekoppeld zijn aan de tweede hoofdpostzegel.
+    $this->assertDatabaseHas('stamps', [
+        'id' => $variant->id,
+        'parent_stamp_id' => $secondParent->id,
+    ]);
+
+    // De eerste hoofdpostzegel heeft geen varianten meer.
+    expect($firstParent->variants()->count())->toBe(0);
+
+    // De tweede hoofdpostzegel heeft de variant overgenomen.
+    expect($secondParent->variants()->count())->toBe(1);
+});
+
+test('de backend kan een bestaande variant zelfstandig maken', function () {
+    app()->setLocale('nl');
+
+    $country = Country::factory()->create();
+
+    $parentStamp = Stamp::factory()->create([
+        'country_id' => $country->id,
+        'parent_stamp_id' => null,
+    ]);
+
+    $variant = Stamp::factory()->create([
+        'country_id' => $country->id,
+        'parent_stamp_id' => $parentStamp->id,
+    ]);
+
+    $this->actingAs(User::factory()->create());
+
+    $response = $this->put(
+        route('backend.stamps.update', $variant),
+        [
+            'country_id' => $country->id,
+            'parent_stamp_id' => '',
+            'issue_year' => 2026,
+            'translations' => [
+                'nl' => [
+                    'name' => 'Zelfstandige postzegel',
+                ],
+            ],
+        ]
+    );
+
+    $response->assertRedirect(route('backend.stamps.index'));
+    $response->assertSessionHasNoErrors();
+
+    $this->assertDatabaseHas('stamps', [
+        'id' => $variant->id,
+        'parent_stamp_id' => null,
+    ]);
+
+    expect($parentStamp->variants()->count())->toBe(0);
 });

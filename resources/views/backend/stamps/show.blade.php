@@ -121,6 +121,119 @@
             </dl>
         </div>
 
+        {{-- Catalogusnummers en cataloguswaarden --}}
+        <div class="rounded-xl border border-neutral-200 p-4 dark:border-neutral-700 md:p-6">
+
+            <flux:heading size="lg">
+                {{ __('Catalogusnummers en cataloguswaarden') }}
+            </flux:heading>
+
+            @if ($stamp->catalogEntries->isNotEmpty())
+
+                <div class="mt-4 overflow-x-auto">
+
+                    <table class="w-full text-sm">
+
+                        <thead>
+                            <tr class="border-b border-neutral-200 text-left dark:border-neutral-700">
+                                <th class="px-3 py-2">{{ __('Catalogus') }}</th>
+                                <th class="px-3 py-2">{{ __('Cataloguseditie') }}</th>
+                                <th class="px-3 py-2">{{ __('Catalogusnummer') }}</th>
+                                <th class="px-3 py-2">{{ __('Postfris') }}</th>
+                                <th class="px-3 py-2">{{ __('Gestempeld') }}</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            @foreach ($stamp->catalogEntries as $entry)
+                                @php
+                                    $postfris = $entry->values->first(
+                                        fn($value) => $value->condition?->slug === 'postfris',
+                                    );
+
+                                    $gestempeld = $entry->values->first(
+                                        fn($value) => $value->condition?->slug === 'gestempeld',
+                                    );
+                                @endphp
+
+                                <tr class="border-b border-neutral-200/50 dark:border-neutral-700/50">
+
+                                    <td class="px-3 py-2">
+                                        {{ $entry->catalogEdition?->catalog?->abbreviation ?: $entry->catalogEdition?->catalog?->name }}
+                                    </td>
+
+                                    <td class="px-3 py-2">
+                                        {{ $entry->catalogEdition?->edition_name }}
+                                    </td>
+
+                                    <td class="px-3 py-2 font-semibold">
+                                        {{ $entry->catalog_number }}
+                                    </td>
+
+                                    <td class="px-3 py-2">
+                                        @if ($postfris)
+                                            {{ $postfris->currency }}
+                                            {{ number_format($postfris->catalog_value, 2, ',', '.') }}
+                                        @else
+                                            —
+                                        @endif
+                                    </td>
+
+                                    <td class="px-3 py-2">
+                                        @if ($gestempeld)
+                                            {{ $gestempeld->currency }}
+                                            {{ number_format($gestempeld->catalog_value, 2, ',', '.') }}
+                                        @else
+                                            —
+                                        @endif
+                                    </td>
+
+                                </tr>
+                            @endforeach
+                        </tbody>
+
+                    </table>
+
+                </div>
+            @else
+                <flux:text class="mt-4">
+                    {{ __('Er zijn nog geen catalogusnummers geregistreerd.') }}
+                </flux:text>
+
+            @endif
+
+        </div>
+        {{-- Thema's --}}
+        <div class="rounded-xl border border-neutral-200 p-4 dark:border-neutral-700 md:p-6">
+
+            <flux:heading size="lg">
+                {{ __('Thema\'s') }}
+            </flux:heading>
+
+            @if ($stamp->themes->isNotEmpty())
+
+                <div class="mt-4 flex flex-wrap gap-2">
+
+                    @foreach ($stamp->themes as $theme)
+                        <span
+                            class="inline-flex items-center rounded-lg border border-neutral-200 bg-neutral-100 px-3 py-1.5 text-sm font-medium dark:border-neutral-700 dark:bg-neutral-800">
+
+                            {{ $theme->translationWithFallback()?->name ?? $theme->name }}
+
+                        </span>
+                    @endforeach
+
+                </div>
+            @else
+                <flux:text class="mt-4">
+                    {{ __('Er zijn nog geen thema\'s gekoppeld aan deze postzegel.') }}
+                </flux:text>
+
+            @endif
+
+        </div>
+
+
         {{-- Beschrijving --}}
         <div class="rounded-xl border border-neutral-200 p-4 dark:border-neutral-700 md:p-6">
             <flux:heading size="lg">
@@ -141,6 +254,54 @@
             <div class="mt-4 whitespace-pre-line text-sm">
                 {{ $stamp->notes ?: '—' }}
             </div>
+        </div>
+
+        {{-- Postzegelafbeeldingen --}}
+        <div class="rounded-xl border border-neutral-200 p-4 dark:border-neutral-700 md:p-6">
+            <flux:heading size="lg">
+                {{ __('Postzegelafbeeldingen') }}
+            </flux:heading>
+
+            @if ($stamp->images->isNotEmpty())
+                <div class="mt-4 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                    @foreach ($stamp->images as $image)
+                        <div class="rounded-lg border border-neutral-200 p-4 dark:border-neutral-700">
+                            <img src="{{ asset('storage/' . $image->path) }}"
+                                alt="{{ $image->alt_text ?: __('Postzegelafbeelding') }}"
+                                class="h-64 w-full rounded-lg object-contain" />
+
+                            <div class="mt-3">
+                                <flux:text class="font-medium">
+                                    @switch($image->image_type)
+                                        @case('front')
+                                            {{ __('Voorzijde') }}
+                                        @break
+
+                                        @case('back')
+                                            {{ __('Achterzijde') }}
+                                        @break
+
+                                        @case('detail')
+                                            {{ __('Detail') }}
+                                        @break
+                                    @endswitch
+                                </flux:text>
+
+                                @if ($image->alt_text)
+                                    <flux:text class="mt-1 text-sm">
+                                        {{ $image->alt_text }}
+                                    </flux:text>
+                                @endif
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            @else
+                <flux:text class="mt-4">
+                    {{ __('Er zijn nog geen afbeeldingen toegevoegd.') }}
+                </flux:text>
+            @endif
+
         </div>
 
         {{-- Fysieke exemplaren --}}
