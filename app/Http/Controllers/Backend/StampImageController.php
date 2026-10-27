@@ -20,7 +20,9 @@ class StampImageController extends Controller
             'alt_text' => ['nullable', 'string', 'max:255'],
         ]);
 
-        $path = $validated['image']->store('stamps', 'public');
+        $directory = 'stamps/'.$stamp->country->slug.'/'.$stamp->issue_year;
+
+        $path = $validated['image']->store($directory, 'public');
 
         if ($path === false) {
             throw ValidationException::withMessages([
@@ -66,7 +68,9 @@ class StampImageController extends Controller
 
         // Alleen een nieuw bestand opslaan als er een afbeelding is geselecteerd.
         if ($request->hasFile('image')) {
-            $newPath = $request->file('image')->store('stamps', 'public');
+            $directory = 'stamps/'.$stamp->country->slug.'/'.$stamp->issue_year;
+
+            $newPath = $request->file('image')->store($directory, 'public');
 
             if ($newPath === false) {
                 throw ValidationException::withMessages([

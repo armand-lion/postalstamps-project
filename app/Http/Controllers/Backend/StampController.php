@@ -494,7 +494,9 @@ class StampController extends Controller
 
                 // Koppel de afbeelding aan de nieuwe postzegel.
                 if ($imageFile !== null) {
-                    $path = $imageFile->store('stamps', 'public');
+                    $directory = 'stamps/'.$stamp->country->slug.'/'.$stamp->issue_year;
+
+                    $path = $imageFile->store($directory, 'public');
 
                     if ($path === false) {
                         throw ValidationException::withMessages([

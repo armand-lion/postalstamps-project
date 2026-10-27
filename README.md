@@ -279,3 +279,47 @@ User Interface: Maintain the existing brown-themed backend design.
 Quality Assurance: Use Laravel Pint, PHPStan, Laravel tests, and GitHub Actions to maintain code quality and reliability.
 
 Existing models, relationships, and database fields will be reused wherever possible to avoid duplicating functionality implemented in previous phases.
+
+Fase 11 complete
+
+## Fase 12 — Beheer persoonlijke postzegelverzameling
+
+**Status:** ⏳ Gepland
+
+### Doel
+
+Het ontwikkelen van een beheersysteem voor de persoonlijke postzegelverzameling.
+
+De bestaande postzegelcatalogus vormt de basis. Gebruikers kunnen aangeven welke postzegels zij bezitten en hun exemplaren beheren.
+
+### Geplande werkzaamheden
+
+- [ ] Backend CRUD voor verzamelexemplaren (`StampCopy`).
+- [ ] Verzamelexemplaren koppelen aan bestaande postzegels (`Stamp`).
+- [ ] Conditie per exemplaar registreren.
+- [ ] Aantal exemplaren per conditie vastleggen.
+- [ ] Eigen afbeeldingen van verzamelexemplaren beheren.
+- [ ] Overzicht van de persoonlijke verzameling ontwikkelen.
+- [ ] Filteren op land, jaar, postzegel en conditie.
+- [ ] In de catalogus aangeven welke postzegels in bezit zijn.
+- [ ] Ontbrekende postzegels in een lichtere kleur weergeven.
+- [ ] Mogelijkheid om vanuit de catalogus een postzegel aan de verzameling toe te voegen.
+- [ ] Meertaligheid ondersteunen (NL, EN, DE, FR, ES).
+- [ ] Bestaande bruine vormgeving en Flux UI-componenten toepassen.
+- [ ] Validatie en foutafhandeling implementeren.
+- [ ] Featuretests voor verzamelbeheer toevoegen.
+- [ ] Laravel Pint, PHPStan en volledige testsuite uitvoeren.
+- [ ] Wijzigingen vastleggen in Git en pushen naar GitHub.
+
+### Acceptatiecriteria
+
+Fase 12 is afgerond wanneer:
+
+1. Verzamelexemplaren volledig via de backend beheerd kunnen worden.
+2. Per postzegel de conditie en het aantal geregistreerd kunnen worden.
+3. Eigen afbeeldingen aan exemplaren gekoppeld kunnen worden.
+4. Bezit en ontbrekende postzegels duidelijk herkenbaar zijn.
+5. De functionaliteit in alle vijf talen werkt.
+6. Alle automatische kwaliteitscontroles succesvol zijn afgerond.
+
+**Status:** ⏳ Nog niet gestart

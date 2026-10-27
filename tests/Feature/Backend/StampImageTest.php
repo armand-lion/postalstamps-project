@@ -49,6 +49,11 @@ class StampImageTest extends TestCase
         $storedImage = $stamp->images()->firstOrFail();
 
         Storage::disk('public')->assertExists($storedImage->path);
+
+        $this->assertStringStartsWith(
+            'stamps/'.$country->slug.'/'.$stamp->issue_year.'/',
+            $storedImage->path
+        );
     }
 
     public function test_een_afbeelding_kan_worden_vervangen(): void
@@ -94,6 +99,12 @@ class StampImageTest extends TestCase
 
         // Controleren of de nieuwe afbeelding is opgeslagen.
         Storage::disk('public')->assertExists($stampImage->path);
+
+        // Controleren of de afbeelding in de juiste land- en jaarmap staat.
+        $this->assertStringStartsWith(
+            'stamps/'.$country->slug.'/'.$stamp->issue_year.'/',
+            $stampImage->path
+        );
 
         // Controleren of de oude afbeelding is verwijderd.
         Storage::disk('public')->assertMissing($oldPath);
@@ -504,6 +515,12 @@ class StampImageTest extends TestCase
 
         // Controleer of het afbeeldingsbestand daadwerkelijk bestaat.
         Storage::disk('public')->assertExists($storedImage->path);
+
+        // Controleer of de afbeelding in de juiste land- en jaarmap staat.
+        $this->assertStringStartsWith(
+            'stamps/'.$country->slug.'/2026/',
+            $storedImage->path
+        );
 
         // Er mag maar één afbeelding zijn aangemaakt.
         $this->assertDatabaseCount('stamp_images', 1);
