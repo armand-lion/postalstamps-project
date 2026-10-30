@@ -309,7 +309,7 @@ The existing stamp catalog serves as the foundation. Users can indicate which st
 - [x] Implement validation and error handling.
 - [x] Add feature tests for stamp collection management.
 - [x] Run Laravel Pint, PHPStan, and the complete test suite.
-- [ ] Commit changes to Git and push them to GitHub.
+- [x] Commit changes to Git and push them to GitHub.
 
 ### Acceptance Criteria
 
@@ -322,4 +322,4 @@ Phase 12 is complete when:
 5. All functionality works in all five supported languages.
 6. All automated quality checks pass successfully.
 
-**Status:** In progress — core functionality implemented, final verification and Git publication pending.
+**Status:** ✅ Completed — personal stamp collection management implemented, tested, and published.
