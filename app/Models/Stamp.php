@@ -89,6 +89,16 @@ class Stamp extends Model
     }
 
     /**
+     * Controleert of deze postzegel in bezit is.
+     */
+    public function isOwned(): bool
+    {
+        return $this->copies()
+            ->where('quantity', '>', 0)
+            ->exists();
+    }
+
+    /**
      * @return HasMany<StampImage, $this>
      */
     public function images(): HasMany

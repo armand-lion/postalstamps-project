@@ -945,6 +945,7 @@ test('de backend slaat een officieel catalogusnummer bij een nieuwe postzegel op
         ->post(route('backend.stamps.store'), [
             'country_id' => $country->id,
             'issue_year' => 2026,
+            'catalog_id' => $catalog->id,
             'catalog_edition_id' => $edition->id,
             'catalog_number' => 'AU 10',
             'translations' => [
@@ -970,6 +971,7 @@ test('de backend slaat een officieel catalogusnummer bij een nieuwe postzegel op
 
     expect($stamp->catalogEntries)->toHaveCount(1);
 });
+
 test('de backend voegt een tweede cataloguskoppeling toe zonder de eerste te verwijderen', function () {
     app()->setLocale('nl');
 

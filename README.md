@@ -282,44 +282,44 @@ Existing models, relationships, and database fields will be reused wherever poss
 
 Fase 11 complete
 
-## Fase 12 — Beheer persoonlijke postzegelverzameling
+## Phase 12 — Personal Stamp Collection Management
 
-**Status:** ⏳ Gepland
+**Status:** ⏳ In progress — core functionality implemented, final verification and Git publication pending.
 
-### Doel
+### Objective
 
-Het ontwikkelen van een beheersysteem voor de persoonlijke postzegelverzameling.
+Develop a management system for personal stamp collections.
 
-De bestaande postzegelcatalogus vormt de basis. Gebruikers kunnen aangeven welke postzegels zij bezitten en hun exemplaren beheren.
+The existing stamp catalog serves as the foundation. Users can indicate which stamps they own and manage their individual copies.
 
-### Geplande werkzaamheden
+### Planned Tasks
 
-- [ ] Backend CRUD voor verzamelexemplaren (`StampCopy`).
-- [ ] Verzamelexemplaren koppelen aan bestaande postzegels (`Stamp`).
-- [ ] Conditie per exemplaar registreren.
-- [ ] Aantal exemplaren per conditie vastleggen.
-- [ ] Eigen afbeeldingen van verzamelexemplaren beheren.
-- [ ] Overzicht van de persoonlijke verzameling ontwikkelen.
-- [ ] Filteren op land, jaar, postzegel en conditie.
-- [ ] In de catalogus aangeven welke postzegels in bezit zijn.
-- [ ] Ontbrekende postzegels in een lichtere kleur weergeven.
-- [ ] Mogelijkheid om vanuit de catalogus een postzegel aan de verzameling toe te voegen.
-- [ ] Meertaligheid ondersteunen (NL, EN, DE, FR, ES).
-- [ ] Bestaande bruine vormgeving en Flux UI-componenten toepassen.
-- [ ] Validatie en foutafhandeling implementeren.
-- [ ] Featuretests voor verzamelbeheer toevoegen.
-- [ ] Laravel Pint, PHPStan en volledige testsuite uitvoeren.
-- [ ] Wijzigingen vastleggen in Git en pushen naar GitHub.
+- [x] Implement backend CRUD operations for stamp copies (StampCopy).
+- [x] Link stamp copies to existing stamps (Stamp).
+- [x] Register the condition of each stamp copy.
+- [x] Track quantities for each condition.
+- [x] Manage personal images for individual stamp copies.
+- [x] Develop an overview of the personal stamp collection.
+- [x] Implement filtering by country, year, stamp, and condition.
+- [x] Indicate which stamps are owned in the catalog.
+- [x] Display missing stamps with reduced opacity.
+- [x] Allow stamps to be added directly to the personal collection from the catalog.
+- [x] Support multilingual functionality (Dutch, English, German, French, and Spanish).
+- [x] Maintain the existing brown-themed design and Flux UI components.
+- [x] Implement validation and error handling.
+- [x] Add feature tests for stamp collection management.
+- [x] Run Laravel Pint, PHPStan, and the complete test suite.
+- [ ] Commit changes to Git and push them to GitHub.
 
-### Acceptatiecriteria
+### Acceptance Criteria
 
-Fase 12 is afgerond wanneer:
+Phase 12 is complete when:
 
-1. Verzamelexemplaren volledig via de backend beheerd kunnen worden.
-2. Per postzegel de conditie en het aantal geregistreerd kunnen worden.
-3. Eigen afbeeldingen aan exemplaren gekoppeld kunnen worden.
-4. Bezit en ontbrekende postzegels duidelijk herkenbaar zijn.
-5. De functionaliteit in alle vijf talen werkt.
-6. Alle automatische kwaliteitscontroles succesvol zijn afgerond.
+1. Stamp copies can be fully managed through the backend.
+2. The condition and quantity of each stamp can be recorded.
+3. Personal images can be associated with individual stamp copies.
+4. Owned and missing stamps are clearly distinguishable.
+5. All functionality works in all five supported languages.
+6. All automated quality checks pass successfully.
 
-**Status:** ⏳ Nog niet gestart
+**Status:** In progress — core functionality implemented, final verification and Git publication pending.

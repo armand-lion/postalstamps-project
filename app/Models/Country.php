@@ -42,6 +42,16 @@ class Country extends Model
     }
 
     /**
+     * De watermerken die bij dit land horen.
+     *
+     * @return HasMany<Watermark, $this>
+     */
+    public function watermarks(): HasMany
+    {
+        return $this->hasMany(Watermark::class);
+    }
+
+    /**
      * @return HasMany<Collectible, $this>
      */
     public function collectibles(): HasMany

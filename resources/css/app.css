@@ -1,5 +1,5 @@
-@import 'tailwindcss';
-@import '../../vendor/livewire/flux/dist/flux.css';
+@import "tailwindcss";
+@import "../../vendor/livewire/flux/dist/flux.css";
 
 @source '../views';
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
@@ -9,7 +9,10 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-sans:
+        "Instrument Sans", ui-sans-serif, system-ui, sans-serif,
+        "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
+        "Noto Color Emoji";
 
     --color-zinc-50: #fafafa;
     --color-zinc-100: #f5f5f5;
@@ -24,8 +27,8 @@
     --color-zinc-950: #0a0a0a;
 
     /* aangepaste kleuren */
-    --color-blue-1: #070D19;
-    --color-blue-2: #0C1427;
+    --color-blue-1: #070d19;
+    --color-blue-2: #0c1427;
     --color-blue-3: #172340;
 
     --color-accent: var(--color-neutral-800);
@@ -40,8 +43,8 @@
     --color-brown-6: #e6d9cb;
 
     --color-theme-accent-1: #402a1e;
-    --color-theme-accent-2: #1C120D;
-    --color-theme-accent-3: #2B1C14;
+    --color-theme-accent-2: #1c120d;
+    --color-theme-accent-3: #2b1c14;
 
     --tj-body: #dddddd;
     --tj-white: #ffffff;
@@ -51,9 +54,6 @@
     --tj-black3: #5c6266;
     --tj-black4: #585859;
 
-
-
-
     --tj-heading-primary: #102039;
     --tj-heading-secondary: #ea1826;
     --tj-theme-primary: #8750f7;
@@ -62,10 +62,7 @@
     --tj-theme-primary-2: #9b8dff;
     --tj-theme-primary-3: #4654f9;
 
-
     --tj-theme-accent-1: #0f0715;
-
-
 
     --tj-grey-1: #747779;
     --tj-grey-2: #d9d9d9;
@@ -90,7 +87,6 @@
 }
 
 @layer base {
-
     *,
     ::after,
     ::before,
@@ -105,7 +101,7 @@
 }
 
 [data-flux-label] {
-    @apply  !mb-0 !leading-tight;
+    @apply !mb-0 !leading-tight;
 }
 
 input:focus[data-flux-control],
@@ -117,3 +113,16 @@ select:focus[data-flux-control] {
 /* \[:where(&)\]:size-4 {
     @apply size-4;
 } */
+
+/* Alleen voor onze aangepaste aantalvelden */
+
+.quantity-input::-webkit-inner-spin-button,
+.quantity-input::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.quantity-input {
+    -moz-appearance: textfield;
+    appearance: textfield;
+}

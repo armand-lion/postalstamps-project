@@ -73,6 +73,8 @@ class StampController extends Controller
             'catalogEntries.catalogEdition.catalog',
             'images',
             'catalogEntries.values.condition.translations',
+        ])->withExists([
+            'copies as is_owned' => fn ($query) => $query->where('quantity', '>', 0),
         ]);
 
         // Zoek in postzegelnamen, vertalingen en catalogusreferenties.
@@ -209,6 +211,11 @@ class StampController extends Controller
             ->orderBy('name')
             ->get();
 
+        // Laad beschikbare catalogi voor het aanmaakformulier.
+        $catalogs = Catalog::query()
+            ->orderBy('name')
+            ->get();
+
         $catalogEditions = CatalogEdition::with('catalog')
             ->orderByDesc('edition_year')
             ->orderBy('edition_name')
@@ -229,6 +236,7 @@ class StampController extends Controller
             'countries' => $countries,
             'series' => $series,
             'locales' => self::LOCALES,
+            'catalogs' => $catalogs,
             'catalogEditions' => $catalogEditions,
             'parentStamps' => $parentStamps,
             'themes' => $themes,
@@ -303,11 +311,18 @@ class StampController extends Controller
                 'string',
                 'max:255',
             ],
+            'catalog_id' => [
+                'nullable',
+                'required_with:catalog_edition_id',
+                'integer',
+                'exists:catalogs,id',
+            ],
             'catalog_edition_id' => [
                 'nullable',
                 'required_with:catalog_number',
                 'integer',
-                'exists:catalog_editions,id',
+                Rule::exists('catalog_editions', 'id')
+                    ->where('catalog_id', $request->input('catalog_id')),
             ],
             'catalog_number' => [
                 'nullable',
@@ -378,6 +393,7 @@ class StampController extends Controller
 
         // Deze gegevens horen niet rechtstreeks bij de tabel 'stamps'.
         unset(
+            $validated['catalog_id'],
             $validated['catalog_edition_id'],
             $validated['catalog_number'],
             $validated['catalog_values']

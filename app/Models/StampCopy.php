@@ -11,6 +11,7 @@ class StampCopy extends Model
     protected $fillable = [
         'stamp_id',
         'condition_id',
+        'quantity',
         'acquisition_date',
         'purchase_price',
         'purchase_currency',
@@ -26,6 +27,7 @@ class StampCopy extends Model
     protected function casts(): array
     {
         return [
+            'quantity' => 'integer',
             'acquisition_date' => 'date',
             'purchase_price' => 'decimal:2',
             'is_variant' => 'boolean',
@@ -49,6 +51,20 @@ class StampCopy extends Model
     }
 
     /**
+     * De gomconditie van deze postzegel.
+     *
+     * @return BelongsTo<GumCondition, $this>
+     */
+    public function gumCondition(): BelongsTo
+    {
+        return $this->belongsTo(
+            GumCondition::class,
+            'gum_condition',
+            'slug'
+        );
+    }
+
+    /**
      * @return HasMany<StampCopyImage, $this>
      */
     public function images(): HasMany
@@ -62,5 +78,31 @@ class StampCopy extends Model
     public function valuations(): HasMany
     {
         return $this->hasMany(StampCopyValuation::class);
+    }
+
+    /**
+     * De vertalingen van de variantbeschrijving.
+     *
+     * @return HasMany<StampCopyTranslation, $this>
+     */
+    public function translations(): HasMany
+    {
+        return $this->hasMany(StampCopyTranslation::class);
+    }
+
+    /**
+     * Haal de vertaling op voor de huidige taal,
+     * met Nederlands als terugvaltaal.
+     */
+    public function translationWithFallback(): ?StampCopyTranslation
+    {
+        $locale = app()->getLocale();
+
+        return $this->translations()
+            ->where('locale', $locale)
+            ->first()
+            ?? $this->translations()
+                ->where('locale', 'nl')
+                ->first();
     }
 }

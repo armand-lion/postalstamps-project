@@ -5,6 +5,8 @@ use App\Http\Controllers\Backend\CatalogEditionController;
 use App\Http\Controllers\Backend\CollectibleController;
 use App\Http\Controllers\Backend\CountryController;
 use App\Http\Controllers\Backend\StampController;
+use App\Http\Controllers\Backend\StampCopyController;
+use App\Http\Controllers\Backend\StampCopyImageController;
 use App\Http\Controllers\Backend\StampImageController;
 use App\Http\Controllers\Backend\StampSeriesController;
 use App\Http\Controllers\Backend\ThemeController;
@@ -36,6 +38,10 @@ Route::middleware(['auth'])->group(function () { //
             Route::resource('countries', CountryController::class);
             Route::resource('themes', ThemeController::class);
             Route::resource('stamps', StampController::class);
+            Route::resource('stamp-copies', StampCopyController::class);
+            Route::resource('stamp-copies.images', StampCopyImageController::class)
+                ->only(['store', 'update', 'destroy'])
+                ->parameters(['stamp-copies' => 'stampCopy']);
             Route::resource('collectibles', CollectibleController::class);
             Route::resource('stamp-series', StampSeriesController::class);
             Route::resource('catalogs', CatalogController::class);

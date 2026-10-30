@@ -206,7 +206,8 @@
 
                         <tbody class="divide-y divide-brown-4 dark:divide-neutral-700">
                             @foreach ($stamps as $stamp)
-                                <tr class="hover:bg-neutral-50 dark:hover:bg-neutral-900/50">
+                                <tr
+                                    class="transition-colors hover:bg-brown-4! {{ $stamp->is_owned ? '' : 'opacity-50 hover:opacity-75' }}">
                                     {{-- Catalogusafbeelding als thumbnail --}}
                                     <td class="px-4 py-3">
                                         @php
@@ -319,6 +320,15 @@
                                     {{-- Acties --}}
                                     <td class="px-4 py-3">
                                         <div class="flex flex-wrap justify-end gap-2">
+
+                                            {{-- Toevoegen aan persoonlijke verzameling --}}
+                                            @if (!$stamp->is_owned)
+                                                <flux:button
+                                                    :href="route('backend.stamp-copies.create', ['stamp_id' => $stamp->id])"
+                                                    size="sm" variant="ghost" icon="plus">
+                                                    {{ __('Toevoegen aan mijn verzameling') }}
+                                                </flux:button>
+                                            @endif
 
                                             {{-- Bekijken --}}
                                             <flux:button :href="route('backend.stamps.show', $stamp)" size="sm"

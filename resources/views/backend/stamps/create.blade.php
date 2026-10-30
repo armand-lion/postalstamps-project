@@ -29,7 +29,7 @@
             class="flex flex-col gap-6" novalidate>
             @csrf
 
-            <div class="rounded-xl border border-neutral-200 p-4 dark:border-neutral-700 md:p-6">
+            <div class="rounded-xl border border-neutral-200 p-4 bg-brown-6 dark:border-neutral-700 md:p-6">
                 <flux:heading size="lg">
                     {{ __('Algemene gegevens') }}
                 </flux:heading>
@@ -205,29 +205,55 @@
                         </div>
                     </flux:field>
 
-                    {{-- Cataloguseditie --}}
-                    <flux:field>
-                        <flux:label>{{ __('Cataloguseditie') }}</flux:label>
+                    {{-- Catalogus en cataloguseditie --}}
+                    <div x-data="{
+                        catalogId: @js((string) old('catalog_id', '')),
+                        editionId: @js((string) old('catalog_edition_id', ''))
+                    }">
+                        {{-- Catalogus --}}
+                        <flux:field>
+                            <flux:label>{{ __('Catalogus') }}</flux:label>
 
-                        <flux:select name="catalog_edition_id">
-                            <option value="">
-                                {{ __('Geen cataloguseditie geselecteerd') }}
-                            </option>
-
-                            @foreach ($catalogEditions as $edition)
-                                <option value="{{ $edition->id }}" @selected((string) old('catalog_edition_id') === (string) $edition->id)>
-                                    {{ $edition->catalog?->abbreviation ?: $edition->catalog?->name }}
-                                    —
-                                    {{ $edition->edition_name }}
-                                    ({{ $edition->edition_year }})
+                            <flux:select name="catalog_id" x-model="catalogId" x-on:change="editionId = ''">
+                                <option value="">
+                                    {{ __('Geen catalogus geselecteerd') }}
                                 </option>
-                            @endforeach
-                        </flux:select>
 
-                        <div class="min-h-5">
-                            <flux:error name="catalog_edition_id" />
-                        </div>
-                    </flux:field>
+                                @foreach ($catalogs as $catalog)
+                                    <option value="{{ $catalog->id }}">
+                                        {{ $catalog->name }}
+                                    </option>
+                                @endforeach
+                            </flux:select>
+
+                            <div class="min-h-5">
+                                <flux:error name="catalog_id" />
+                            </div>
+                        </flux:field>
+
+                        {{-- Cataloguseditie --}}
+                        <flux:field>
+                            <flux:label>{{ __('Cataloguseditie') }}</flux:label>
+
+                            <flux:select name="catalog_edition_id" x-model="editionId">
+                                <option value="">
+                                    {{ __('Geen cataloguseditie geselecteerd') }}
+                                </option>
+
+                                @foreach ($catalogEditions as $edition)
+                                    <option value="{{ $edition->id }}"
+                                        x-show="catalogId === @js((string) $edition->catalog_id)">
+                                        {{ $edition->edition_name }}
+                                        ({{ $edition->edition_year }})
+                                    </option>
+                                @endforeach
+                            </flux:select>
+
+                            <div class="min-h-5">
+                                <flux:error name="catalog_edition_id" />
+                            </div>
+                        </flux:field>
+                    </div>
 
                     {{-- Officieel catalogusnummer --}}
                     <flux:field>
@@ -283,7 +309,7 @@
             </div>
 
             {{-- Vertalingen --}}
-            <section class="rounded-xl border border-neutral-200 dark:border-neutral-700">
+            <section class="rounded-xl border border-neutral-200 bg-brown-6 dark:border-neutral-700">
 
                 <div class="border-b border-neutral-200 px-4 py-3 dark:border-neutral-700">
                     <flux:heading size="lg">
@@ -356,7 +382,7 @@
             </section>
 
             {{-- Postzegelafbeelding --}}
-            <section class="rounded-xl border border-neutral-200 p-4 dark:border-neutral-700 md:p-6">
+            <section class="rounded-xl border border-neutral-200 p-4 bg-brown-6 dark:border-neutral-700 md:p-6">
                 <flux:heading size="lg">
                     {{ __('Postzegelafbeeldingen') }}
                 </flux:heading>

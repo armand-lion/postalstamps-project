@@ -1,13 +1,13 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="dark">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 
     <head>
         @include('partials.head')
     </head>
 
-    <body class="min-h-screen bg-white dark:bg-zinc-800">
+    <body class="min-h-screen bg-theme-accent-2 ">
         <flux:sidebar sticky collapsible="mobile"
-            class="border-e border-theme-accent-1 bg-theme-accent-3 dark:border-zinc-700 dark:bg-zinc-900">
+            class="border-e border-theme-accent-1 bg-theme-accent-3">
             <flux:sidebar.header>
                 <x-app-logo :sidebar="true" href="{{ route('dashboard') }}" wire:navigate />
                 <flux:sidebar.collapse class="lg:hidden" />
@@ -63,7 +63,7 @@
             </flux:sidebar.nav>
 
             <div class="px-4 py-3">
-                <label class="mb-2 block text-sm font-medium text-white dark:text-zinc-300">
+                <label class="mb-2 block text-sm font-medium text-white">
                     {{ __('Taal') }}
                 </label>
 
@@ -81,7 +81,7 @@
 
                 <flux:dropdown position="bottom" align="start">
                     <flux:button icon-trailing="chevron-down"
-                        class="w-full justify-between border-theme-accent-3! bg-brown-4! text-zinc-900! hover:bg-brown-5! dark:text-white!">
+                        class="w-full justify-between border-theme-accent-3! bg-brown-4! text-zinc-900! hover:bg-brown-5!">
 
                         {{ $currentLanguage['flag'] }} {{ $currentLanguage['name'] }}
 
@@ -95,7 +95,7 @@
                                 <input type="hidden" name="locale" value="{{ $locale }}">
 
                                 <flux:menu.item as="button" type="submit"
-                                    class="w-full cursor-pointer text-zinc-900! hover:bg-brown-5! dark:text-white!">
+                                    class="w-full cursor-pointer text-zinc-900! hover:bg-brown-5!">
 
                                     {{ $language['flag'] }} {{ $language['name'] }}
 
@@ -141,7 +141,7 @@
 
                     <flux:menu.radio.group>
                         <flux:menu.item :href="route('profile.edit')" icon="cog" wire:navigate
-                            class="data-active:bg-brown-5! dark:data-active:bg-brown-5! [&[data-active]:hover]:bg-brown-4!">
+                            class="data-active:bg-brown-5! [&[data-active]:hover]:bg-brown-4!">
                             {{ __('Settings') }}
                         </flux:menu.item>
                     </flux:menu.radio.group>
@@ -151,7 +151,7 @@
                     <form method="POST" action="{{ route('logout') }}" class="w-full">
                         @csrf
                         <flux:menu.item as="button" type="submit" icon="arrow-right-start-on-rectangle"
-                            class="w-full cursor-pointer data-active:bg-brown-5! dark:data-active:bg-brown-5!"
+                            class="w-full cursor-pointer data-active:bg-brown-5!"
                             data-test="logout-button">
                             {{ __('Log out') }}
                         </flux:menu.item>
