@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Country;
 use App\Models\Watermark;
 use Illuminate\Contracts\View\View;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -81,7 +82,7 @@ class WatermarkController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
+    public function store(Request $request): RedirectResponse
     {
         $locale = app()->getLocale();
         $validated = $request->validate([
@@ -262,7 +263,7 @@ class WatermarkController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, Watermark $watermark)
+    public function update(Request $request, Watermark $watermark): RedirectResponse
     {
         $locale = app()->getLocale();
 
@@ -404,7 +405,9 @@ class WatermarkController extends Controller
 
             // Nieuwe watermerkafbeelding verwerken.
             if ($request->hasFile('image')) {
-                $country = Country::findOrFail($validated['country_id']);
+                $country = Country::query()
+                    ->whereKey($validated['country_id'])
+                    ->firstOrFail();
 
                 // Nieuwe afbeelding opslaan onder de slug van het land.
                 $newImagePath = $request->file('image')->store(
@@ -477,7 +480,7 @@ class WatermarkController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Watermark $watermark)
+    public function destroy(Watermark $watermark): RedirectResponse
     {
         // Afbeeldingspaden bewaren voordat het watermerk wordt verwijderd.
         $imagePaths = $watermark->images()
