@@ -345,8 +345,8 @@
                             <flux:label>{{ __('Zoeken') }}</flux:label>
 
                             <input type="search" name="search" value="{{ request('search') }}"
-                                placeholder="{{ __('Naam of catalogusnummer') }}"
-                                class="block h-10 w-full rounded-lg border border-theme-accent-3 bg-brown-5 px-3 text-sm text-zinc-900 placeholder:text-zinc-500 focus:border-theme-accent-3 focus:outline-none focus:ring-1 focus:ring-theme-accent-3">
+    placeholder="{{ __('Naam of catalogusnummer') }}"
+    class="block h-10 w-full rounded-lg border border-theme-accent-3 bg-brown-5 px-3 text-sm text-zinc-900 placeholder:text-zinc-500 focus:border-theme-accent-3 focus:outline-none focus:ring-2 focus:ring-theme-accent-3 focus:ring-offset-2 focus:ring-offset-brown-5">
                         </flux:field>
                     </div>
 

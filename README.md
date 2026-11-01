@@ -284,8 +284,6 @@ Fase 11 complete
 
 ## Phase 12 — Personal Stamp Collection Management
 
-**Status:** ⏳ In progress — core functionality implemented, final verification and Git publication pending.
-
 ### Objective
 
 Develop a management system for personal stamp collections.
@@ -322,4 +320,340 @@ Phase 12 is complete when:
 5. All functionality works in all five supported languages.
 6. All automated quality checks pass successfully.
 
-**Status:** ✅ Completed — personal stamp collection management implemented, tested, and published.
+| --- | --- | — personal stamp collection management implemented, tested, and published.
+
+## Fase 13
+
+### Part A — Watermark Management
+
+**Status:** ✅ Completed — implemented and functionally tested.
+
+Objective
+
+Implement a complete watermark management system to support the identification and classification of postage stamps and their variants.
+
+Watermarks can be associated with countries and include images, alternative text, and multilingual descriptions.
+
+### Implemented Features
+
+| Feature | Description | Status |
+| --- | --- | --- |
+| Watermark overview | Display registered watermarks | ✅ |
+| Country association | Associate watermarks with countries | ✅ |
+| Create | Add new watermarks | ✅ |
+| View | Display watermark details | ✅ |
+| Edit | Update existing watermarks | ✅ |
+| Delete | Remove watermarks | ✅ |
+| Image upload | Upload JPG, PNG, and WebP images | ✅ |
+| Image replacement | Replace existing watermark images | ✅ |
+| Image removal | Remove an existing image without deleting the watermark | ✅ |
+| Image preview | Preview selected images before uploading | ✅ |
+| Alternative text | Store and update descriptive image text | ✅ |
+| File management | Remove unused image files from storage | ✅ |
+| Multilingual support | Dutch, English, German, French, and Spanish | ✅ |
+| Sidebar navigation | Watermarks integrated into Catalog Management | ✅ |
+
+#### Technical Implementation
+
+The watermark management system is built using:
+
+- Laravel 13
+- PHP 8.5
+- MariaDB
+- Blade templates
+- Flux UI
+- Alpine.js
+- Tailwind CSS
+
+**Backend components:**
+
+- `WatermarkController` — Handles watermark CRUD operations.
+- `Watermark` — Main watermark model.
+- `WatermarkTranslation` — Stores multilingual watermark information.
+- `WatermarkImage` — Manages watermark image records.
+- Database migrations for watermarks, translations, and images.
+- Resource routes under `backend.watermarks.*`.
+
+**Frontend components:**
+
+- Watermark overview page.
+- Watermark creation form.
+- Watermark detail page.
+- Watermark editing form.
+- Multilingual image upload controls.
+- Image preview and removal functionality.
+
+#### Image Storage
+
+Watermark images are stored using Laravel's public storage disk.
+
+Directory structure:
+
+```text
+storage/app/public/watermarks/{country-slug}/
+```
+
+Only the relative image path is stored in the database.
+
+When an image is replaced or removed, the corresponding database record and physical file are updated or deleted.
+
+Removing an image does not delete its associated watermark.
+
+#### User Interface
+
+The watermark management interface follows the application's existing brown color scheme and uses consistent Flux UI components.
+
+The image upload interface supports:
+
+- Multilingual file selection controls.
+- Display of the selected filename.
+- Image previews before uploading.
+- Removal of a newly selected image.
+- Removal of an existing image from the edit page.
+- Keyboard-accessible file selection.
+
+#### Testing and Validation
+
+The following checks have been completed:
+
+- Watermark CRUD operations tested.
+- Image uploading and replacement tested.
+- Existing image removal tested.
+- Database image record deletion verified.
+- Physical image file deletion verified.
+- Multilingual interface tested in five languages.
+- JSON translation files validated.
+- Blade templates compiled successfully.
+- Laravel Pint completed successfully: **174 files passed**.
+
+**Result:** Watermark Management is implemented, tested, and integrated into the Catalog Management section.
+
+### Part B - Sidebar Navigation
+
+The application uses a structured sidebar to separate general catalog management from personal collection management.
+
+#### Catalog Management
+
+The **Catalog Management** section provides access to the shared catalog data used to identify and classify postage stamps.
+
+The following modules are available:
+
+| Module | Description |
+| --- | --- |
+| Countries | Manage countries associated with stamps and collectibles. |
+| Catalogs | Manage stamp catalogs and their editions. |
+| Stamp Series | Organize stamps into series. |
+| Stamps | Manage stamp information, catalog references, and associated images. |
+| Themes | Manage thematic classifications for stamps. |
+| Collectibles | Manage collectible types and related information. |
+| Watermarks | Manage watermark information, translations, and images. |
+
+#### Personal Collection
+
+The **Personal Collection** section provides access to the user's own stamp collection.
+
+Currently available:
+
+| Module | Description |
+
+| My Stamps | Manage personally owned stamp copies and their associated information. |
+
+The personal collection module supports managing individual stamp copies and their associated images.
+
+Additional collection features, including catalog value calculations and historical value comparisons, are planned for future development.
+
+User Interface
+
+Both sections use the application's existing Flux UI sidebar components.
+
+The navigation includes:
+
+- Active menu-item highlighting.
+- Consistent styling using Tailwind CSS.
+- Responsive navigation for desktop and mobile devices.
+- Multilingual navigation labels in Dutch, English, German, French, and Spanish.
+- Visual separation between Catalog Management and Personal Collection.
+
+**Status:** ✅ Completed
+
+## Phase 14 — Catalog Values and Value History
+
+**Status:** ⏳ Planned
+
+Objective
+
+Extend the stamp collection application with advanced catalog valuation features.
+
+The goal is to manage catalog values for different stamp conditions, compare values between catalog editions, calculate the value of personal stamp collections, and visualize historical value development.
+
+Phase 14 builds upon the existing Laravel 13 application, MariaDB database structure, and multilingual interface.
+
+### Existing Foundation
+
+The application already includes several components that support catalog valuations:
+
+- `Catalog` — Stores stamp catalog information.
+- `CatalogEdition` — Represents different catalog editions and publication years.
+- `StampCatalogEntry` — Links stamps to catalog editions and catalog numbers.
+- `StampCatalogValue` — Stores catalog values for specific stamp conditions.
+- `Condition` — Defines stamp conditions such as mint and used.
+- `StampCopy` — Represents individually owned stamp copies.
+- `StampValuation` — Provides a foundation for stamp valuations.
+- `StampCopyValuation` — Provides a foundation for valuations of owned stamp copies.
+- `SeriesCatalogValue` — Supports catalog values for stamp series.
+- `SeriesValuation` — Provides a foundation for stamp series valuations.
+
+These existing components will be reviewed and reused wherever possible.
+
+### Part A — Catalog Value Management
+
+**Status:** ⏳ Planned
+
+**Objective:** Complete and improve the management of catalog values for individual stamps.
+
+Planned tasks:
+
+1. Review the existing catalog value database structure and relationships.
+2. Review the current catalog value functionality in the stamp creation and editing forms.
+3. Support catalog values for multiple catalog editions.
+4. Manage values for different stamp conditions.
+5. Allow existing catalog values to be updated.
+6. Display catalog values consistently in stamp overview and detail pages.
+7. Prevent duplicate catalog value records.
+8. Add appropriate validation and automated tests.
+
+**Expected result:** Catalog values can be managed reliably for different stamps, catalog editions, and conditions.
+
+### Part B — Historical Catalog Values
+
+**Status:** ⏳ Planned
+
+**Objective:** Compare catalog values across different editions of the same catalog.
+
+Planned tasks:
+
+1. Retrieve catalog values from multiple editions.
+2. Compare values for the same stamp and condition.
+3. Display historical catalog values in a structured overview.
+4. Calculate absolute and percentage changes between editions.
+5. Handle missing values and incomplete catalog history.
+6. Ensure comparisons use consistent currencies.
+7. Add automated tests.
+
+**Expected result:** Users can compare how the catalog value of a stamp has changed over time.
+
+### Part C — Personal Collection Valuation
+
+**Status:** ⏳ Planned
+
+**Objective:** Calculate the catalog value of personally owned stamps.
+
+Planned tasks:
+
+1. Connect owned stamp copies to the appropriate catalog values.
+2. Determine the applicable value based on stamp condition.
+3. Include owned quantities in value calculations.
+4. Calculate values for individual stamps.
+5. Calculate totals for stamp series.
+6. Calculate totals by country.
+7. Calculate the total value of the personal collection.
+8. Handle missing catalog values.
+9. Add automated tests.
+
+**Expected result:** Users can view the calculated catalog value of their personal stamp collection.
+
+### Part D — Preferred Catalog and Edition
+
+**Status:** ⏳ Planned
+
+**Objective:** Allow users to select a preferred catalog and catalog edition for valuation calculations.
+
+Planned tasks:
+
+1. Review the existing `UserCatalog` model and relationships.
+2. Implement preferred catalog selection.
+3. Implement preferred catalog edition selection.
+4. Use the selected catalog and edition for collection valuations.
+5. Handle missing catalog entries and values.
+6. Support changing the preferred catalog.
+7. Add automated tests.
+
+**Expected result:** Collection valuations can be calculated using a user-selected catalog and edition.
+
+### Part E — Value History and Charts
+
+**Status:** ⏳ Planned
+
+**Objective:** Visualize historical catalog value development.
+
+Planned tasks:
+
+1. Display historical catalog values in tables.
+2. Introduce charts showing value development across catalog editions.
+3. Allow comparisons between stamp conditions.
+4. Display absolute and percentage value changes.
+5. Support filtering by catalog and stamp.
+6. Handle missing historical data.
+7. Ensure charts work with the existing application layout.
+
+**Expected result:** Users can visually analyze changes in stamp catalog values over time.
+
+### Part F — Multilingual Support
+
+**Status:** ⏳ Planned
+
+All new interfaces will support the application's five languages:
+
+- Dutch (`nl`)
+- English (`en`)
+- German (`de`)
+- French (`fr`)
+- Spanish (`es`)
+
+Translation keys will be added to the existing JSON translation files.
+
+### Part G — Testing and Quality Assurance
+
+**Status:** ⏳ Planned
+
+Quality assurance will be performed throughout Phase 14.
+
+Planned checks include:
+
+1. Database relationship verification.
+2. Form validation testing.
+3. Feature tests for catalog value management.
+4. Tests for historical value comparisons.
+5. Tests for personal collection value calculations.
+6. Tests for preferred catalog selection.
+7. Multilingual interface verification.
+8. Laravel Pint formatting checks.
+9. PHPStan static analysis, where configured.
+10. Full Laravel test suite execution.
+
+### Development Strategy
+
+Phase 14 will be implemented incrementally.
+
+Each part will follow the same development process:
+
+1. Review existing functionality and database structures.
+2. Identify the smallest required changes.
+3. Implement one feature at a time.
+4. Test the feature before proceeding.
+5. Preserve existing functionality and data.
+6. Update documentation when a part is completed.
+7. Commit tested changes to Git.
+
+### Completion Criteria
+
+Phase 14 will be considered complete when:
+
+- Catalog values can be managed across multiple editions and conditions.
+- Historical catalog values can be compared.
+- Personal collection values can be calculated.
+- Preferred catalogs and editions can be selected.
+- Historical value development can be visualized.
+- All new interfaces support five languages.
+- Required tests and quality checks pass.
+- Documentation is updated.

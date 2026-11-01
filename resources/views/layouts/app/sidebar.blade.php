@@ -6,8 +6,7 @@
     </head>
 
     <body class="min-h-screen bg-theme-accent-2 ">
-        <flux:sidebar sticky collapsible="mobile"
-            class="border-e border-theme-accent-1 bg-theme-accent-3">
+        <flux:sidebar sticky collapsible="mobile" class="border-e border-theme-accent-1 bg-theme-accent-3">
             <flux:sidebar.header>
                 <x-app-logo :sidebar="true" href="{{ route('dashboard') }}" wire:navigate />
                 <flux:sidebar.collapse class="lg:hidden" />
@@ -59,7 +58,25 @@
                         {{ __('Verzamelobjecten') }}
                     </flux:sidebar.item>
 
+                    <flux:sidebar.item icon="eye-dropper" :href="route('backend.watermarks.index')"
+                        :current="request()->routeIs('backend.watermarks.*')"
+                        class="hover:bg-brown-5! data-current:bg-brown-4! border-transparent!" wire:navigate>
+                        {{ __('Watermerken') }}
+                    </flux:sidebar.item>
+
                 </flux:sidebar.group>
+
+                {{-- Persoonlijke catalogus --}}
+                <flux:sidebar.group :heading="__('Persoonlijke catalogus')" class="mt-8 grid">
+
+                    <flux:sidebar.item icon="rectangle-stack" :href="route('backend.stamp-copies.index')"
+                        :current="request()->routeIs('backend.stamp-copies.*')"
+                        class="hover:bg-brown-5! data-current:bg-brown-4! border-transparent!" wire:navigate>
+                        {{ __('Mijn postzegels') }}
+                    </flux:sidebar.item>
+
+                </flux:sidebar.group>
+
             </flux:sidebar.nav>
 
             <div class="px-4 py-3">
@@ -151,8 +168,7 @@
                     <form method="POST" action="{{ route('logout') }}" class="w-full">
                         @csrf
                         <flux:menu.item as="button" type="submit" icon="arrow-right-start-on-rectangle"
-                            class="w-full cursor-pointer data-active:bg-brown-5!"
-                            data-test="logout-button">
+                            class="w-full cursor-pointer data-active:bg-brown-5!" data-test="logout-button">
                             {{ __('Log out') }}
                         </flux:menu.item>
                     </form>

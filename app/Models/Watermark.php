@@ -45,6 +45,16 @@ class Watermark extends Model
     }
 
     /**
+     * De afbeeldingen die bij dit watermerk horen.
+     *
+     * @return HasMany<WatermarkImage, $this>
+     */
+    public function images(): HasMany
+    {
+        return $this->hasMany(WatermarkImage::class);
+    }
+
+    /**
      * Haal de vertaling op in de geselecteerde taal.
      * Gebruik de fallbacktaal wanneer de vertaling ontbreekt.
      */

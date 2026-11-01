@@ -10,6 +10,7 @@ use App\Http\Controllers\Backend\StampCopyImageController;
 use App\Http\Controllers\Backend\StampImageController;
 use App\Http\Controllers\Backend\StampSeriesController;
 use App\Http\Controllers\Backend\ThemeController;
+use App\Http\Controllers\Backend\WatermarkController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -37,6 +38,7 @@ Route::middleware(['auth'])->group(function () { //
         ->group(function () {
             Route::resource('countries', CountryController::class);
             Route::resource('themes', ThemeController::class);
+            Route::resource('watermarks', WatermarkController::class);
             Route::resource('stamps', StampController::class);
             Route::resource('stamp-copies', StampCopyController::class);
             Route::resource('stamp-copies.images', StampCopyImageController::class)
