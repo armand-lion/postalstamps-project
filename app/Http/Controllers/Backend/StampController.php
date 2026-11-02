@@ -1009,7 +1009,8 @@ class StampController extends Controller
             // Werk bestaande catalogusvermeldingen en hun waarden bij.
             foreach ($catalogEntries as $entryId => $entryData) {
                 $catalogEntry = $stamp->catalogEntries()
-                    ->findOrFail($entryId);
+                    ->whereKey($entryId)
+                    ->firstOrFail();
 
                 // Werk het catalogusnummer bij.
                 $catalogEntry->update([
@@ -1052,9 +1053,15 @@ class StampController extends Controller
                 $values = $editionData['values'] ?? [];
 
                 // Controleer of er cataloguswaarden zijn ingevuld.
-                $hasValues = collect($values)->contains(
-                    fn ($value) => $value !== null && $value !== ''
-                );
+                $hasValues = false;
+
+                foreach ($values as $value) {
+                    if ($value !== null && $value !== '') {
+                        $hasValues = true;
+
+                        break;
+                    }
+                }
 
                 // Zoek een bestaande cataloguskoppeling.
                 $catalogEntry = $stamp->catalogEntries()
