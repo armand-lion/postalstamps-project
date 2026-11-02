@@ -2,14 +2,17 @@
     <div class="flex flex-col gap-6 p-4 md:p-6">
 
         {{-- Paginatitel --}}
-        <div>
-            <flux:heading size="xl">
-                {{ __('Postzegel bewerken') }}: {{ $stamp->name }}
-            </flux:heading>
+        <div
+            class="flex flex-col justify-between gap-4 sm:flex-row sm:items-center bg-brown-6 rounded-lg border border-theme-accent-1 p-5">
+            <div>
+                <flux:heading size="xl">
+                    {{ __('Postzegel bewerken') }}: {{ $stamp->name }}
+                </flux:heading>
 
-            <flux:text class="mt-2">
-                {{ __('Pas de gegevens van deze postzegel aan.') }}
-            </flux:text>
+                <flux:text class="mt-2">
+                    {{ __('Pas de gegevens van deze postzegel aan.') }}
+                </flux:text>
+            </div>
         </div>
 
         @if (session('success'))
@@ -31,11 +34,12 @@
         @endif
 
         {{-- Formulier --}}
-        <form method="POST" action="{{ route('backend.stamps.update', $stamp) }}" class="flex flex-col gap-6" novalidate>
+        <form method="POST" action="{{ route('backend.stamps.update', $stamp) }}"
+            class="flex flex-col gap-6 bg-brown-6 rounded-lg border border-theme-accent-1" novalidate>
             @csrf
             @method('PUT')
 
-            <div class="rounded-xl border border-neutral-200 p-4 dark:border-neutral-700 md:p-6">
+            <div class="rounded-xl border border-neutral-200 bg-brown-6p-4 dark:border-neutral-700 md:p-6">
                 <flux:heading size="lg">
                     {{ __('Algemene gegevens') }}
                 </flux:heading>
@@ -227,77 +231,12 @@
                     </flux:field>
 
                     @php
-                        // Bestaande cataloguskoppeling van deze postzegel.
-                        $existingCatalogEntry = $stamp->catalogEntries->first();
+                        // Koppel bestaande catalogusvermeldingen aan hun cataloguseditie.
+                        $catalogEntriesByEdition = $stamp->catalogEntries->keyBy('catalog_edition_id');
                     @endphp
 
-                    {{-- Nieuwe cataloguskoppeling --}}
-                    <flux:field>
-                        <flux:label>{{ __('Cataloguseditie') }}</flux:label>
-
-                        <flux:select name="catalog_edition_id" id="stamp-catalog-edition">
-                            <option value="">
-                                {{ __('Geen cataloguseditie geselecteerd') }}
-                            </option>
-
-                            @foreach ($catalogEditions as $edition)
-                                <option value="{{ $edition->id }}" @selected((string) old('catalog_edition_id', $existingCatalogEntry?->catalog_edition_id) === (string) $edition->id)>
-                                    {{ $edition->catalog?->abbreviation ?: $edition->catalog?->name }}
-                                    —
-                                    {{ $edition->edition_name }}
-                                    ({{ $edition->edition_year }})
-                                </option>
-                            @endforeach
-                        </flux:select>
-
-                        <flux:error name="catalog_edition_id" />
-                    </flux:field>
-
-                    {{-- Officieel catalogusnummer --}}
-                    <flux:field>
-                        <flux:label>
-                            <span class="flex items-center gap-1">
-                                {{ __('Catalogusnummer') }}
-
-                                <span id="stamp-catalog-number-required" class="hidden text-red-600"
-                                    aria-hidden="true">*</span>
-                            </span>
-                        </flux:label>
-
-                        <flux:input name="catalog_number" id="stamp-catalog-number"
-                            value="{{ old('catalog_number', $existingCatalogEntry?->catalog_number) }}" maxlength="100"
-                            placeholder="{{ __('Bijvoorbeeld 123, 123a, AU 10 of E 25') }}" />
-
-                        <flux:error name="catalog_number" />
-                    </flux:field>
-
-                    {{-- Cataloguswaarde postfris --}}
-                    <flux:field>
-                        <flux:label>{{ __('Cataloguswaarde — Postfris') }}</flux:label>
-
-                        <flux:input type="number" name="catalog_values[postfris]" id="stamp-catalog-value-postfris"
-                            min="0" step="0.01" :value="old('catalog_values.postfris')" placeholder="0.00" />
-
-                        <div class="min-h-5">
-                            <flux:error name="catalog_values.postfris" />
-                        </div>
-                    </flux:field>
-
-                    {{-- Cataloguswaarde gestempeld --}}
-                    <flux:field>
-                        <flux:label>{{ __('Cataloguswaarde — Gestempeld') }}</flux:label>
-
-                        <flux:input type="number" name="catalog_values[gestempeld]"
-                            id="stamp-catalog-value-gestempeld" min="0" step="0.01"
-                            :value="old('catalog_values.gestempeld')" placeholder="0.00" />
-
-                        <div class="min-h-5">
-                            <flux:error name="catalog_values.gestempeld" />
-                        </div>
-                    </flux:field>
-
                     {{-- Bestaande cataloguskoppelingen --}}
-                    @if ($stamp->catalogEntries->isNotEmpty())
+                    @if ($catalogEditions->isNotEmpty())
                         <div class="md:col-span-2 rounded-lg border border-theme-accent-1 bg-brown-6 p-4">
 
                             <flux:heading size="sm">
@@ -313,49 +252,153 @@
                                             <th class="px-3 py-2">{{ __('Catalogusnummer') }}</th>
                                             <th class="px-3 py-2">{{ __('Postfris') }}</th>
                                             <th class="px-3 py-2">{{ __('Gestempeld') }}</th>
+                                            <th class="px-3 py-2">{{ __('Status') }}</th>
                                         </tr>
                                     </thead>
 
                                     <tbody>
-                                        @foreach ($stamp->catalogEntries as $entry)
+                                        @foreach ($catalogEditions as $edition)
                                             @php
-                                                $postfris = $entry->values->first(
+                                                // Zoek de bestaande catalogusvermelding voor deze editie.
+                                                $entry = $catalogEntriesByEdition->get($edition->id);
+
+                                                // Zoek de bestaande cataloguswaarden, indien aanwezig.
+                                                $postfris = $entry?->values->first(
                                                     fn($value) => $value->condition?->slug === 'postfris',
                                                 );
 
-                                                $gestempeld = $entry->values->first(
+                                                $gestempeld = $entry?->values->first(
                                                     fn($value) => $value->condition?->slug === 'gestempeld',
                                                 );
+
+                                                // Bepaal de status van deze cataloguseditie.
+                                                if ($entry === null) {
+                                                    $catalogStatus = 'not_linked';
+                                                } elseif ($postfris && $gestempeld) {
+                                                    $catalogStatus = 'complete';
+                                                } elseif ($postfris) {
+                                                    $catalogStatus = 'missing_used';
+                                                } elseif ($gestempeld) {
+                                                    $catalogStatus = 'missing_mint';
+                                                } else {
+                                                    $catalogStatus = 'missing_both';
+                                                }
                                             @endphp
 
                                             <tr class="border-b border-theme-accent-1/30">
                                                 <td class="px-3 py-2">
-                                                    {{ $entry->catalogEdition?->catalog?->abbreviation ?: $entry->catalogEdition?->catalog?->name }}
+                                                    {{ $edition->catalog?->abbreviation ?: $edition->catalog?->name }}
                                                 </td>
 
                                                 <td class="px-3 py-2">
-                                                    {{ $entry->catalogEdition?->edition_name }}
-                                                </td>
-
-                                                <td class="px-3 py-2 font-semibold">
-                                                    {{ $entry->catalog_number }}
+                                                    {{ $edition->edition_name }}
                                                 </td>
 
                                                 <td class="px-3 py-2">
-                                                    @if ($postfris)
-                                                        {{ $postfris->currency }}
-                                                        {{ number_format($postfris->catalog_value, 2, ',', '.') }}
+                                                    <input type="text"
+                                                        name="catalog_editions[{{ $edition->id }}][catalog_number]"
+                                                        value="{{ old("catalog_editions.{$edition->id}.catalog_number", $entry?->catalog_number) }}"
+                                                        class="block h-10 w-32 rounded-lg border border-theme-accent-3 bg-brown-5 px-3 text-sm text-zinc-900 focus:border-theme-accent-3 focus:outline-none focus:ring-1 focus:ring-theme-accent-3"
+                                                        aria-label="{{ __('Catalogusnummer') }}">
+                                                </td>
+
+                                                <td class="px-3 py-2">
+                                                    <div x-data="{
+                                                        value: (() => {
+                                                            const initial = @js(old("catalog_editions.{$edition->id}.values.postfris", $postfris?->catalog_value));
+                                                            return initial === null || initial === '' ? '' : Number(initial).toFixed(2);
+                                                        })(),
+                                                        increase() {
+                                                            const cents = Math.round(Number(this.value || 0) * 100);
+                                                            this.value = ((cents + 1) / 100).toFixed(2);
+                                                        },
+                                                        decrease() {
+                                                            const cents = Math.round(Number(this.value || 0) * 100);
+                                                            this.value = (Math.max(0, cents - 1) / 100).toFixed(2);
+                                                        }
+                                                    }" class="relative w-32">
+                                                        <input type="text"
+                                                            name="catalog_editions[{{ $edition->id }}][values][postfris]"
+                                                            x-model="value" min="0" step="0.01"
+                                                            inputmode="decimal" aria-label="{{ __('Postfris') }}"
+                                                            class="block h-10 w-full appearance-none rounded-lg border border-theme-accent-3 bg-brown-5 px-3 pr-10 text-sm text-zinc-900 focus:border-theme-accent-3 focus:outline-none focus:ring-1 focus:ring-theme-accent-3 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [-moz-appearance:textfield]">
+
+                                                        <div
+                                                            class="absolute inset-y-0 right-1 flex flex-col justify-center">
+                                                            <button type="button" x-on:click="increase()"
+                                                                aria-label="{{ __('Cataloguswaarde verhogen') }}"
+                                                                class="flex h-4 w-7 items-center justify-center rounded-t border border-theme-accent-3 bg-brown-6 text-zinc-900 hover:bg-brown-5">
+                                                                <flux:icon.chevron-up class="size-3" />
+                                                            </button>
+
+                                                            <button type="button" x-on:click="decrease()"
+                                                                aria-label="{{ __('Cataloguswaarde verlagen') }}"
+                                                                class="flex h-4 w-7 items-center justify-center rounded-b border border-theme-accent-3 bg-brown-6 text-zinc-900 hover:bg-brown-5">
+                                                                <flux:icon.chevron-down class="size-3" />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td class="px-3 py-2">
+                                                <div x-data="{
+                                                    value: (() => {
+                                                        const initial = @js(old("catalog_editions.{$edition->id}.values.gestempeld", $gestempeld?->catalog_value));
+                                                        return initial === null || initial === '' ? '' : Number(initial).toFixed(2);
+                                                    })(),
+                                                    increase() {
+                                                        const cents = Math.round(Number(this.value || 0) * 100);
+                                                        this.value = ((cents + 1) / 100).toFixed(2);
+                                                    },
+                                                    decrease() {
+                                                        const cents = Math.round(Number(this.value || 0) * 100);
+                                                        this.value = (Math.max(0, cents - 1) / 100).toFixed(2);
+                                                    }
+                                                }" class="relative w-32">
+                                                    <input type="text"
+                                                        name="catalog_editions[{{ $edition->id }}][values][gestempeld]"
+                                                        x-model="value" min="0" step="0.01"
+                                                        inputmode="decimal" aria-label="{{ __('Gestempeld') }}"
+                                                        class="block h-10 w-full appearance-none rounded-lg border border-theme-accent-3 bg-brown-5 px-3 pr-10 text-sm text-zinc-900 focus:border-theme-accent-3 focus:outline-none focus:ring-1 focus:ring-theme-accent-3 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [-moz-appearance:textfield]">
+
+                                                    <div
+                                                        class="absolute inset-y-0 right-1 flex flex-col justify-center">
+                                                        <button type="button" x-on:click="increase()"
+                                                            aria-label="{{ __('Cataloguswaarde verhogen') }}"
+                                                            class="flex h-4 w-7 items-center justify-center rounded-t border border-theme-accent-3 bg-brown-6 text-zinc-900 hover:bg-brown-5">
+                                                            <flux:icon.chevron-up class="size-3" />
+                                                        </button>
+
+                                                        <button type="button" x-on:click="decrease()"
+                                                            aria-label="{{ __('Cataloguswaarde verlagen') }}"
+                                                            class="flex h-4 w-7 items-center justify-center rounded-b border border-theme-accent-3 bg-brown-6 text-zinc-900 hover:bg-brown-5">
+                                                            <flux:icon.chevron-down class="size-3" />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                </td>
+
+                                                {{-- Status van de cataloguswaarden --}}
+                                                <td class="px-3 py-2">
+                                                    @if ($catalogStatus === 'not_linked')
+                                                        <span class="font-medium text-zinc-500 dark:text-zinc-400">
+                                                            {{ __('Niet gekoppeld') }}
+                                                        </span>
+                                                    @elseif ($catalogStatus === 'complete')
+                                                        <span class="font-medium text-green-600 dark:text-green-400">
+                                                            {{ __('Compleet') }}
+                                                        </span>
+                                                    @elseif ($catalogStatus === 'missing_used')
+                                                        <span class="font-medium text-amber-600 dark:text-amber-400">
+                                                            {{ __('Gestempeld ontbreekt') }}
+                                                        </span>
+                                                    @elseif ($catalogStatus === 'missing_mint')
+                                                        <span class="font-medium text-amber-600 dark:text-amber-400">
+                                                            {{ __('Postfris ontbreekt') }}
+                                                        </span>
                                                     @else
-                                                        —
-                                                    @endif
-                                                </td>
-
-                                                <td class="px-3 py-2">
-                                                    @if ($gestempeld)
-                                                        {{ $gestempeld->currency }}
-                                                        {{ number_format($gestempeld->catalog_value, 2, ',', '.') }}
-                                                    @else
-                                                        —
+                                                        <span class="font-medium text-red-600 dark:text-red-400">
+                                                            {{ __('Beide ontbreken') }}
+                                                        </span>
                                                     @endif
                                                 </td>
                                             </tr>
@@ -697,91 +740,12 @@
         </section>
 
     </div>
-    {{-- Bestaande catalogusgegevens voorbereiden --}}
-    @php
-        $existingCatalogEntries = $stamp->catalogEntries
-            ->mapWithKeys(function ($entry) {
-                return [
-                    $entry->catalog_edition_id => [
-                        'catalog_number' => $entry->catalog_number,
-                        'values' => $entry->values
-                            ->mapWithKeys(function ($value) {
-                                return [
-                                    $value->condition?->slug => $value->catalog_value,
-                                ];
-                            })
-                            ->all(),
-                    ],
-                ];
-            })
-            ->all();
-    @endphp
+
 
     <script>
-        // Bestaande catalogusgegevens beschikbaar maken voor JavaScript.
-        const existingCatalogEntries = {{ Illuminate\Support\Js::from($existingCatalogEntries) }};
-
         const countrySelect = document.querySelector('select[name="country_id"]');
         const seriesSelect = document.querySelector('select[name="stamp_series_id"]');
         const parentStampSelect = document.querySelector('select[name="parent_stamp_id"]');
-
-        // Catalogusnummer verplicht maken wanneer een cataloguseditie is geselecteerd.
-        const catalogEditionSelect = document.getElementById('stamp-catalog-edition');
-        const catalogNumberInput = document.getElementById('stamp-catalog-number');
-        // Invoervelden voor de cataloguswaarden.
-        const catalogValuePostfris = document.getElementById('stamp-catalog-value-postfris');
-        const catalogValueGestempeld = document.getElementById('stamp-catalog-value-gestempeld');
-
-        // Vul de catalogusgegevens in voor de geselecteerde editie.
-        function updateSelectedCatalogEntry() {
-            const editionId = catalogEditionSelect.value;
-            const entry = existingCatalogEntries[editionId];
-
-            console.log('Geselecteerde editie:', editionId, 'Cataloguskoppeling:', entry);
-
-            // Geen bestaande cataloguskoppeling: invoervelden leegmaken.
-            if (!entry) {
-                catalogNumberInput.value = '';
-                catalogValuePostfris.value = '';
-                catalogValueGestempeld.value = '';
-                return;
-            }
-
-            // Bestaande catalogusgegevens invullen.
-            catalogNumberInput.value = entry.catalog_number ?? '';
-            catalogValuePostfris.value = entry.values?.postfris ?? '';
-            catalogValueGestempeld.value = entry.values?.gestempeld ?? '';
-        }
-
-        function updateCatalogNumberRequired() {
-            const editionSelected = catalogEditionSelect.value !== '';
-
-            // Catalogusnummer verplicht of optioneel maken.
-            catalogNumberInput.required = editionSelected;
-            catalogNumberInput.setAttribute(
-                'aria-required',
-                editionSelected ? 'true' : 'false'
-            );
-
-            // Rood sterretje tonen of verbergen.
-            const requiredMarker = document.getElementById(
-                'stamp-catalog-number-required'
-            );
-
-            requiredMarker.classList.toggle('hidden', !editionSelected);
-        }
-
-
-        catalogEditionSelect.addEventListener('change', updateCatalogNumberRequired);
-
-        // Catalogusgegevens bijwerken wanneer een andere editie wordt geselecteerd.
-        catalogEditionSelect.addEventListener('change', updateSelectedCatalogEntry);
-
-        // Ook controleren wanneer de pagina wordt geladen.
-        updateCatalogNumberRequired();
-
-        // Bij het openen de bestaande catalogusgegevens tonen.
-        updateSelectedCatalogEntry();
 
         function filterParentStamps() {
             const selectedCountryId = countrySelect.value;

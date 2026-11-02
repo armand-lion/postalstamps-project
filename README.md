@@ -657,3 +657,18 @@ Phase 14 will be considered complete when:
 - All new interfaces support five languages.
 - Required tests and quality checks pass.
 - Documentation is updated.
+  
+----------
+
+Toekomstige uitbreiding: catalogusgegevens in bulk bewerken
+Stel dat je 1.000 Nederlandse postzegels hebt en een nieuwe NVPH-cataloguseditie voor 2027 toevoegt.
+
+Dan zou je via een apart beheerscherm:
+
+- Land: Nederland selecteren.
+- Catalogus: NVPH selecteren.
+- Editie: 2027 selecteren.
+- Alle Nederlandse postzegels in één overzicht bekijken.
+- Ontbrekende catalogusnummers en waarden voor Postfris en Gestempeld invullen.
+- Alle wijzigingen in één handeling opslaan.
+Dat zou veel tijd besparen bij het verwerken van nieuwe catalogusjaargangen

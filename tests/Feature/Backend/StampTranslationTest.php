@@ -2,6 +2,7 @@
 
 use App\Models\Catalog;
 use App\Models\CatalogEdition;
+use App\Models\Condition;
 use App\Models\Country;
 use App\Models\Stamp;
 use App\Models\Theme;
@@ -1035,6 +1036,296 @@ test('de backend voegt een tweede cataloguskoppeling toe zonder de eerste te ver
     ]);
 
     expect($stamp->fresh()->catalogEntries)->toHaveCount(2);
+});
+
+test('de backend werkt meerdere bestaande catalogusnummers tegelijk bij', function () {
+    app()->setLocale('nl');
+
+    $user = User::factory()->create();
+    $stamp = Stamp::factory()->create();
+
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus meerdere edities',
+        'abbreviation' => 'TEST',
+    ]);
+
+    $firstEdition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2025',
+        'edition_year' => 2025,
+    ]);
+
+    $secondEdition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2026',
+        'edition_year' => 2026,
+    ]);
+
+    // Maak twee bestaande catalogusvermeldingen aan.
+    $firstEntry = $stamp->catalogEntries()->create([
+        'catalog_edition_id' => $firstEdition->id,
+        'catalog_number' => '100',
+    ]);
+
+    $secondEntry = $stamp->catalogEntries()->create([
+        'catalog_edition_id' => $secondEdition->id,
+        'catalog_number' => '200',
+    ]);
+
+    // Wijzig beide catalogusnummers in één verzoek.
+    $response = $this
+        ->actingAs($user)
+        ->put(route('backend.stamps.update', $stamp), [
+            'country_id' => $stamp->country_id,
+            'issue_year' => $stamp->issue_year,
+            'translations' => [
+                'nl' => [
+                    'name' => 'Postzegel met meerdere catalogusedities',
+                    'description' => null,
+                ],
+            ],
+            'catalog_entries' => [
+                $firstEntry->id => [
+                    'catalog_number' => '100a',
+                ],
+                $secondEntry->id => [
+                    'catalog_number' => '200b',
+                ],
+            ],
+        ]);
+
+    $response->assertSessionHasNoErrors();
+    $response->assertRedirect(route('backend.stamps.index'));
+
+    // Beide catalogusnummers moeten zijn bijgewerkt.
+    $this->assertDatabaseHas('stamp_catalog_entries', [
+        'id' => $firstEntry->id,
+        'stamp_id' => $stamp->id,
+        'catalog_number' => '100a',
+    ]);
+
+    $this->assertDatabaseHas('stamp_catalog_entries', [
+        'id' => $secondEntry->id,
+        'stamp_id' => $stamp->id,
+        'catalog_number' => '200b',
+    ]);
+
+    // Er mogen geen extra catalogusvermeldingen ontstaan.
+    expect($stamp->fresh()->catalogEntries)->toHaveCount(2);
+});
+
+test('de backend werkt cataloguswaarden van meerdere edities tegelijk bij', function () {
+    app()->setLocale('nl');
+
+    $user = User::factory()->create();
+    $stamp = Stamp::factory()->create();
+
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus meerdere waarden',
+        'abbreviation' => 'TEST',
+    ]);
+
+    $firstEdition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2025',
+        'edition_year' => 2025,
+    ]);
+
+    $secondEdition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2026',
+        'edition_year' => 2026,
+    ]);
+
+    $firstEntry = $stamp->catalogEntries()->create([
+        'catalog_edition_id' => $firstEdition->id,
+        'catalog_number' => '100',
+    ]);
+
+    $secondEntry = $stamp->catalogEntries()->create([
+        'catalog_edition_id' => $secondEdition->id,
+        'catalog_number' => '200',
+    ]);
+
+    // Maak de benodigde condities aan in de testdatabase.
+    $postfris = Condition::create([
+        'slug' => 'postfris',
+        'sort_order' => 1,
+        'is_active' => true,
+    ]);
+
+    $gestempeld = Condition::create([
+        'slug' => 'gestempeld',
+        'sort_order' => 2,
+        'is_active' => true,
+    ]);
+
+    // Eerste editie heeft al een waarde voor Postfris.
+    $firstEntry->values()->create([
+        'condition_id' => $postfris->id,
+        'catalog_value' => 10.00,
+        'currency' => 'EUR',
+    ]);
+
+    // Tweede editie heeft al een waarde voor Gestempeld.
+    $secondEntry->values()->create([
+        'condition_id' => $gestempeld->id,
+        'catalog_value' => 5.00,
+        'currency' => 'EUR',
+    ]);
+
+    $response = $this
+        ->actingAs($user)
+        ->put(route('backend.stamps.update', $stamp), [
+            'country_id' => $stamp->country_id,
+            'issue_year' => $stamp->issue_year,
+            'translations' => [
+                'nl' => [
+                    'name' => 'Postzegel met meerdere cataloguswaarden',
+                    'description' => null,
+                ],
+            ],
+            'catalog_entries' => [
+                $firstEntry->id => [
+                    'catalog_number' => '100',
+                    'values' => [
+                        'postfris' => '12.50',
+                        'gestempeld' => '3.75',
+                    ],
+                ],
+                $secondEntry->id => [
+                    'catalog_number' => '200',
+                    'values' => [
+                        'postfris' => '',
+                        'gestempeld' => '6.25',
+                    ],
+                ],
+            ],
+        ]);
+
+    $response->assertSessionHasNoErrors();
+    $response->assertRedirect(route('backend.stamps.index'));
+
+    // Eerste editie: Postfris bijgewerkt.
+    $this->assertDatabaseHas('stamp_catalog_values', [
+        'stamp_catalog_entry_id' => $firstEntry->id,
+        'condition_id' => $postfris->id,
+        'catalog_value' => 12.50,
+    ]);
+
+    // Eerste editie: Gestempeld toegevoegd.
+    $this->assertDatabaseHas('stamp_catalog_values', [
+        'stamp_catalog_entry_id' => $firstEntry->id,
+        'condition_id' => $gestempeld->id,
+        'catalog_value' => 3.75,
+    ]);
+
+    // Tweede editie: bestaande waarde bijgewerkt.
+    $this->assertDatabaseHas('stamp_catalog_values', [
+        'stamp_catalog_entry_id' => $secondEntry->id,
+        'condition_id' => $gestempeld->id,
+        'catalog_value' => 6.25,
+    ]);
+
+    // Tweede editie: leeg Postfris-veld maakt geen waarde aan.
+    $this->assertDatabaseMissing('stamp_catalog_values', [
+        'stamp_catalog_entry_id' => $secondEntry->id,
+        'condition_id' => $postfris->id,
+    ]);
+
+    // Er blijven precies twee catalogusvermeldingen bestaan.
+    expect($stamp->fresh()->catalogEntries)->toHaveCount(2);
+});
+
+test('de backend behoudt bestaande cataloguswaarden bij lege invoervelden', function () {
+    app()->setLocale('nl');
+
+    $user = User::factory()->create();
+    $stamp = Stamp::factory()->create();
+
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus behoud waarden',
+        'abbreviation' => 'TEST',
+    ]);
+
+    $edition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2026',
+        'edition_year' => 2026,
+    ]);
+
+    $entry = $stamp->catalogEntries()->create([
+        'catalog_edition_id' => $edition->id,
+        'catalog_number' => '300',
+    ]);
+
+    $postfris = Condition::create([
+        'slug' => 'postfris',
+        'sort_order' => 1,
+        'is_active' => true,
+    ]);
+
+    $gestempeld = Condition::create([
+        'slug' => 'gestempeld',
+        'sort_order' => 2,
+        'is_active' => true,
+    ]);
+
+    // Beide cataloguswaarden bestaan al.
+    $entry->values()->create([
+        'condition_id' => $postfris->id,
+        'catalog_value' => 15.00,
+        'currency' => 'EUR',
+    ]);
+
+    $entry->values()->create([
+        'condition_id' => $gestempeld->id,
+        'catalog_value' => 7.50,
+        'currency' => 'EUR',
+    ]);
+
+    // Verstuur lege waardevelden via de nieuwe catalogustabel.
+    $response = $this
+        ->actingAs($user)
+        ->put(route('backend.stamps.update', $stamp), [
+            'country_id' => $stamp->country_id,
+            'issue_year' => $stamp->issue_year,
+            'translations' => [
+                'nl' => [
+                    'name' => 'Postzegel met behouden cataloguswaarden',
+                    'description' => null,
+                ],
+            ],
+            'catalog_entries' => [
+                $entry->id => [
+                    'catalog_number' => '300',
+                    'values' => [
+                        'postfris' => '',
+                        'gestempeld' => '',
+                    ],
+                ],
+            ],
+        ]);
+
+    $response->assertSessionHasNoErrors();
+    $response->assertRedirect(route('backend.stamps.index'));
+
+    // De bestaande waarde voor Postfris blijft behouden.
+    $this->assertDatabaseHas('stamp_catalog_values', [
+        'stamp_catalog_entry_id' => $entry->id,
+        'condition_id' => $postfris->id,
+        'catalog_value' => 15.00,
+    ]);
+
+    // De bestaande waarde voor Gestempeld blijft behouden.
+    $this->assertDatabaseHas('stamp_catalog_values', [
+        'stamp_catalog_entry_id' => $entry->id,
+        'condition_id' => $gestempeld->id,
+        'catalog_value' => 7.50,
+    ]);
+
+    // Er blijven precies twee cataloguswaarden bestaan.
+    expect($entry->fresh()->values)->toHaveCount(2);
 });
 
 test('de backend werkt een bestaande cataloguskoppeling bij zonder duplicaat', function () {

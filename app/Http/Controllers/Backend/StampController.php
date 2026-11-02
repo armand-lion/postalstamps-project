@@ -61,6 +61,34 @@ class StampController extends Controller
     }
 
     /**
+     * Leesbare veldnamen voor de validatie van vertalingen.
+     *
+     * @return array<string, string>
+     */
+    private function translationValidationAttributes(): array
+    {
+        $languages = [
+            'nl' => __('Nederlands'),
+            'en' => __('Engels'),
+            'de' => __('Duits'),
+            'fr' => __('Frans'),
+            'es' => __('Spaans'),
+        ];
+
+        $attributes = [];
+
+        foreach ($languages as $locale => $language) {
+            $attributes["translations.{$locale}.name"] =
+                __('Naam')." ({$language})";
+
+            $attributes["translations.{$locale}.description"] =
+                __('Beschrijving')." ({$language})";
+        }
+
+        return $attributes;
+    }
+
+    /**
      * Display a listing of the stamps.
      */
     public function index(Request $request): View
@@ -369,7 +397,7 @@ class StampController extends Controller
         ], $this->translationValidationRules()), [
             'catalog_number.required_with' => 'Het catalogusnummer is verplicht wanneer je een cataloguseditie selecteert.',
             'catalog_edition_id.required_with' => 'Selecteer een cataloguseditie wanneer je een catalogusnummer invult.',
-        ]);
+        ], $this->translationValidationAttributes());
 
         // Haal de vertalingen uit de gevalideerde gegevens.
         $translations = $validated['translations'];
@@ -590,6 +618,9 @@ class StampController extends Controller
             ->get();
 
         $catalogEditions = CatalogEdition::with('catalog')
+            ->whereHas('catalog.countries', function ($query) use ($stamp) {
+                $query->where('countries.id', $stamp->country_id);
+            })
             ->orderByDesc('edition_year')
             ->orderBy('edition_name')
             ->get();
@@ -715,6 +746,58 @@ class StampController extends Controller
                 'min:0',
                 'decimal:0,2',
             ],
+            // Bestaande catalogusvermeldingen die via de tabel worden bewerkt.
+            'catalog_entries' => [
+                'sometimes',
+                'array',
+            ],
+            'catalog_entries.*.catalog_number' => [
+                'required',
+                'string',
+                'max:100',
+            ],
+            'catalog_entries.*.values' => [
+                'sometimes',
+                'array:postfris,gestempeld',
+            ],
+            'catalog_entries.*.values.postfris' => [
+                'nullable',
+                'numeric',
+                'min:0',
+                'decimal:0,2',
+            ],
+            'catalog_entries.*.values.gestempeld' => [
+                'nullable',
+                'numeric',
+                'min:0',
+                'decimal:0,2',
+            ],
+            // Alle beschikbare catalogusedities in het bewerkformulier.
+            'catalog_editions' => [
+                'sometimes',
+                'array',
+            ],
+            'catalog_editions.*.catalog_number' => [
+                'nullable',
+                'string',
+                'max:100',
+            ],
+            'catalog_editions.*.values' => [
+                'sometimes',
+                'array:postfris,gestempeld',
+            ],
+            'catalog_editions.*.values.postfris' => [
+                'nullable',
+                'numeric',
+                'min:0',
+                'decimal:0,2',
+            ],
+            'catalog_editions.*.values.gestempeld' => [
+                'nullable',
+                'numeric',
+                'min:0',
+                'decimal:0,2',
+            ],
             'notes' => [
                 'nullable',
                 'string',
@@ -722,7 +805,7 @@ class StampController extends Controller
         ], $this->translationValidationRules()), [
             'catalog_number.required_with' => 'Het catalogusnummer is verplicht wanneer je een cataloguseditie selecteert.',
             'catalog_edition_id.required_with' => 'Selecteer een cataloguseditie wanneer je een catalogusnummer invult.',
-        ]);
+        ], $this->translationValidationAttributes());
 
         // Voorkom dat een hoofdpostzegel met bestaande varianten
         // zelf aan een andere hoofdpostzegel wordt gekoppeld.
@@ -753,11 +836,21 @@ class StampController extends Controller
         // Lege waarden blijven behouden, zodat we deze later kunnen verwijderen.
         $catalogValues = $validated['catalog_values'] ?? [];
 
+        // Haal de bestaande catalogusvermeldingen uit de tabel apart op.
+        // Deze worden later afzonderlijk gevalideerd en opgeslagen.
+        $catalogEntries = $validated['catalog_entries'] ?? [];
+
+        // Haal alle catalogusedities uit de nieuwe tabel apart op.
+        // Deze worden later verwerkt als bestaande of nieuwe koppelingen.
+        $catalogEditionsInput = $validated['catalog_editions'] ?? [];
+
         // Deze gegevens horen niet rechtstreeks bij de tabel 'stamps'.
         unset(
             $validated['catalog_edition_id'],
             $validated['catalog_number'],
-            $validated['catalog_values']
+            $validated['catalog_values'],
+            $validated['catalog_entries'],
+            $validated['catalog_editions']
         );
 
         // Cataloguswaarden mogen alleen worden opgeslagen
@@ -771,6 +864,44 @@ class StampController extends Controller
                     'Selecteer een cataloguseditie en vul een catalogusnummer in wanneer je cataloguswaarden opgeeft.'
                 ),
             ]);
+        }
+
+        // Controleer of alle opgegeven catalogusvermeldingen
+        // daadwerkelijk bij deze postzegel horen.
+        if ($catalogEntries !== []) {
+            $submittedEntryIds = array_keys($catalogEntries);
+
+            $existingEntryCount = $stamp->catalogEntries()
+                ->whereIn('id', $submittedEntryIds)
+                ->count();
+
+            if ($existingEntryCount !== count($submittedEntryIds)) {
+                throw ValidationException::withMessages([
+                    'catalog_entries' => __(
+                        'Een of meer catalogusvermeldingen behoren niet tot deze postzegel.'
+                    ),
+                ]);
+            }
+        }
+
+        // Controleer of de opgegeven catalogusedities bij het land horen.
+        if ($catalogEditionsInput !== []) {
+            $submittedEditionIds = array_keys($catalogEditionsInput);
+
+            $validEditionCount = CatalogEdition::query()
+                ->whereIn('id', $submittedEditionIds)
+                ->whereHas('catalog.countries', function ($query) use ($validated) {
+                    $query->where('countries.id', $validated['country_id']);
+                })
+                ->count();
+
+            if ($validEditionCount !== count($submittedEditionIds)) {
+                throw ValidationException::withMessages([
+                    'catalog_editions' => __(
+                        'Een of meer catalogusedities behoren niet tot het geselecteerde land.'
+                    ),
+                ]);
+            }
         }
 
         // Gebruik de actieve applicatietaal voor de algemene gegevens.
@@ -789,7 +920,9 @@ class StampController extends Controller
             $themeIds,
             $catalogEditionId,
             $catalogNumber,
-            $catalogValues
+            $catalogValues,
+            $catalogEntries,
+            $catalogEditionsInput
         ) {
 
             // Werk de algemene postzegelgegevens bij.
@@ -864,6 +997,120 @@ class StampController extends Controller
                             ]
                         );
                     }
+                }
+            }
+
+            // Haal de condities op voor de bestaande catalogusvermeldingen.
+            $entryConditions = Condition::query()
+                ->whereIn('slug', ['postfris', 'gestempeld'])
+                ->get()
+                ->keyBy('slug');
+
+            // Werk bestaande catalogusvermeldingen en hun waarden bij.
+            foreach ($catalogEntries as $entryId => $entryData) {
+                $catalogEntry = $stamp->catalogEntries()
+                    ->findOrFail($entryId);
+
+                // Werk het catalogusnummer bij.
+                $catalogEntry->update([
+                    'catalog_number' => trim($entryData['catalog_number']),
+                ]);
+
+                // Werk de cataloguswaarden per conditie bij.
+                foreach ($entryData['values'] ?? [] as $slug => $amount) {
+                    $condition = $entryConditions->get($slug);
+
+                    if ($condition === null) {
+                        throw ValidationException::withMessages([
+                            'catalog_entries' => __(
+                                'De geselecteerde conditie bestaat niet.'
+                            ),
+                        ]);
+                    }
+
+                    // Lege velden wijzigen bestaande cataloguswaarden niet.
+                    if ($amount === null || $amount === '') {
+                        continue;
+                    }
+
+                    // Voeg een ontbrekende waarde toe of werk de bestaande bij.
+                    $catalogEntry->values()->updateOrCreate(
+                        [
+                            'condition_id' => $condition->id,
+                        ],
+                        [
+                            'catalog_value' => $amount,
+                            'currency' => 'EUR',
+                        ]
+                    );
+                }
+            }
+
+            // Verwerk alle catalogusedities uit de nieuwe tabel.
+            foreach ($catalogEditionsInput as $editionId => $editionData) {
+                $catalogNumber = trim((string) ($editionData['catalog_number'] ?? ''));
+                $values = $editionData['values'] ?? [];
+
+                // Controleer of er cataloguswaarden zijn ingevuld.
+                $hasValues = collect($values)->contains(
+                    fn ($value) => $value !== null && $value !== ''
+                );
+
+                // Zoek een bestaande cataloguskoppeling.
+                $catalogEntry = $stamp->catalogEntries()
+                    ->where('catalog_edition_id', $editionId)
+                    ->first();
+
+                // Sla een volledig lege, nog niet gekoppelde editie over.
+                if ($catalogEntry === null && $catalogNumber === '' && ! $hasValues) {
+                    continue;
+                }
+
+                // Een nieuwe koppeling vereist een catalogusnummer.
+                if ($catalogEntry === null && $catalogNumber === '') {
+                    throw ValidationException::withMessages([
+                        "catalog_editions.{$editionId}.catalog_number" => __(
+                            'Vul een catalogusnummer in wanneer je cataloguswaarden opgeeft.'
+                        ),
+                    ]);
+                }
+
+                // Maak een nieuwe koppeling aan als deze nog niet bestaat.
+                if ($catalogEntry === null) {
+                    $catalogEntry = $stamp->catalogEntries()->create([
+                        'catalog_edition_id' => $editionId,
+                        'catalog_number' => $catalogNumber,
+                    ]);
+                } elseif ($catalogNumber !== '') {
+                    // Werk een bestaand catalogusnummer alleen bij als het is ingevuld.
+                    $catalogEntry->update([
+                        'catalog_number' => $catalogNumber,
+                    ]);
+                }
+
+                // Werk de cataloguswaarden per conditie bij.
+                foreach ($values as $slug => $amount) {
+                    if ($amount === null || $amount === '') {
+                        continue;
+                    }
+
+                    $condition = $entryConditions->get($slug);
+
+                    if ($condition === null) {
+                        throw ValidationException::withMessages([
+                            "catalog_editions.{$editionId}.values.{$slug}" => __(
+                                'De geselecteerde conditie bestaat niet.'
+                            ),
+                        ]);
+                    }
+
+                    $catalogEntry->values()->updateOrCreate(
+                        ['condition_id' => $condition->id],
+                        [
+                            'catalog_value' => $amount,
+                            'currency' => 'EUR',
+                        ]
+                    );
                 }
             }
         });
