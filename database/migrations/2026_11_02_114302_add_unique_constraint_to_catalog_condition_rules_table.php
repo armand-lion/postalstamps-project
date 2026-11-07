@@ -10,6 +10,21 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (DB::getDriverName() === 'sqlite') {
+            DB::statement('
+                CREATE UNIQUE INDEX catalog_condition_rules_unique
+                ON catalog_condition_rules (
+                    catalog_id,
+                    COALESCE(country_id, 0),
+                    condition_id,
+                    COALESCE(issue_year_from, 0),
+                    COALESCE(issue_year_to, 0)
+                )
+            ');
+
+            return;
+        }
+
         DB::statement('
             ALTER TABLE catalog_condition_rules
             ADD COLUMN country_id_unique BIGINT UNSIGNED
@@ -38,6 +53,14 @@ return new class extends Migration
      */
     public function down(): void
     {
+        if (DB::getDriverName() === 'sqlite') {
+            DB::statement('
+                DROP INDEX IF EXISTS catalog_condition_rules_unique
+            ');
+
+            return;
+        }
+
         DB::statement('
             ALTER TABLE catalog_condition_rules
             DROP INDEX catalog_condition_rules_unique
