@@ -77,6 +77,8 @@ class User extends Authenticatable implements MustVerifyEmail, PasskeyUser
 
     /**
      * De verzamelexemplaren die bij deze gebruiker horen.
+     *
+     * @return HasMany<StampCopy, $this>
      */
     public function stampCopies(): HasMany
     {

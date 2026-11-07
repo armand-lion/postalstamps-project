@@ -314,6 +314,7 @@ class StampCopyController extends Controller
                 ->reorder()
                 ->get();
 
+            /** @var StampCopy $copy */
             foreach ($copiesForTotal as $copy) {
                 $catalogEntry = $copy->stamp?->catalogEntries?->firstWhere(
                     'catalog_edition_id',
