@@ -3,6 +3,7 @@
 use App\Models\Condition;
 use App\Models\Stamp;
 use App\Models\StampCopy;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
@@ -20,7 +21,10 @@ test('quantity can be assigned and is cast to an integer', function () {
 test('a stamp copy has a default quantity of one', function () {
     $stamp = Stamp::factory()->create();
 
+    $user = User::factory()->create();
+
     $stampCopy = StampCopy::create([
+        'user_id' => $user->id,
         'stamp_id' => $stamp->id,
     ]);
 
@@ -32,7 +36,10 @@ test('a stamp copy has a default quantity of one', function () {
 test('a stamp copy can store multiple identical stamps', function () {
     $stamp = Stamp::factory()->create();
 
+    $user = User::factory()->create();
+
     $stampCopy = StampCopy::create([
+        'user_id' => $user->id,
         'stamp_id' => $stamp->id,
         'quantity' => 5,
     ]);
@@ -63,13 +70,17 @@ test('a stamp can have copies with different conditions', function () {
         'is_active' => true,
     ]);
 
+    $user = User::factory()->create();
+
     $mintCopy = StampCopy::create([
+        'user_id' => $user->id,
         'stamp_id' => $stamp->id,
         'condition_id' => $mint->id,
         'quantity' => 3,
     ]);
 
     $usedCopy = StampCopy::create([
+        'user_id' => $user->id,
         'stamp_id' => $stamp->id,
         'condition_id' => $used->id,
         'quantity' => 2,
@@ -86,13 +97,17 @@ test('a stamp can have copies with different conditions', function () {
 test('a stamp can have a separate variant copy', function () {
     $stamp = Stamp::factory()->create();
 
+    $user = User::factory()->create();
+
     $normalCopy = StampCopy::create([
+        'user_id' => $user->id,
         'stamp_id' => $stamp->id,
         'quantity' => 3,
         'is_variant' => false,
     ]);
 
     $variantCopy = StampCopy::create([
+        'user_id' => $user->id,
         'stamp_id' => $stamp->id,
         'quantity' => 1,
         'is_variant' => true,
@@ -111,12 +126,16 @@ test('a stamp can have a separate variant copy', function () {
 test('a stamp can retrieve its owned copies', function () {
     $stamp = Stamp::factory()->create();
 
+    $user = User::factory()->create();
+
     StampCopy::create([
+        'user_id' => $user->id,
         'stamp_id' => $stamp->id,
         'quantity' => 3,
     ]);
 
     StampCopy::create([
+        'user_id' => $user->id,
         'stamp_id' => $stamp->id,
         'quantity' => 2,
     ]);
@@ -136,10 +155,35 @@ test('a stamp without copies is not owned', function () {
 test('a stamp with copies is owned', function () {
     $stamp = Stamp::factory()->create();
 
+    $user = User::factory()->create();
+
+    $this->actingAs($user);
+
     StampCopy::create([
+        'user_id' => $user->id,
         'stamp_id' => $stamp->id,
         'quantity' => 1,
     ]);
 
     expect($stamp->isOwned())->toBeTrue();
+});
+
+test('a stamp owned by another user is not owned', function () {
+    $stamp = Stamp::factory()->create();
+
+    // Gebruiker 1 bezit de postzegel.
+    $owner = User::factory()->create();
+
+    StampCopy::create([
+        'user_id' => $owner->id,
+        'stamp_id' => $stamp->id,
+        'quantity' => 1,
+    ]);
+
+    // Gebruiker 2 bezit deze postzegel niet.
+    $otherUser = User::factory()->create();
+
+    $this->actingAs($otherUser);
+
+    expect($stamp->isOwned())->toBeFalse();
 });

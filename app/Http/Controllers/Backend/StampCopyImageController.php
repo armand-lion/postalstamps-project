@@ -14,6 +14,12 @@ class StampCopyImageController extends Controller
 {
     public function store(Request $request, StampCopy $stampCopy): RedirectResponse
     {
+        // Alleen de eigenaar mag afbeeldingen toevoegen.
+        abort_unless(
+            $stampCopy->user_id === $request->user()->id,
+            404
+        );
+
         $validated = $request->validate([
             'image' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'image_type' => ['required', 'in:front,back,detail'],
@@ -66,6 +72,12 @@ class StampCopyImageController extends Controller
         StampCopy $stampCopy,
         StampCopyImage $image
     ): RedirectResponse {
+        // Alleen de eigenaar mag afbeeldingen wijzigen.
+        abort_unless(
+            $stampCopy->user_id === $request->user()->id,
+            404
+        );
+
         // Controleer of de afbeelding bij dit postzegelexemplaar hoort.
         abort_unless($image->stamp_copy_id === $stampCopy->id, 404);
 
@@ -131,6 +143,12 @@ class StampCopyImageController extends Controller
         StampCopy $stampCopy,
         StampCopyImage $image
     ): RedirectResponse {
+        // Alleen de eigenaar mag afbeeldingen verwijderen.
+        abort_unless(
+            $stampCopy->user_id === auth()->id(),
+            404
+        );
+
         // Controleer of de afbeelding bij dit postzegelexemplaar hoort.
         abort_unless($image->stamp_copy_id === $stampCopy->id, 404);
 

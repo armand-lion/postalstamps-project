@@ -90,7 +90,7 @@ class StampCopyController extends Controller
             $activeCatalogEditionId = null;
         }
 
-        $stampCopies = StampCopy::with([
+        $stampCopies = auth()->user()->stampCopies()->with([
             'stamp.country',
             'stamp.translations',
             'stamp.images',
@@ -416,7 +416,7 @@ class StampCopyController extends Controller
             'quantity' => ['required', 'integer', 'min:1'],
         ]);
 
-        StampCopy::create($validated);
+        $request->user()->stampCopies()->create($validated);
 
         return redirect()
             ->route('backend.stamp-copies.index')
@@ -428,6 +428,11 @@ class StampCopyController extends Controller
      */
     public function show(StampCopy $stampCopy): View
     {
+        abort_unless(
+            $stampCopy->user_id === auth()->id(),
+            404
+        );
+
         $stampCopy->load([
             'stamp.country',
             'stamp.translations',
@@ -447,6 +452,11 @@ class StampCopyController extends Controller
      */
     public function edit(StampCopy $stampCopy): View
     {
+        abort_unless(
+            $stampCopy->user_id === auth()->id(),
+            404
+        );
+
         $stampCopy->load([
             'stamp.country',
             'stamp.translations',
@@ -500,6 +510,11 @@ class StampCopyController extends Controller
      */
     public function update(Request $request, StampCopy $stampCopy): RedirectResponse
     {
+        abort_unless(
+            $stampCopy->user_id === auth()->id(),
+            404
+        );
+
         $stampCopy->load('stamp');
 
         $validated = $request->validate([
@@ -614,6 +629,11 @@ class StampCopyController extends Controller
      */
     public function destroy(StampCopy $stampCopy): RedirectResponse
     {
+        abort_unless(
+            $stampCopy->user_id === auth()->id(),
+            404
+        );
+
         $stampCopy->delete();
 
         return redirect()

@@ -670,7 +670,9 @@ test('de backend weigert een postzegel met gekoppelde exemplaren te verwijderen'
     ]);
 
     // Maak een gekoppeld exemplaar aan.
-    $stamp->copies()->create([]);
+    $stamp->copies()->create([
+        'user_id' => $user->id,
+    ]);
 
     $stampId = $stamp->id;
 

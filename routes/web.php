@@ -41,7 +41,8 @@ Route::middleware(['auth'])->group(function () { //
             Route::resource('themes', ThemeController::class);
             Route::resource('watermarks', WatermarkController::class);
             Route::resource('stamps', StampController::class);
-            Route::resource('stamp-copies', StampCopyController::class);
+            Route::resource('stamp-copies', StampCopyController::class)
+                ->parameters(['stamp-copies' => 'stampCopy']);
 
             Route::resource('stamp-copies.images', StampCopyImageController::class)
                 ->only(['store', 'update', 'destroy'])

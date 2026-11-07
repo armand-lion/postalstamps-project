@@ -15,6 +15,12 @@ class StampCopyValuationController extends Controller
      */
     public function store(Request $request, StampCopy $stampCopy): RedirectResponse
     {
+        // Alleen de eigenaar mag persoonlijke waarderingen toevoegen.
+        abort_unless(
+            $stampCopy->user_id === $request->user()->id,
+            404
+        );
+
         $validated = $request->validate([
             'valuation_date' => ['required', 'date'],
             'value' => ['required', 'numeric', 'min:0'],
@@ -38,6 +44,12 @@ class StampCopyValuationController extends Controller
         StampCopy $stampCopy,
         StampCopyValuation $valuation
     ): RedirectResponse {
+        // Alleen de eigenaar mag persoonlijke waarderingen wijzigen.
+        abort_unless(
+            $stampCopy->user_id === $request->user()->id,
+            404
+        );
+
         // Controleer of de waardering bij dit postzegelexemplaar hoort.
         abort_unless(
             $valuation->stamp_copy_id === $stampCopy->id,
@@ -66,6 +78,12 @@ class StampCopyValuationController extends Controller
         StampCopy $stampCopy,
         StampCopyValuation $valuation
     ): RedirectResponse {
+        // Alleen de eigenaar mag persoonlijke waarderingen verwijderen.
+        abort_unless(
+            $stampCopy->user_id === auth()->id(),
+            404
+        );
+
         // Controleer of de waardering bij dit postzegelexemplaar hoort.
         abort_unless(
             $valuation->stamp_copy_id === $stampCopy->id,

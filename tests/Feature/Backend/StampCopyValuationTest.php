@@ -21,6 +21,7 @@ test('een gebruiker kan een persoonlijke waardering toevoegen', function () {
     ]);
 
     $stampCopy = StampCopy::create([
+        'user_id' => $user->id,
         'stamp_id' => $stamp->id,
         'condition_id' => $condition->id,
         'quantity' => 1,
@@ -64,11 +65,11 @@ test('een gebruiker kan een persoonlijke waardering wijzigen', function () {
     ]);
 
     $stampCopy = StampCopy::create([
+        'user_id' => $user->id,
         'stamp_id' => $stamp->id,
         'condition_id' => $condition->id,
         'quantity' => 1,
     ]);
-
     $valuation = StampCopyValuation::create([
         'stamp_copy_id' => $stampCopy->id,
         'valuation_date' => '2026-11-01',
@@ -120,11 +121,11 @@ test('een gebruiker kan een persoonlijke waardering verwijderen', function () {
     ]);
 
     $stampCopy = StampCopy::create([
+        'user_id' => $user->id,
         'stamp_id' => $stamp->id,
         'condition_id' => $condition->id,
         'quantity' => 1,
     ]);
-
     $valuation = StampCopyValuation::create([
         'stamp_copy_id' => $stampCopy->id,
         'valuation_date' => '2026-11-07',
@@ -172,6 +173,7 @@ test('een gebruiker kan geen negatieve persoonlijke waardering toevoegen', funct
     ]);
 
     $stampCopy = StampCopy::create([
+        'user_id' => $user->id,
         'stamp_id' => $stamp->id,
         'condition_id' => $condition->id,
         'quantity' => 1,
@@ -207,6 +209,7 @@ test('een gebruiker kan geen persoonlijke waardering toevoegen met een te lange 
     ]);
 
     $stampCopy = StampCopy::create([
+        'user_id' => $user->id,
         'stamp_id' => $stamp->id,
         'condition_id' => $condition->id,
         'quantity' => 1,
@@ -242,12 +245,14 @@ test('een gebruiker kan een waardering niet via een ander verzamelexemplaar wijz
     ]);
 
     $stampCopy = StampCopy::create([
+        'user_id' => $user->id,
         'stamp_id' => $stamp->id,
         'condition_id' => $condition->id,
         'quantity' => 1,
     ]);
 
     $otherStampCopy = StampCopy::create([
+        'user_id' => $user->id,
         'stamp_id' => $stamp->id,
         'condition_id' => $condition->id,
         'quantity' => 1,
@@ -298,17 +303,18 @@ test('een gebruiker kan een waardering niet via een ander verzamelexemplaar verw
     ]);
 
     $stampCopy = StampCopy::create([
+        'user_id' => $user->id,
         'stamp_id' => $stamp->id,
         'condition_id' => $condition->id,
         'quantity' => 1,
     ]);
 
     $otherStampCopy = StampCopy::create([
+        'user_id' => $user->id,
         'stamp_id' => $stamp->id,
         'condition_id' => $condition->id,
         'quantity' => 1,
     ]);
-
     $valuation = StampCopyValuation::create([
         'stamp_copy_id' => $stampCopy->id,
         'valuation_date' => '2026-11-07',
@@ -345,7 +351,10 @@ test('een niet aangemelde gebruiker kan geen persoonlijke waardering toevoegen',
         'is_active' => true,
     ]);
 
+    $user = User::factory()->create();
+
     $stampCopy = StampCopy::create([
+        'user_id' => $user->id,
         'stamp_id' => $stamp->id,
         'condition_id' => $condition->id,
         'quantity' => 1,
@@ -379,7 +388,10 @@ test('een niet aangemelde gebruiker kan geen persoonlijke waardering wijzigen', 
         'is_active' => true,
     ]);
 
+    $user = User::factory()->create();
+
     $stampCopy = StampCopy::create([
+        'user_id' => $user->id,
         'stamp_id' => $stamp->id,
         'condition_id' => $condition->id,
         'quantity' => 1,
@@ -428,7 +440,10 @@ test('een niet aangemelde gebruiker kan geen persoonlijke waardering verwijderen
         'is_active' => true,
     ]);
 
+    $user = User::factory()->create();
+
     $stampCopy = StampCopy::create([
+        'user_id' => $user->id,
         'stamp_id' => $stamp->id,
         'condition_id' => $condition->id,
         'quantity' => 1,
@@ -456,6 +471,122 @@ test('een niet aangemelde gebruiker kan geen persoonlijke waardering verwijderen
         'id' => $valuation->id,
         'stamp_copy_id' => $stampCopy->id,
         'value' => 25.50,
+        'source' => 'Eigen taxatie',
+        'notes' => 'Oorspronkelijke waardering.',
+    ]);
+});
+
+test('een gebruiker kan geen waardering toevoegen aan het verzamelexemplaar van een andere gebruiker', function () {
+    $owner = User::factory()->create();
+
+    $otherUser = User::factory()->create();
+
+    $stamp = Stamp::factory()->create();
+
+    $stampCopy = StampCopy::create([
+        'user_id' => $owner->id,
+        'stamp_id' => $stamp->id,
+        'quantity' => 1,
+    ]);
+
+    $response = $this
+        ->actingAs($otherUser)
+        ->post(route('backend.stamp-copies.valuations.store', $stampCopy), [
+            'valuation_date' => '2026-11-07',
+            'value' => 99.99,
+            'currency' => 'EUR',
+            'source' => 'Onbevoegde taxatie',
+            'notes' => 'Deze waardering mag niet worden opgeslagen.',
+        ]);
+
+    $response->assertNotFound();
+
+    $this->assertDatabaseCount('stamp_copy_valuations', 0);
+});
+
+test('een gebruiker kan de persoonlijke waardering van een andere gebruiker niet wijzigen', function () {
+    $owner = User::factory()->create();
+
+    $otherUser = User::factory()->create();
+
+    $stamp = Stamp::factory()->create();
+
+    $stampCopy = StampCopy::create([
+        'user_id' => $owner->id,
+        'stamp_id' => $stamp->id,
+        'quantity' => 1,
+    ]);
+
+    $valuation = StampCopyValuation::create([
+        'stamp_copy_id' => $stampCopy->id,
+        'valuation_date' => '2026-11-01',
+        'value' => 25.50,
+        'currency' => 'EUR',
+        'source' => 'Eigen taxatie',
+        'notes' => 'Oorspronkelijke waardering.',
+    ]);
+
+    $response = $this
+        ->actingAs($otherUser)
+        ->put(route('backend.stamp-copies.valuations.update', [
+            $stampCopy,
+            $valuation,
+        ]), [
+            'valuation_date' => '2026-11-07',
+            'value' => 99.99,
+            'currency' => 'EUR',
+            'source' => 'Onbevoegde wijziging',
+            'notes' => 'Deze wijziging mag niet worden opgeslagen.',
+        ]);
+
+    $response->assertNotFound();
+
+    $this->assertDatabaseHas('stamp_copy_valuations', [
+        'id' => $valuation->id,
+        'stamp_copy_id' => $stampCopy->id,
+        'value' => 25.50,
+        'currency' => 'EUR',
+        'source' => 'Eigen taxatie',
+        'notes' => 'Oorspronkelijke waardering.',
+    ]);
+});
+
+test('een gebruiker kan de persoonlijke waardering van een andere gebruiker niet verwijderen', function () {
+    $owner = User::factory()->create();
+
+    $otherUser = User::factory()->create();
+
+    $stamp = Stamp::factory()->create();
+
+    $stampCopy = StampCopy::create([
+        'user_id' => $owner->id,
+        'stamp_id' => $stamp->id,
+        'quantity' => 1,
+    ]);
+
+    $valuation = StampCopyValuation::create([
+        'stamp_copy_id' => $stampCopy->id,
+        'valuation_date' => '2026-11-01',
+        'value' => 25.50,
+        'currency' => 'EUR',
+        'source' => 'Eigen taxatie',
+        'notes' => 'Oorspronkelijke waardering.',
+    ]);
+
+    $response = $this
+        ->actingAs($otherUser)
+        ->delete(route('backend.stamp-copies.valuations.destroy', [
+            $stampCopy,
+            $valuation,
+        ]));
+
+    $response->assertNotFound();
+
+    $this->assertDatabaseHas('stamp_copy_valuations', [
+        'id' => $valuation->id,
+        'stamp_copy_id' => $stampCopy->id,
+        'value' => 25.50,
+        'currency' => 'EUR',
         'source' => 'Eigen taxatie',
         'notes' => 'Oorspronkelijke waardering.',
     ]);

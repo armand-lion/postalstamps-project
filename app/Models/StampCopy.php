@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class StampCopy extends Model
 {
     protected $fillable = [
+        'user_id',
         'stamp_id',
         'condition_id',
         'quantity',
@@ -104,5 +105,10 @@ class StampCopy extends Model
             ?? $this->translations()
                 ->where('locale', 'nl')
                 ->first();
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
     }
 }

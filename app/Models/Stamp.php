@@ -93,7 +93,12 @@ class Stamp extends Model
      */
     public function isOwned(): bool
     {
+        if (! auth()->check()) {
+            return false;
+        }
+
         return $this->copies()
+            ->where('user_id', auth()->id())
             ->where('quantity', '>', 0)
             ->exists();
     }

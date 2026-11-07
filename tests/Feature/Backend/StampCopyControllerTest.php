@@ -33,6 +33,7 @@ test('een gebruiker kan een postzegel aan de persoonlijke verzameling toevoegen'
     $response->assertSessionHasNoErrors();
 
     $this->assertDatabaseHas('stamp_copies', [
+        'user_id' => $user->id,
         'stamp_id' => $stamp->id,
         'condition_id' => $condition->id,
         'quantity' => 3,
@@ -57,6 +58,7 @@ test('een gebruiker kan een verzamelexemplaar wijzigen', function () {
     ]);
 
     $stampCopy = StampCopy::create([
+        'user_id' => $user->id,
         'stamp_id' => $stamp->id,
         'condition_id' => $condition->id,
         'quantity' => 1,
@@ -93,6 +95,7 @@ test('een gebruiker kan een verzamelexemplaar verwijderen', function () {
     ]);
 
     $stampCopy = StampCopy::create([
+        'user_id' => $user->id,
         'stamp_id' => $stamp->id,
         'condition_id' => $condition->id,
         'quantity' => 3,
@@ -208,12 +211,14 @@ test('een gebruiker kan de persoonlijke verzameling filteren op conditie', funct
 
     // Beide postzegels toevoegen aan de verzameling.
     StampCopy::create([
+        'user_id' => $user->id,
         'stamp_id' => $stampPostfris->id,
         'condition_id' => $postfris->id,
         'quantity' => 1,
     ]);
 
     StampCopy::create([
+        'user_id' => $user->id,
         'stamp_id' => $stampGestempeld->id,
         'condition_id' => $gestempeld->id,
         'quantity' => 1,
@@ -274,18 +279,21 @@ test('een gebruiker kan de verzameling filteren op land en conditie', function (
 
     // Verzamelexemplaren aanmaken.
     StampCopy::create([
+        'user_id' => $user->id,
         'stamp_id' => $stampNederlandPostfris->id,
         'condition_id' => $postfris->id,
         'quantity' => 1,
     ]);
 
     StampCopy::create([
+        'user_id' => $user->id,
         'stamp_id' => $stampNederlandGestempeld->id,
         'condition_id' => $gestempeld->id,
         'quantity' => 1,
     ]);
 
     StampCopy::create([
+        'user_id' => $user->id,
         'stamp_id' => $stampDuitslandPostfris->id,
         'condition_id' => $postfris->id,
         'quantity' => 1,
@@ -307,4 +315,135 @@ test('een gebruiker kan de verzameling filteren op land en conditie', function (
     $response->assertDontSee('Nederland Gestempeld Test');
 
     $response->assertDontSee('Duitsland Postfris Test');
+});
+
+test('een gebruiker kan het verzamelexemplaar van een andere gebruiker niet bekijken', function () {
+    $owner = User::factory()->create();
+
+    $otherUser = User::factory()->create();
+
+    $stamp = Stamp::factory()->create();
+
+    $stampCopy = StampCopy::create([
+        'user_id' => $owner->id,
+        'stamp_id' => $stamp->id,
+        'quantity' => 1,
+    ]);
+
+    $response = $this
+        ->actingAs($otherUser)
+        ->get(route('backend.stamp-copies.show', $stampCopy));
+
+    $response->assertNotFound();
+});
+
+test('een gebruiker kan het verzamelexemplaar van een andere gebruiker niet bewerken', function () {
+    $owner = User::factory()->create();
+
+    $otherUser = User::factory()->create();
+
+    $stamp = Stamp::factory()->create();
+
+    $stampCopy = StampCopy::create([
+        'user_id' => $owner->id,
+        'stamp_id' => $stamp->id,
+        'quantity' => 1,
+    ]);
+
+    $response = $this
+        ->actingAs($otherUser)
+        ->get(route('backend.stamp-copies.edit', $stampCopy));
+
+    $response->assertNotFound();
+});
+
+test('een gebruiker kan het verzamelexemplaar van een andere gebruiker niet wijzigen', function () {
+    $owner = User::factory()->create();
+
+    $otherUser = User::factory()->create();
+
+    $stamp = Stamp::factory()->create();
+
+    $stampCopy = StampCopy::create([
+        'user_id' => $owner->id,
+        'stamp_id' => $stamp->id,
+        'quantity' => 1,
+    ]);
+
+    $response = $this
+        ->actingAs($otherUser)
+        ->put(route('backend.stamp-copies.update', $stampCopy), [
+            'quantity' => 5,
+        ]);
+
+    $response->assertNotFound();
+
+    $this->assertDatabaseHas('stamp_copies', [
+        'id' => $stampCopy->id,
+        'user_id' => $owner->id,
+        'quantity' => 1,
+    ]);
+});
+
+test('een gebruiker kan het verzamelexemplaar van een andere gebruiker niet verwijderen', function () {
+    $owner = User::factory()->create();
+
+    $otherUser = User::factory()->create();
+
+    $stamp = Stamp::factory()->create();
+
+    $stampCopy = StampCopy::create([
+        'user_id' => $owner->id,
+        'stamp_id' => $stamp->id,
+        'quantity' => 1,
+    ]);
+
+    $response = $this
+        ->actingAs($otherUser)
+        ->delete(route('backend.stamp-copies.destroy', $stampCopy));
+
+    $response->assertNotFound();
+
+    $this->assertDatabaseHas('stamp_copies', [
+        'id' => $stampCopy->id,
+        'user_id' => $owner->id,
+        'stamp_id' => $stamp->id,
+        'quantity' => 1,
+    ]);
+});
+
+test('een gebruiker ziet alleen eigen verzamelexemplaren in het overzicht', function () {
+    $user = User::factory()->create();
+
+    $otherUser = User::factory()->create();
+
+    $ownStamp = Stamp::factory()->create([
+        'name' => 'Eigen testzegel',
+    ]);
+
+    $otherStamp = Stamp::factory()->create([
+        'name' => 'Andermans testzegel',
+    ]);
+
+    StampCopy::create([
+        'user_id' => $user->id,
+        'stamp_id' => $ownStamp->id,
+        'quantity' => 1,
+    ]);
+
+    StampCopy::create([
+        'user_id' => $otherUser->id,
+        'stamp_id' => $otherStamp->id,
+        'quantity' => 1,
+    ]);
+
+    $response = $this
+        ->actingAs($user)
+        ->get(route('backend.stamp-copies.index'));
+
+    $response->assertOk();
+
+    $response->assertSee('Eigen testzegel');
+
+    $response->assertDontSee('Andermans testzegel');
 });

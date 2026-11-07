@@ -23,6 +23,7 @@ class StampCopyImageTest extends TestCase
         $stamp = Stamp::factory()->create();
 
         $stampCopy = StampCopy::create([
+            'user_id' => $user->id,
             'stamp_id' => $stamp->id,
             'quantity' => 1,
         ]);
@@ -68,6 +69,7 @@ class StampCopyImageTest extends TestCase
         $stamp = Stamp::factory()->create();
 
         $stampCopy = StampCopy::create([
+            'user_id' => $user->id,
             'stamp_id' => $stamp->id,
             'quantity' => 1,
         ]);
@@ -140,6 +142,7 @@ class StampCopyImageTest extends TestCase
         $stamp = Stamp::factory()->create();
 
         $stampCopy = StampCopy::create([
+            'user_id' => $user->id,
             'stamp_id' => $stamp->id,
             'quantity' => 1,
         ]);
@@ -195,11 +198,13 @@ class StampCopyImageTest extends TestCase
         $stamp = Stamp::factory()->create();
 
         $firstCopy = StampCopy::create([
+            'user_id' => $user->id,
             'stamp_id' => $stamp->id,
             'quantity' => 1,
         ]);
 
         $secondCopy = StampCopy::create([
+            'user_id' => $user->id,
             'stamp_id' => $stamp->id,
             'quantity' => 1,
         ]);
@@ -253,11 +258,13 @@ class StampCopyImageTest extends TestCase
         $stamp = Stamp::factory()->create();
 
         $firstCopy = StampCopy::create([
+            'user_id' => $user->id,
             'stamp_id' => $stamp->id,
             'quantity' => 1,
         ]);
 
         $secondCopy = StampCopy::create([
+            'user_id' => $user->id,
             'stamp_id' => $stamp->id,
             'quantity' => 1,
         ]);
@@ -305,10 +312,10 @@ class StampCopyImageTest extends TestCase
         $stamp = Stamp::factory()->create();
 
         $stampCopy = StampCopy::create([
+            'user_id' => $user->id,
             'stamp_id' => $stamp->id,
             'quantity' => 1,
         ]);
-
         // Een tekstbestand aanbieden in plaats van een afbeelding.
         $response = $this->actingAs($user)->post(
             route('backend.stamp-copies.images.store', $stampCopy),
@@ -334,5 +341,146 @@ class StampCopyImageTest extends TestCase
             [],
             Storage::disk('public')->allFiles()
         );
+    }
+
+    public function test_een_gebruiker_kan_geen_afbeelding_toevoegen_aan_het_verzamelexemplaar_van_een_andere_gebruiker(): void
+    {
+        Storage::fake('public');
+
+        $owner = User::factory()->create();
+
+        $otherUser = User::factory()->create();
+
+        $stamp = Stamp::factory()->create();
+
+        $stampCopy = StampCopy::create([
+            'user_id' => $owner->id,
+            'stamp_id' => $stamp->id,
+            'quantity' => 1,
+        ]);
+
+        $response = $this->actingAs($otherUser)->post(
+            route('backend.stamp-copies.images.store', $stampCopy),
+            [
+                'image' => UploadedFile::fake()->image('andermans-postzegel.jpg'),
+                'image_type' => 'front',
+                'alt_text' => 'Onbevoegde afbeelding',
+            ]
+        );
+
+        $response->assertNotFound();
+
+        $this->assertDatabaseCount('stamp_copy_images', 0);
+
+        $this->assertSame(
+            [],
+            Storage::disk('public')->allFiles()
+        );
+    }
+
+    public function test_een_gebruiker_kan_geen_afbeelding_van_een_andere_gebruiker_wijzigen(): void
+    {
+        Storage::fake('public');
+
+        $owner = User::factory()->create();
+
+        $otherUser = User::factory()->create();
+
+        $stamp = Stamp::factory()->create();
+
+        $stampCopy = StampCopy::create([
+            'user_id' => $owner->id,
+            'stamp_id' => $stamp->id,
+            'quantity' => 1,
+        ]);
+
+        // Een bestaande afbeelding van gebruiker A opslaan.
+        $path = UploadedFile::fake()
+            ->image('origineel.jpg')
+            ->store('stamp-copies', 'public');
+
+        $image = $stampCopy->images()->create([
+            'path' => $path,
+            'image_type' => 'front',
+            'alt_text' => 'Originele afbeelding',
+            'is_primary' => false,
+        ]);
+
+        // Gebruiker B probeert de afbeelding te wijzigen.
+        $response = $this->actingAs($otherUser)->put(
+            route('backend.stamp-copies.images.update', [
+                $stampCopy,
+                $image,
+            ]),
+            [
+                'image_type' => 'back',
+                'alt_text' => 'Onbevoegde wijziging',
+            ]
+        );
+
+        $response->assertNotFound();
+
+        // De oorspronkelijke databasegegevens moeten behouden blijven.
+        $this->assertDatabaseHas('stamp_copy_images', [
+            'id' => $image->id,
+            'stamp_copy_id' => $stampCopy->id,
+            'image_type' => 'front',
+            'alt_text' => 'Originele afbeelding',
+            'path' => $path,
+        ]);
+
+        // Het oorspronkelijke afbeeldingsbestand moet blijven bestaan.
+        Storage::disk('public')->assertExists($path);
+    }
+
+    public function test_een_gebruiker_kan_geen_afbeelding_van_een_andere_gebruiker_verwijderen(): void
+    {
+        Storage::fake('public');
+
+        $owner = User::factory()->create();
+
+        $otherUser = User::factory()->create();
+
+        $stamp = Stamp::factory()->create();
+
+        $stampCopy = StampCopy::create([
+            'user_id' => $owner->id,
+            'stamp_id' => $stamp->id,
+            'quantity' => 1,
+        ]);
+
+        // Een bestaande afbeelding van gebruiker A opslaan.
+        $path = UploadedFile::fake()
+            ->image('origineel.jpg')
+            ->store('stamp-copies', 'public');
+
+        $image = $stampCopy->images()->create([
+            'path' => $path,
+            'image_type' => 'front',
+            'alt_text' => 'Originele afbeelding',
+            'is_primary' => false,
+        ]);
+
+        // Gebruiker B probeert de afbeelding te verwijderen.
+        $response = $this->actingAs($otherUser)->delete(
+            route('backend.stamp-copies.images.destroy', [
+                $stampCopy,
+                $image,
+            ])
+        );
+
+        $response->assertNotFound();
+
+        // De databasevermelding moet behouden blijven.
+        $this->assertDatabaseHas('stamp_copy_images', [
+            'id' => $image->id,
+            'stamp_copy_id' => $stampCopy->id,
+            'image_type' => 'front',
+            'alt_text' => 'Originele afbeelding',
+            'path' => $path,
+        ]);
+
+        // Het oorspronkelijke afbeeldingsbestand moet blijven bestaan.
+        Storage::disk('public')->assertExists($path);
     }
 }
