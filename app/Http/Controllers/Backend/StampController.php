@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Backend;
 
 use App\Http\Controllers\Controller;
 use App\Models\Catalog;
+use App\Models\CatalogConditionRule;
 use App\Models\CatalogEdition;
 use App\Models\Condition;
 use App\Models\Country;
@@ -239,9 +240,14 @@ class StampController extends Controller
             ->orderBy('name')
             ->get();
 
-        // Laad beschikbare catalogi voor het aanmaakformulier.
+        // Laad beschikbare catalogi inclusief gekoppelde landen.
         $catalogs = Catalog::query()
+            ->with('countries:id')
             ->orderBy('name')
+            ->get();
+
+        $catalogConditionRules = CatalogConditionRule::with('condition.translations')
+            ->orderBy('sort_order')
             ->get();
 
         $catalogEditions = CatalogEdition::with('catalog')
@@ -265,6 +271,7 @@ class StampController extends Controller
             'series' => $series,
             'locales' => self::LOCALES,
             'catalogs' => $catalogs,
+            'catalogConditionRules' => $catalogConditionRules,
             'catalogEditions' => $catalogEditions,
             'parentStamps' => $parentStamps,
             'themes' => $themes,
@@ -360,9 +367,15 @@ class StampController extends Controller
             ],
             'catalog_values' => [
                 'nullable',
-                'array:postfris,gestempeld',
+                'array:postfris,ongebruikt-met-plakker,gestempeld',
             ],
             'catalog_values.postfris' => [
+                'nullable',
+                'numeric',
+                'min:0',
+                'decimal:0,2',
+            ],
+            'catalog_values.ongebruikt-met-plakker' => [
                 'nullable',
                 'numeric',
                 'min:0',
@@ -418,6 +431,42 @@ class StampController extends Controller
             $validated['catalog_values'] ?? [],
             fn ($value) => $value !== null && $value !== ''
         );
+
+        // Controleer of de opgegeven cataloguswaarden
+        // zijn toegestaan voor de geselecteerde catalogus,
+        // het land en het uitgiftejaar.
+        if ($catalogValues !== []) {
+            $allowedConditionIds = CatalogConditionRule::query()
+                ->where('catalog_id', $validated['catalog_id'])
+                ->where(function ($query) use ($validated) {
+                    $query->whereNull('country_id')
+                        ->orWhere('country_id', $validated['country_id']);
+                })
+                ->where(function ($query) use ($validated) {
+                    $query->whereNull('issue_year_from')
+                        ->orWhere('issue_year_from', '<=', $validated['issue_year']);
+                })
+                ->where(function ($query) use ($validated) {
+                    $query->whereNull('issue_year_to')
+                        ->orWhere('issue_year_to', '>=', $validated['issue_year']);
+                })
+                ->pluck('condition_id');
+
+            $allowedSlugs = Condition::query()
+                ->whereIn('id', $allowedConditionIds)
+                ->pluck('slug')
+                ->all();
+
+            foreach (array_keys($catalogValues) as $slug) {
+                if (! in_array($slug, $allowedSlugs, true)) {
+                    throw ValidationException::withMessages([
+                        'catalog_values' => __(
+                            'Een of meer cataloguswaarden zijn niet toegestaan voor de geselecteerde catalogus, het land of het uitgiftejaar.'
+                        ),
+                    ]);
+                }
+            }
+        }
 
         // Deze gegevens horen niet rechtstreeks bij de tabel 'stamps'.
         unset(
@@ -617,10 +666,8 @@ class StampController extends Controller
             ->orderBy('name')
             ->get();
 
-        $catalogEditions = CatalogEdition::with('catalog')
-            ->whereHas('catalog.countries', function ($query) use ($stamp) {
-                $query->where('countries.id', $stamp->country_id);
-            })
+        $catalogEditions = CatalogEdition::with('catalog.countries')
+            ->whereHas('catalog.countries')
             ->orderByDesc('edition_year')
             ->orderBy('edition_name')
             ->get();
@@ -631,9 +678,20 @@ class StampController extends Controller
             ->orderBy('name')
             ->get();
 
+        // Laad actieve postzegelcondities inclusief vertalingen.
+        $conditions = Condition::with('translations')
+            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->get();
+
         // Laad beschikbare thema's inclusief vertalingen.
         $themes = Theme::with('translations')
             ->orderBy('name')
+            ->get();
+
+        // Laad de cataloguswaarderingsregels inclusief conditievertalingen.
+        $catalogConditionRules = CatalogConditionRule::with('condition.translations')
+            ->orderBy('sort_order')
             ->get();
 
         return view('backend.stamps.edit', [
@@ -644,6 +702,8 @@ class StampController extends Controller
             'catalogEditions' => $catalogEditions,
             'parentStamps' => $parentStamps,
             'themes' => $themes,
+            'conditions' => $conditions,
+            'catalogConditionRules' => $catalogConditionRules,
         ]);
     }
 
@@ -784,9 +844,15 @@ class StampController extends Controller
             ],
             'catalog_editions.*.values' => [
                 'sometimes',
-                'array:postfris,gestempeld',
+                'array:postfris,ongebruikt-met-plakker,gestempeld',
             ],
             'catalog_editions.*.values.postfris' => [
+                'nullable',
+                'numeric',
+                'min:0',
+                'decimal:0,2',
+            ],
+            'catalog_editions.*.values.ongebruikt-met-plakker' => [
                 'nullable',
                 'numeric',
                 'min:0',
@@ -928,6 +994,23 @@ class StampController extends Controller
             // Werk de algemene postzegelgegevens bij.
             $stamp->update($validated);
 
+            // Verwijder cataloguskoppelingen die niet bij het geselecteerde land horen.
+            $invalidCatalogEntries = $stamp->catalogEntries()
+                ->whereHas('catalogEdition.catalog', function ($query) use ($validated) {
+                    $query->whereDoesntHave('countries', function ($countryQuery) use ($validated) {
+                        $countryQuery->where('countries.id', $validated['country_id']);
+                    });
+                })
+                ->get();
+
+            foreach ($invalidCatalogEntries as $catalogEntry) {
+                // Verwijder eerst de bijbehorende cataloguswaarden.
+                $catalogEntry->values()->delete();
+
+                // Verwijder daarna de cataloguskoppeling.
+                $catalogEntry->delete();
+            }
+
             // Werk de gekoppelde thema's bij.
             $stamp->themes()->sync($themeIds);
 
@@ -1000,9 +1083,13 @@ class StampController extends Controller
                 }
             }
 
-            // Haal de condities op voor de bestaande catalogusvermeldingen.
+            // Haal de condities op voor de cataloguswaarderingen.
             $entryConditions = Condition::query()
-                ->whereIn('slug', ['postfris', 'gestempeld'])
+                ->whereIn('slug', [
+                    'postfris',
+                    'ongebruikt-met-plakker',
+                    'gestempeld',
+                ])
                 ->get()
                 ->keyBy('slug');
 
@@ -1052,6 +1139,48 @@ class StampController extends Controller
                 $catalogNumber = trim((string) ($editionData['catalog_number'] ?? ''));
                 $values = $editionData['values'] ?? [];
 
+                // Controleer of de ingevulde cataloguswaarden zijn toegestaan
+                // voor de catalogus, het land en het uitgiftejaar.
+                $submittedValues = array_filter(
+                    $values,
+                    fn ($value) => $value !== null && $value !== ''
+                );
+
+                if ($submittedValues !== []) {
+                    $edition = CatalogEdition::findOrFail($editionId);
+
+                    $allowedConditionIds = CatalogConditionRule::query()
+                        ->where('catalog_id', $edition->catalog_id)
+                        ->where(function ($query) use ($validated) {
+                            $query->whereNull('country_id')
+                                ->orWhere('country_id', $validated['country_id']);
+                        })
+                        ->where(function ($query) use ($validated) {
+                            $query->whereNull('issue_year_from')
+                                ->orWhere('issue_year_from', '<=', $validated['issue_year']);
+                        })
+                        ->where(function ($query) use ($validated) {
+                            $query->whereNull('issue_year_to')
+                                ->orWhere('issue_year_to', '>=', $validated['issue_year']);
+                        })
+                        ->pluck('condition_id');
+
+                    $allowedSlugs = Condition::query()
+                        ->whereIn('id', $allowedConditionIds)
+                        ->pluck('slug')
+                        ->all();
+
+                    foreach (array_keys($submittedValues) as $slug) {
+                        if (! in_array($slug, $allowedSlugs, true)) {
+                            throw ValidationException::withMessages([
+                                "catalog_editions.{$editionId}.values.{$slug}" => __(
+                                    'Deze cataloguswaarde is niet toegestaan voor de geselecteerde catalogus, het land of het uitgiftejaar.'
+                                ),
+                            ]);
+                        }
+                    }
+                }
+
                 // Controleer of er cataloguswaarden zijn ingevuld.
                 $hasValues = false;
 
@@ -1097,10 +1226,6 @@ class StampController extends Controller
 
                 // Werk de cataloguswaarden per conditie bij.
                 foreach ($values as $slug => $amount) {
-                    if ($amount === null || $amount === '') {
-                        continue;
-                    }
-
                     $condition = $entryConditions->get($slug);
 
                     if ($condition === null) {
@@ -1111,6 +1236,16 @@ class StampController extends Controller
                         ]);
                     }
 
+                    // Verwijder de bestaande cataloguswaarde wanneer het veld leeg is.
+                    if ($amount === null || $amount === '') {
+                        $catalogEntry->values()
+                            ->where('condition_id', $condition->id)
+                            ->delete();
+
+                        continue;
+                    }
+
+                    // Voeg een ontbrekende cataloguswaarde toe of werk de bestaande bij.
                     $catalogEntry->values()->updateOrCreate(
                         ['condition_id' => $condition->id],
                         [

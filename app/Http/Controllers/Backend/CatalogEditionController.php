@@ -12,6 +12,37 @@ use Illuminate\Http\Request;
 class CatalogEditionController extends Controller
 {
     /**
+     * Display a listing of all catalog editions.
+     */
+    public function all(Request $request): View
+    {
+        // Haal alle catalogussen op voor het filter.
+        $catalogs = Catalog::query()
+            ->orderBy('name')
+            ->get();
+
+        // Bouw de query voor alle catalogusedities op.
+        $query = CatalogEdition::query()
+            ->with('catalog');
+
+        // Filter op catalogus wanneer er een catalogus is geselecteerd.
+        if ($request->filled('catalog_id')) {
+            $query->where('catalog_id', $request->integer('catalog_id'));
+        }
+
+        // Haal de gefilterde catalogusedities op.
+        $editions = $query
+            ->orderByDesc('edition_year')
+            ->orderBy('edition_name')
+            ->get();
+
+        return view('backend.catalog-editions.all', [
+            'catalogs' => $catalogs,
+            'editions' => $editions,
+        ]);
+    }
+
+    /**
      * Display a listing of the resource.
      */
     public function index(Catalog $catalog): View
@@ -104,14 +135,15 @@ class CatalogEditionController extends Controller
         // Voorkom verwijderen wanneer er gekoppelde gegevens bestaan.
         if (
             $edition->stampEntries()->exists()
+            || $edition->collectibleEntries()->exists()
             || $edition->seriesValues()->exists()
             || $edition->userCatalogs()->exists()
         ) {
             return redirect()
-                ->route('backend.catalogs.editions.show', [$catalog, $edition])
+                ->back()
                 ->with(
                     'error',
-                    __('Deze cataloguseditie kan niet worden verwijderd omdat er nog catalogusvermeldingen, cataloguswaarden of gebruikers aan gekoppeld zijn.')
+                    __('Deze cataloguseditie kan niet worden verwijderd omdat er nog postzegels, verzamelobjecten, cataloguswaarden of gebruikers aan gekoppeld zijn.')
                 );
         }
 
@@ -120,7 +152,7 @@ class CatalogEditionController extends Controller
 
         // Ga terug naar het overzicht.
         return redirect()
-            ->route('backend.catalogs.editions.index', $catalog)
+            ->back()
             ->with(
                 'success',
                 __('De cataloguseditie is succesvol verwijderd.')

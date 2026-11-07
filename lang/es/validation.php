@@ -184,8 +184,10 @@ return [
         'attribute-name' => [
             'rule-name' => 'custom-message',
         ],
+        'password' => [
+            'confirmed' => 'Las contraseñas no coinciden.',
+        ],
     ],
-
     /*
     |--------------------------------------------------------------------------
     | Custom Validation Attributes
@@ -201,6 +203,9 @@ return [
         'country_id' => 'país',
         'stamp_series_id' => 'serie de sellos',
         'name' => 'nombre',
+        'email' => 'correo electrónico',
+        'password' => 'contraseña',
+        'password_confirmation' => 'confirmación de contraseña',
         'description' => 'descripción',
         'issue_year' => 'año de emisión',
         'issue_date' => 'fecha de emisión',

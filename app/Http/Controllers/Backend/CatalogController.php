@@ -61,6 +61,7 @@ class CatalogController extends Controller
         $catalog->load([
             'countries.translations',
             'editions',
+            'conditionRules.condition.translations',
         ]);
 
         return view('backend.catalogs.show', [

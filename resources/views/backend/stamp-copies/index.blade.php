@@ -290,7 +290,7 @@
 
                             <div x-data="{
                                 selectedId: @js((string) ($selectedEditionId ?? '')),
-                                selectedName: @js($selectedEdition?->edition_name ?? __('Alle catalogusedities'))
+                                selectedName: @js($selectedEdition ? $selectedEdition->edition_name . ' — ' . $selectedEdition->edition_year : __('Alle catalogusedities'))
                             }" x-init="$watch('catalogId', () => {
                                 selectedId = '';
                                 selectedName = @js(__('Alle catalogusedities'));
@@ -319,18 +319,21 @@
                                         </flux:menu.item>
 
                                         @foreach ($catalogEditions as $edition)
+                                            @php
+                                                $editionLabel = $edition->edition_name . ' — ' . $edition->edition_year;
+                                            @endphp
+
                                             <div x-show="catalogId === '' || catalogId === @js((string) $edition->catalog_id)"
                                                 x-cloak>
                                                 <flux:menu.item as="button" type="button"
-                                                    x-on:click="selectedId = @js((string) $edition->id); selectedName = @js($edition->edition_name)"
+                                                    x-on:click="selectedId = @js((string) $edition->id); selectedName = @js($editionLabel)"
                                                     class="w-full cursor-pointer text-zinc-900! hover:bg-brown-5!">
 
-                                                    {{ $edition->edition_name }}
+                                                    {{ $editionLabel }}
 
                                                 </flux:menu.item>
                                             </div>
                                         @endforeach
-
                                     </flux:menu>
 
                                 </flux:dropdown>
@@ -345,8 +348,8 @@
                             <flux:label>{{ __('Zoeken') }}</flux:label>
 
                             <input type="search" name="search" value="{{ request('search') }}"
-    placeholder="{{ __('Naam of catalogusnummer') }}"
-    class="block h-10 w-full rounded-lg border border-theme-accent-3 bg-brown-5 px-3 text-sm text-zinc-900 placeholder:text-zinc-500 focus:border-theme-accent-3 focus:outline-none focus:ring-2 focus:ring-theme-accent-3 focus:ring-offset-2 focus:ring-offset-brown-5">
+                                placeholder="{{ __('Naam of catalogusnummer') }}"
+                                class="block h-10 w-full rounded-lg border border-theme-accent-3 bg-brown-5 px-3 text-sm text-zinc-900 placeholder:text-zinc-500 focus:border-theme-accent-3 focus:outline-none focus:ring-2 focus:ring-theme-accent-3 focus:ring-offset-2 focus:ring-offset-brown-5">
                         </flux:field>
                     </div>
 
@@ -408,6 +411,34 @@
             </form>
         </div>
 
+        {{-- Totale cataloguswaarde van de gefilterde verzameling --}}
+        <div class="rounded-xl border border-theme-accent-1 bg-brown-6 p-4 dark:border-neutral-700">
+
+            <flux:heading size="lg">
+                {{ __('Totale cataloguswaarde') }}
+            </flux:heading>
+
+            <flux:text class="mt-1">
+                {{ __('Gebaseerd op de geselecteerde filters en cataloguseditie.') }}
+            </flux:text>
+
+            <div class="mt-4">
+                @if ($activeCatalogEditionId !== null && count($totalCatalogValues) > 0)
+
+                    @foreach ($totalCatalogValues as $currency => $total)
+                        <div class="text-xl font-semibold text-zinc-900 dark:text-white">
+                            {{ number_format($total, 2, ',', '.') }} {{ $currency }}
+                        </div>
+                    @endforeach
+                @else
+                    <flux:text>
+                        {{ __('Geen cataloguswaardering beschikbaar voor deze selectie.') }}
+                    </flux:text>
+                @endif
+            </div>
+
+        </div>
+
         {{-- Overzicht persoonlijke postzegels --}}
         <div class="overflow-hidden rounded-xl border border-theme-accent-1 bg-brown-6 dark:border-neutral-700">
 
@@ -430,6 +461,10 @@
 
                             <th class="px-4 py-3">
                                 {{ __('Aantal') }}
+                            </th>
+
+                            <th class="px-4 py-3">
+                                {{ __('Cataloguswaarde') }}
                             </th>
 
                             <th class="px-4 py-3 text-right">
@@ -484,23 +519,58 @@
                                     {{ $stampCopy->quantity }}
                                 </td>
 
+                                {{-- Totale cataloguswaarde --}}
+                                <td class="px-4 py-3">
+                                    @php
+                                        $catalogEntry =
+                                            $activeCatalogEditionId !== null
+                                                ? $stampCopy->stamp?->catalogEntries?->firstWhere(
+                                                    'catalog_edition_id',
+                                                    $activeCatalogEditionId,
+                                                )
+                                                : null;
+
+                                        $catalogValue = $catalogEntry?->values?->firstWhere(
+                                            'condition_id',
+                                            $stampCopy->condition_id,
+                                        );
+
+                                        $totalCatalogValue =
+                                            $catalogValue !== null
+                                                ? (float) $catalogValue->catalog_value * $stampCopy->quantity
+                                                : null;
+                                    @endphp
+
+                                    @if ($totalCatalogValue !== null)
+                                        {{ number_format($totalCatalogValue, 2, ',', '.') }}
+                                        {{ $catalogValue->currency }}
+                                    @else
+                                        —
+                                    @endif
+                                </td>
+
                                 <td class="px-4 py-3 text-right">
                                     <div class="flex justify-end gap-2">
 
                                         <flux:button :href="route('backend.stamp-copies.show', $stampCopy)"
-                                            size="sm" icon="eye" variant="ghost" />
+                                            size="sm" icon="eye" variant="ghost">
+                                            {{ __('Bekijken') }}
+                                        </flux:button>
 
                                         <flux:button :href="route('backend.stamp-copies.edit', $stampCopy)"
-                                            size="sm" icon="pencil" variant="ghost" />
+                                            size="sm" icon="pencil" variant="ghost">
+                                            {{ __('Bewerken') }}
+                                        </flux:button>
 
+                                        {{-- Verwijderen --}}
                                         <form method="POST"
                                             action="{{ route('backend.stamp-copies.destroy', $stampCopy) }}"
-                                            onsubmit="return confirm('{{ __('Weet je zeker dat je deze postzegel uit je verzameling wilt verwijderen?') }}')">
+                                            class="delete-confirm-form">
                                             @csrf
                                             @method('DELETE')
 
-                                            <flux:button type="submit" size="sm" icon="trash"
-                                                variant="ghost" />
+                                            <flux:button type="button" size="sm" icon="trash"
+                                                variant="ghost" onclick="openDeleteModal(this.closest('form'))" />
                                         </form>
 
                                     </div>
@@ -508,9 +578,16 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="7" class="px-4 py-8 text-center">
+                                <td colspan="8" class="px-4 py-8 text-center">
                                     <flux:text>
-                                        {{ __('Je hebt nog geen postzegels aan je verzameling toegevoegd.') }}
+                                        @if (request()->filled('country_id') ||
+                                                request()->filled('issue_year') ||
+                                                request()->filled('condition_id') ||
+                                                request()->filled('search'))
+                                            {{ __('Geen postzegels gevonden voor de geselecteerde filters.') }}
+                                        @else
+                                            {{ __('Je hebt nog geen postzegels aan je verzameling toegevoegd.') }}
+                                        @endif
                                     </flux:text>
                                 </td>
                             </tr>
@@ -529,6 +606,6 @@
 
         </div>
 
-
+        @include('components.delete-confirm-modal')
     </div>
 </x-layouts::app>

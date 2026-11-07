@@ -2,6 +2,24 @@
 
     <div class="flex flex-col gap-6 p-4 md:p-6">
 
+        {{-- Succesmelding --}}
+        @if (session('success'))
+            <div role="status" class="rounded-lg border border-green-300 bg-green-50 p-4 text-sm text-green-800">
+                {{ session('success') }}
+            </div>
+        @endif
+
+        {{-- Validatiefouten --}}
+        @if ($errors->any())
+            <div class="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+                <ul class="list-inside list-disc space-y-1">
+                    @foreach ($errors->all() as $error)
+                        <li>{{ $error }}</li>
+                    @endforeach
+                </ul>
+            </div>
+        @endif
+
         {{-- Paginatitel en actieknoppen --}}
         <div
             class="flex flex-col justify-between gap-4 rounded-lg border border-theme-accent-1 bg-brown-6 p-5 sm:flex-row sm:items-center">
@@ -139,6 +157,175 @@
                 </div>
 
             </dl>
+
+        </div>
+
+        {{-- Cataloguswaardering --}}
+        <div class="rounded-xl border border-theme-accent-1 bg-brown-6 p-4 md:p-6">
+
+            <flux:heading size="lg" class="text-zinc-900!">
+                {{ __('Cataloguswaardering') }}
+            </flux:heading>
+
+            <flux:text class="mt-2 text-zinc-700!">
+                {{ __('Cataloguswaarden voor de conditie van dit exemplaar.') }}
+            </flux:text>
+
+            @if ($stampCopy->stamp->catalogEntries->isNotEmpty())
+
+                <div class="mt-6 overflow-x-auto">
+                    <table class="w-full text-sm">
+
+                        <thead class="bg-brown-5">
+                            <tr class="border-b border-theme-accent-3 text-left text-zinc-900">
+                                <th class="px-3 py-2 font-semibold">
+                                    {{ __('Catalogus') }}
+                                </th>
+
+                                <th class="px-3 py-2 font-semibold">
+                                    {{ __('Editie') }}
+                                </th>
+
+                                <th class="px-3 py-2 font-semibold">
+                                    {{ __('Waarde per stuk') }}
+                                </th>
+
+                                <th class="px-3 py-2 font-semibold">
+                                    {{ __('Aantal') }}
+                                </th>
+
+                                <th class="px-3 py-2 font-semibold">
+                                    {{ __('Totale waarde') }}
+                                </th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            @foreach ($stampCopy->stamp->catalogEntries as $entry)
+                                @php
+                                    $catalogValue = $entry->values->firstWhere(
+                                        'condition_id',
+                                        $stampCopy->condition_id,
+                                    );
+
+                                    $totalValue =
+                                        $catalogValue !== null
+                                            ? (float) $catalogValue->catalog_value * $stampCopy->quantity
+                                            : null;
+                                @endphp
+
+                                <tr class="border-b border-theme-accent-1 bg-brown-6 text-zinc-900 hover:bg-brown-5">
+
+                                    <td class="px-3 py-2">
+                                        {{ $entry->catalogEdition?->catalog?->name ?? '—' }}
+                                    </td>
+
+                                    <td class="px-3 py-2">
+                                        {{ $entry->catalogEdition?->edition_year ?? '—' }}
+                                    </td>
+
+                                    <td class="px-3 py-2">
+                                        @if ($catalogValue !== null)
+                                            {{ number_format((float) $catalogValue->catalog_value, 2, ',', '.') }}
+                                            {{ $catalogValue->currency }}
+                                        @else
+                                            —
+                                        @endif
+                                    </td>
+
+                                    <td class="px-3 py-2">
+                                        {{ $stampCopy->quantity }}
+                                    </td>
+
+                                    <td class="px-3 py-2 font-semibold">
+                                        @if ($totalValue !== null)
+                                            {{ number_format($totalValue, 2, ',', '.') }}
+                                            {{ $catalogValue->currency }}
+                                        @else
+                                            {{ __('Geen cataloguswaarde beschikbaar') }}
+                                        @endif
+                                    </td>
+
+                                </tr>
+                            @endforeach
+                        </tbody>
+
+                    </table>
+                </div>
+            @else
+                <flux:text class="mt-4 text-zinc-700!">
+                    {{ __('Er zijn geen catalogusvermeldingen beschikbaar voor deze postzegel.') }}
+                </flux:text>
+
+            @endif
+
+        </div>
+
+        {{-- Waarderingen --}}
+        <div class="rounded-xl border border-theme-accent-1 bg-brown-6 p-4 md:p-6">
+
+            <flux:heading size="lg" class="text-zinc-900!">
+                {{ __('Waarderingen') }}
+            </flux:heading>
+
+            @if ($stampCopy->valuations->isNotEmpty())
+
+                <div class="mt-6 overflow-x-auto">
+                    <table class="w-full text-sm">
+
+                        <thead class="bg-brown-5">
+                            <tr class="border-b border-theme-accent-3 text-left text-zinc-900">
+                                <th class="px-3 py-2 font-semibold">
+                                    {{ __('Datum') }}
+                                </th>
+
+                                <th class="px-3 py-2 font-semibold">
+                                    {{ __('Waarde') }}
+                                </th>
+
+                                <th class="px-3 py-2 font-semibold">
+                                    {{ __('Bron') }}
+                                </th>
+
+                                <th class="px-3 py-2 font-semibold">
+                                    {{ __('Opmerkingen') }}
+                                </th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            @foreach ($stampCopy->valuations->sortByDesc('valuation_date') as $valuation)
+                                <tr class="border-b border-theme-accent-1 bg-brown-6 text-zinc-900 hover:bg-brown-5">
+
+                                    <td class="px-3 py-2">
+                                        {{ $valuation->valuation_date?->format('d-m-Y') ?? '—' }}
+                                    </td>
+
+                                    <td class="px-3 py-2">
+                                        {{ number_format((float) $valuation->value, 2, ',', '.') }}
+                                        {{ $valuation->currency ?? '' }}
+                                    </td>
+
+                                    <td class="px-3 py-2">
+                                        {{ $valuation->source ?: '—' }}
+                                    </td>
+
+                                    <td class="px-3 py-2">
+                                        {{ $valuation->notes ?: '—' }}
+                                    </td>
+
+                                </tr>
+                            @endforeach
+                        </tbody>
+
+                    </table>
+                </div>
+            @else
+                <flux:text class="mt-4 text-zinc-700!">
+                    {{ __('Er zijn nog geen waarderingen geregistreerd.') }}
+                </flux:text>
+
+            @endif
 
         </div>
 

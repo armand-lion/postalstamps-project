@@ -47,9 +47,10 @@
         @endif
 
         {{-- Overzicht catalogusedities --}}
-        <section class="rounded-xl border border-neutral-200 dark:border-neutral-700">
+        <section
+            class="    flex flex-col gap-4 rounded-xl border border-theme-accent-1 bg-brown-6 dark:border-neutral-700">
 
-            <div class="border-b border-neutral-200 px-4 py-3 dark:border-neutral-700">
+            <div class="border-b border-theme-accent-1 bg-brown-6 px-4 py-3 dark:border-neutral-700">
 
                 <flux:heading size="lg">
                     {{ __('Catalogusedities') }}
@@ -61,12 +62,12 @@
 
             </div>
 
-            <div class="p-4">
+            <div>
 
                 @if ($editions->isEmpty())
 
                     {{-- Geen catalogusedities --}}
-                    <div class="py-8 text-center">
+                    <div class="p-4 py-8 text-center">
 
                         <flux:icon.book-open class="mx-auto mb-4 size-10 text-neutral-400" />
 
@@ -81,98 +82,103 @@
                     </div>
                 @else
                     {{-- Tabel met catalogusedities --}}
-                    <div class="overflow-x-auto">
+                    <div class="w-full overflow-x-auto">
 
-                        <flux:table>
+                        <table class="w-full text-left text-sm">
 
-                            <flux:table.columns>
+                            {{-- Kolomkoppen --}}
+                            <thead class="bg-brown-5 text-brown-2 dark:bg-neutral-900 dark:text-neutral-300">
+                                <tr>
+                                    <th class="px-4 py-3 font-medium">
+                                        {{ __('Editienaam') }}
+                                    </th>
 
-                                <flux:table.column>
-                                    {{ __('Editienaam') }}
-                                </flux:table.column>
+                                    <th class="px-4 py-3 font-medium">
+                                        {{ __('Editiejaar') }}
+                                    </th>
 
-                                <flux:table.column>
-                                    {{ __('Editiejaar') }}
-                                </flux:table.column>
+                                    <th class="px-4 py-3 font-medium">
+                                        {{ __('Publicatiedatum') }}
+                                    </th>
 
-                                <flux:table.column>
-                                    {{ __('Publicatiedatum') }}
-                                </flux:table.column>
+                                    <th class="px-4 py-3 font-medium">
+                                        {{ __('Valuta') }}
+                                    </th>
 
-                                <flux:table.column>
-                                    {{ __('Valuta') }}
-                                </flux:table.column>
+                                    <th class="px-4 py-3 text-right font-medium">
+                                        {{ __('Acties') }}
+                                    </th>
+                                </tr>
+                            </thead>
 
-                                <flux:table.column>
-                                    {{ __('Acties') }}
-                                </flux:table.column>
-
-                            </flux:table.columns>
-
-                            <flux:table.rows>
+                            {{-- Tabelrijen --}}
+                            <tbody class="divide-y divide-brown-4 dark:divide-neutral-700">
 
                                 @foreach ($editions as $edition)
-                                    <flux:table.row :key="$edition->id">
+                                    <tr class="transition-colors hover:bg-brown-5!">
 
-                                        <flux:table.cell>
+                                        {{-- Editienaam --}}
+                                        <td class="px-4 py-3 font-medium">
                                             {{ $edition->edition_name }}
-                                        </flux:table.cell>
+                                        </td>
 
-                                        <flux:table.cell>
+                                        {{-- Editiejaar --}}
+                                        <td class="px-4 py-3">
                                             {{ $edition->edition_year }}
-                                        </flux:table.cell>
+                                        </td>
 
-                                        <flux:table.cell>
+                                        {{-- Publicatiedatum --}}
+                                        <td class="px-4 py-3">
                                             {{ $edition->publication_date?->format('d-m-Y') ?? '—' }}
-                                        </flux:table.cell>
+                                        </td>
 
-                                        <flux:table.cell>
+                                        {{-- Valuta --}}
+                                        <td class="px-4 py-3">
                                             {{ $edition->currency ?? '—' }}
-                                        </flux:table.cell>
+                                        </td>
 
-                                        <flux:table.cell>
+                                        {{-- Acties --}}
+                                        <td class="px-4 py-3">
 
-                                            <div class="flex items-center justify-end gap-2">
+                                            <div class="flex flex-wrap items-center justify-end gap-2">
 
+                                                {{-- Bekijken --}}
                                                 <flux:button
                                                     :href="route('backend.catalogs.editions.show', [$catalog, $edition])"
                                                     size="sm" variant="ghost" icon="eye">
                                                     {{ __('Bekijken') }}
                                                 </flux:button>
 
+                                                {{-- Bewerken --}}
                                                 <flux:button
                                                     :href="route('backend.catalogs.editions.edit', [$catalog, $edition])"
                                                     size="sm" variant="ghost" icon="pencil">
                                                     {{ __('Bewerken') }}
                                                 </flux:button>
 
+                                                {{-- Verwijderen --}}
                                                 <div x-data>
-                                                    <flux:button
-                                                        type="button"
-                                                        size="sm"
-                                                        variant="ghost"
-                                                        icon="trash"
-                                                        class="text-red-600!"
+                                                    <flux:button type="button" size="sm" variant="ghost"
+                                                        icon="trash" class="text-red-600!"
                                                         x-on:click="$dispatch('open-delete-edition-modal', {
-                                                            id: {{ $edition->id }},
-                                                            name: @js($edition->edition_name),
-                                                            url: @js(route('backend.catalogs.editions.destroy', [$catalog, $edition]))
-                                                        })"
-                                                    >
+                                    id: {{ $edition->id }},
+                                    name: @js($edition->edition_name),
+                                    url: @js(route('backend.catalogs.editions.destroy', [$catalog, $edition]))
+                                })">
                                                         {{ __('Verwijderen') }}
                                                     </flux:button>
                                                 </div>
 
                                             </div>
 
-                                        </flux:table.cell>
+                                        </td>
 
-                                    </flux:table.row>
+                                    </tr>
                                 @endforeach
 
-                            </flux:table.rows>
+                            </tbody>
 
-                        </flux:table>
+                        </table>
 
                     </div>
 
@@ -183,40 +189,26 @@
         </section>
 
         {{-- Bevestigingsvenster cataloguseditie verwijderen --}}
-        <div
-            x-data="{
-                open: false,
-                editionName: '',
-                deleteUrl: ''
-            }"
+        <div x-data="{
+            open: false,
+            editionName: '',
+            deleteUrl: ''
+        }"
             x-on:open-delete-edition-modal.window="
                 editionName = $event.detail.name;
                 deleteUrl = $event.detail.url;
                 open = true;
             "
-            x-on:keydown.escape.window="open = false"
-        >
+            x-on:keydown.escape.window="open = false">
 
-            <div
-                x-cloak
-                x-show="open"
-                x-transition.opacity
+            <div x-cloak x-show="open" x-transition.opacity
                 class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-                x-on:click.self="open = false"
-                role="presentation"
-            >
+                x-on:click.self="open = false" role="presentation">
 
-                <div
-                    role="dialog"
-                    aria-modal="true"
-                    aria-labelledby="delete-edition-title"
-                    class="w-full max-w-md rounded-xl bg-white p-6 shadow-xl dark:bg-zinc-900"
-                >
+                <div role="dialog" aria-modal="true" aria-labelledby="delete-edition-title"
+                    class="w-full max-w-md rounded-xl bg-white p-6 shadow-xl dark:bg-zinc-900">
 
-                    <flux:heading
-                        id="delete-edition-title"
-                        size="lg"
-                    >
+                    <flux:heading id="delete-edition-title" size="lg">
                         {{ __('Cataloguseditie verwijderen') }}
                     </flux:heading>
 
@@ -224,39 +216,23 @@
                         {{ __('Weet je zeker dat je deze cataloguseditie wilt verwijderen?') }}
                     </flux:text>
 
-                    <p
-                        class="mt-2 font-semibold text-zinc-900 dark:text-white"
-                        x-text="editionName"
-                    ></p>
+                    <p class="mt-2 font-semibold text-zinc-900 dark:text-white" x-text="editionName"></p>
 
                     <flux:text class="mt-3">
                         {{ __('Deze actie kan niet ongedaan worden gemaakt.') }}
                     </flux:text>
 
-                    <form
-                        method="POST"
-                        x-bind:action="deleteUrl"
-                        class="mt-6"
-                    >
+                    <form method="POST" x-bind:action="deleteUrl" class="mt-6">
                         @csrf
                         @method('DELETE')
 
                         <div class="flex flex-wrap justify-end gap-3">
 
-                            <flux:button
-                                type="button"
-                                variant="ghost"
-                                icon="x-mark"
-                                x-on:click="open = false"
-                            >
+                            <flux:button type="button" variant="ghost" icon="x-mark" x-on:click="open = false">
                                 {{ __('Annuleren') }}
                             </flux:button>
 
-                            <flux:button
-                                type="submit"
-                                variant="danger"
-                                icon="trash"
-                            >
+                            <flux:button type="submit" variant="danger" icon="trash">
                                 {{ __('Verwijderen') }}
                             </flux:button>
 

@@ -26,7 +26,52 @@
 
         {{-- Formulier --}}
         <form method="POST" action="{{ route('backend.stamps.store') }}" enctype="multipart/form-data"
-            class="flex flex-col gap-6" novalidate>
+            class="flex flex-col gap-6" novalidate
+            x-on:submit=" if (isSubmitting) {
+                $event.preventDefault();
+                return;
+                }
+
+                isSubmitting = true;
+                "
+            x-data="{
+                isSubmitting: false,
+                catalogId: @js((string) old('catalog_id', '')),
+                editionId: @js((string) old('catalog_edition_id', '')),
+                countryId: @js((string) old('country_id', '')),
+                issueYear: @js((string) old('issue_year', '')),
+                catalogConditionRules: @js($catalogConditionRules),
+
+                get applicableConditionRules() {
+                    if (!this.catalogId || !this.countryId || !this.issueYear) {
+                        return [];
+                    }
+
+                    const year = Number(this.issueYear);
+
+                    return this.catalogConditionRules.filter(rule => {
+                        const catalogMatches =
+                            Number(rule.catalog_id) === Number(this.catalogId);
+
+                        const countryMatches =
+                            rule.country_id === null ||
+                            Number(rule.country_id) === Number(this.countryId);
+
+                        const yearFromMatches =
+                            rule.issue_year_from === null ||
+                            year >= Number(rule.issue_year_from);
+
+                        const yearToMatches =
+                            rule.issue_year_to === null ||
+                            year <= Number(rule.issue_year_to);
+
+                        return catalogMatches &&
+                            countryMatches &&
+                            yearFromMatches &&
+                            yearToMatches;
+                    });
+                }
+            }">
             @csrf
 
             <div class="rounded-xl border border-neutral-200 p-4 bg-brown-6 dark:border-neutral-700 md:p-6">
@@ -44,7 +89,15 @@
                                 <span class="text-red-600">*</span>
                             </span>
                         </flux:label>
-                        <flux:select name="country_id" required>
+                        <flux:select name="country_id" x-model="countryId"
+                            x-on:change="
+        catalogId = '';
+        editionId = '';
+        $nextTick(() => {
+            $refs.catalogEditionSelect.value = '';
+        });
+    "
+                            required>
                             <option value="">{{ __('Selecteer een land') }}</option>
 
                             @foreach ($countries as $country)
@@ -120,7 +173,7 @@
                                 <span class="text-red-600">*</span>
                             </span>
                         </flux:label>
-                        <flux:input type="number" name="issue_year" min="1840" max="2200"
+                        <flux:input type="number" name="issue_year" min="1840" max="2200" x-model="issueYear"
                             value="{{ old('issue_year') }}" />
                         <div class="min-h-5">
                             <flux:error name="issue_year" />
@@ -206,24 +259,25 @@
                     </flux:field>
 
                     {{-- Catalogus en cataloguseditie --}}
-                    <div x-data="{
-                        catalogId: @js((string) old('catalog_id', '')),
-                        editionId: @js((string) old('catalog_edition_id', ''))
-                    }">
+                    <div>
+
+
                         {{-- Catalogus --}}
                         <flux:field>
                             <flux:label>{{ __('Catalogus') }}</flux:label>
 
-                            <flux:select name="catalog_id" x-model="catalogId" x-on:change="editionId = ''">
-                                <option value="">
-                                    {{ __('Geen catalogus geselecteerd') }}
-                                </option>
+                            <flux:select name="catalog_id" x-model="catalogId"
+                                x-on:change="editionId = ''; $nextTick(() => $refs.catalogEditionSelect.value = '')">
+
+                                <option value="">{{ __('Geen catalogus geselecteerd') }}</option>
 
                                 @foreach ($catalogs as $catalog)
-                                    <option value="{{ $catalog->id }}">
+                                    <option value="{{ $catalog->id }}"
+                                        x-show="countryId !== '' && @js($catalog->countries->pluck('id')->map(fn($id) => (string) $id)->values()->all()).includes(countryId)">
                                         {{ $catalog->name }}
                                     </option>
                                 @endforeach
+
                             </flux:select>
 
                             <div class="min-h-5">
@@ -235,7 +289,7 @@
                         <flux:field>
                             <flux:label>{{ __('Cataloguseditie') }}</flux:label>
 
-                            <flux:select name="catalog_edition_id" x-model="editionId">
+                            <flux:select name="catalog_edition_id" x-model="editionId" x-ref="catalogEditionSelect">
                                 <option value="">
                                     {{ __('Geen cataloguseditie geselecteerd') }}
                                 </option>
@@ -267,33 +321,69 @@
                         </div>
                     </flux:field>
 
-                    {{-- Cataloguswaarde postfris --}}
-                    <flux:field>
-                        <flux:label>
-                            {{ __('Cataloguswaarde — Postfris') }}
-                        </flux:label>
 
-                        <flux:input type="number" name="catalog_values[postfris]" min="0" step="0.01"
-                            :value="old('catalog_values.postfris')" placeholder="0.00" />
+                    {{-- Dynamische cataloguswaarden --}}
+                    @foreach ($catalogConditionRules->pluck('condition')->filter()->unique('id') as $condition)
+                        @php
+                            $conditionSlug = $condition->slug;
+                            $conditionName = $condition->translationWithFallback()?->name ?? $conditionSlug;
+                        @endphp
 
-                        <div class="min-h-5">
-                            <flux:error name="catalog_values.postfris" />
-                        </div>
-                    </flux:field>
+                        <flux:field
+                            x-show="applicableConditionRules.some(rule => rule.condition?.slug === @js($conditionSlug))">
+                            <flux:label>
+                                {{ __('Cataloguswaarde') }} — {{ $conditionName }}
+                            </flux:label>
 
-                    {{-- Cataloguswaarde gestempeld --}}
-                    <flux:field>
-                        <flux:label>
-                            {{ __('Cataloguswaarde — Gestempeld') }}
-                        </flux:label>
+                            <div x-data="{
+                                value: @js(old('catalog_values.' . $conditionSlug, '')),
 
-                        <flux:input type="number" name="catalog_values[gestempeld]" min="0" step="0.01"
-                            :value="old('catalog_values.gestempeld')" placeholder="0.00" />
+                                increase() {
+                                    if (this.value === '') {
+                                        this.value = '0.01';
+                                    } else {
+                                        this.value = (Number(this.value) + 0.01).toFixed(2);
+                                    }
+                                },
 
-                        <div class="min-h-5">
-                            <flux:error name="catalog_values.gestempeld" />
-                        </div>
-                    </flux:field>
+                                decrease() {
+                                    if (this.value === '') {
+                                        this.value = '0';
+                                    } else {
+                                        this.value = Math.max(0, Number(this.value) - 0.01).toFixed(2);
+                                    }
+                                }
+                            }" class="relative">
+                                <input type="number" name="catalog_values[{{ $conditionSlug }}]" min="0"
+                                    step="0.01" x-model="value" placeholder="0.00"
+                                    x-bind:disabled="!applicableConditionRules.some(rule => rule.condition?.slug ===
+                                        @js($conditionSlug))"
+                                    class="block h-10 w-full appearance-none rounded-lg border border-theme-accent-3 bg-brown-5 px-3 pr-10 text-sm text-zinc-900 placeholder:text-zinc-500 focus:border-theme-accent-3 focus:outline-none focus:ring-1 focus:ring-theme-accent-3 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [-moz-appearance:textfield]">
+
+                                <div class="absolute inset-y-0 right-1 flex flex-col justify-center">
+                                    <button type="button" x-on:click="increase()"
+                                        x-bind:disabled="!applicableConditionRules.some(rule => rule.condition?.slug ===
+                                            @js($conditionSlug))"
+                                        aria-label="{{ __('Cataloguswaarde verhogen') }}"
+                                        class="flex h-4 w-7 items-center justify-center rounded-t border border-theme-accent-3 bg-brown-6 text-zinc-900 hover:bg-brown-5">
+                                        <flux:icon.chevron-up class="size-3" />
+                                    </button>
+
+                                    <button type="button" x-on:click="decrease()"
+                                        x-bind:disabled="!applicableConditionRules.some(rule => rule.condition?.slug ===
+                                            @js($conditionSlug))"
+                                        aria-label="{{ __('Cataloguswaarde verlagen') }}"
+                                        class="flex h-4 w-7 items-center justify-center rounded-b border border-theme-accent-3 bg-brown-6 text-zinc-900 hover:bg-brown-5">
+                                        <flux:icon.chevron-down class="size-3" />
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="min-h-5">
+                                <flux:error name="catalog_values.{{ $conditionSlug }}" />
+                            </div>
+                        </flux:field>
+                    @endforeach
 
 
                     {{-- Notities --}}
@@ -466,8 +556,14 @@
                     {{ __('Annuleren') }}
                 </flux:button>
 
-                <flux:button type="submit" variant="primary" icon="check">
-                    {{ __('Postzegel opslaan') }}
+                <flux:button type="submit" variant="primary" icon="check" x-bind:disabled="isSubmitting">
+                    <span x-show="!isSubmitting">
+                        {{ __('Postzegel opslaan') }}
+                    </span>
+
+                    <span x-show="isSubmitting">
+                        {{ __('Bezig met opslaan...') }}
+                    </span>
                 </flux:button>
             </div>
         </form>

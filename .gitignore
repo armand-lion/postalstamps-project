@@ -37,3 +37,17 @@ yarn-error.log
 /boost.json
 /opencode.json
 /opencode.jsonc
+
+
+# Lokale databaseback-ups
+/postzegels_backup_*.sql
+
+# Tijdelijke vertaalback-ups
+/lang_backup_voor_fase14f/
+
+# Tijdelijke vertaalrapporten
+/ontbrekende_nl.txt
+/vertaalcontrole.txt
+
+# Tijdelijke 2FA-testscripts
+/totp-test.php

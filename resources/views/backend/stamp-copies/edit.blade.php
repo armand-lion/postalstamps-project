@@ -150,14 +150,15 @@
 
                                 {{-- Aantal verhogen --}}
                                 <button type="button" x-on:click="increase()"
-                                    class="flex h-4 w-7 items-center justify-center rounded-t text-zinc-700 hover:bg-brown-6!"
+                                    class="flex h-4 w-7 items-center justify-center rounded-t border border-theme-accent-3 bg-brown-6 text-zinc-900 hover:bg-brown-5"
                                     aria-label="{{ __('Aantal verhogen') }}">
                                     <flux:icon.chevron-up class="size-3" />
                                 </button>
 
                                 {{-- Aantal verlagen --}}
+                                {{-- Aantal verlagen --}}
                                 <button type="button" x-on:click="decrease()" :disabled="quantity <= 1"
-                                    class="flex h-4 w-7 items-center justify-center rounded-b text-zinc-700 hover:bg-brown-6! disabled:cursor-not-allowed disabled:opacity-40"
+                                    class="flex h-4 w-7 items-center justify-center rounded-b border border-theme-accent-3 bg-brown-6 text-zinc-900 hover:bg-brown-5 disabled:cursor-not-allowed disabled:opacity-40"
                                     aria-label="{{ __('Aantal verlagen') }}">
                                     <flux:icon.chevron-down class="size-3" />
                                 </button>
@@ -689,6 +690,448 @@
 
         </form>
 
+        {{-- Persoonlijke waarderingen --}}
+        <div class="rounded-xl border border-theme-accent-1 bg-brown-6 p-4 md:p-6">
+
+            <flux:heading size="lg" class="text-zinc-900!">
+                {{ __('Waarderingen') }}
+            </flux:heading>
+
+            <flux:text class="mt-2 text-zinc-700!">
+                {{ __('Voeg een persoonlijke waardering toe aan dit postzegelexemplaar.') }}
+            </flux:text>
+
+            {{-- Bestaande persoonlijke waarderingen --}}
+            @if ($stampCopy->valuations->isNotEmpty())
+
+                <div class="mt-6">
+
+                    <flux:heading size="md" class="text-zinc-900!">
+                        {{ __('Bestaande waarderingen') }}
+                    </flux:heading>
+
+                    <div class="mt-4 overflow-x-auto rounded-lg border border-theme-accent-3">
+
+                        <table class="w-full text-left text-sm text-zinc-900">
+
+                            <thead class="bg-brown-5">
+                                <tr>
+                                    <th class="px-4 py-3 font-semibold">
+                                        {{ __('Datum') }}
+                                    </th>
+
+                                    <th class="px-4 py-3 font-semibold">
+                                        {{ __('Waarde') }}
+                                    </th>
+
+                                    <th class="px-4 py-3 font-semibold">
+                                        {{ __('Bron') }}
+                                    </th>
+
+                                    <th class="px-4 py-3 font-semibold">
+                                        {{ __('Opmerkingen') }}
+                                    </th>
+
+                                    <th class="px-4 py-3 text-right font-semibold">
+                                        {{ __('Acties') }}
+                                    </th>
+
+                                </tr>
+                            </thead>
+
+                            <tbody class="divide-y divide-theme-accent-3">
+
+                                @foreach ($stampCopy->valuations->sortByDesc('valuation_date') as $valuation)
+                                    <tr class="bg-brown-6">
+
+                                        <td class="px-4 py-3">
+                                            {{ $valuation->valuation_date?->format('d-m-Y') }}
+                                        </td>
+
+                                        <td class="px-4 py-3">
+                                            {{ number_format((float) $valuation->value, 2, ',', '.') }}
+                                            {{ $valuation->currency }}
+                                        </td>
+
+                                        <td class="px-4 py-3">
+                                            {{ $valuation->source ?: '—' }}
+                                        </td>
+
+                                        <td class="px-4 py-3">
+                                            {{ $valuation->notes ?: '—' }}
+                                        </td>
+
+                                        {{-- Acties --}}
+                                        <td class="px-4 py-3 text-right">
+
+                                            <div class="flex items-center justify-end gap-2">
+
+                                                {{-- Bewerken --}}
+                                                <flux:modal.trigger :name="'edit-valuation-' . $valuation->id">
+
+                                                    <flux:button type="button" size="sm" icon="pencil"
+                                                        class="border-theme-accent-3! bg-brown-5! text-zinc-900! hover:bg-brown-4!">
+
+                                                        {{ __('Bewerken') }}
+
+                                                    </flux:button>
+
+                                                </flux:modal.trigger>
+
+                                                {{-- Verwijderen --}}
+                                                <flux:modal.trigger :name="'delete-valuation-' . $valuation->id">
+
+                                                    <flux:button type="button" size="sm" icon="trash"
+                                                        class="border-theme-accent-3! bg-brown-5! text-red-700! hover:bg-brown-4!">
+
+                                                        {{ __('Verwijderen') }}
+
+                                                    </flux:button>
+
+                                                </flux:modal.trigger>
+
+                                            </div>
+
+                                        </td>
+
+                                    </tr>
+
+                                    {{-- Modal: persoonlijke waardering bewerken --}}
+                                    <flux:modal :name="'edit-valuation-' . $valuation->id"
+                                        class="md:w-[600px] bg-brown-3!">
+
+                                        <div class="flex flex-col gap-4">
+
+                                            <flux:heading size="lg" class="text-zinc-900!">
+                                                {{ __('Waardering bewerken') }}
+                                            </flux:heading>
+
+                                            <flux:text class="text-zinc-700!">
+                                                {{ __('Hier kun je de bestaande waardering aanpassen.') }}
+                                            </flux:text>
+
+                                            <form method="POST"
+                                                action="{{ route('backend.stamp-copies.valuations.update', [$stampCopy, $valuation]) }}"
+                                                class="flex flex-col gap-4">
+
+                                                @csrf
+                                                @method('PUT')
+
+                                                <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+
+                                                    {{-- Waarderingsdatum --}}
+                                                    <div>
+                                                        <x-forms.date-picker name="valuation_date" :label="__('Waarderingsdatum')"
+                                                            :value="$valuation->valuation_date?->format('Y-m-d')" />
+                                                    </div>
+
+                                                    {{-- Waarde --}}
+                                                    <div class="flex flex-col gap-2">
+
+                                                        <label for="valuation-value-{{ $valuation->id }}"
+                                                            class="flex items-center gap-1 text-sm font-medium text-zinc-900">
+                                                            {{ __('Waarde') }}
+                                                            <span class="text-red-600">*</span>
+                                                        </label>
+
+                                                        <div x-data="{
+                                                            value: @js($valuation->value),
+
+                                                            adjust(amount) {
+                                                                const current = parseFloat(this.value) || 0;
+
+                                                                this.value = Math.max(
+                                                                    0,
+                                                                    Math.round((current + amount) * 100) / 100
+                                                                ).toFixed(2);
+                                                            }
+                                                        }" class="relative w-full">
+
+                                                            <input type="text"
+                                                                id="valuation-value-{{ $valuation->id }}"
+                                                                name="value" inputmode="decimal" x-model="value"
+                                                                required
+                                                                class="block h-10 w-full rounded-lg border border-theme-accent-3 bg-brown-5 px-3 pr-10 text-sm text-zinc-900 focus:border-theme-accent-3 focus:outline-none focus:ring-2 focus:ring-theme-accent-3/30">
+
+                                                            <div
+                                                                class="absolute inset-y-0 right-1 flex flex-col justify-center">
+
+                                                                <button type="button" x-on:click="adjust(0.01)"
+                                                                    aria-label="{{ __('Waarde verhogen') }}"
+                                                                    class="flex h-4 w-7 items-center justify-center rounded-t border border-theme-accent-3 bg-brown-6 text-zinc-900 hover:bg-brown-5">
+                                                                    <flux:icon.chevron-up class="size-3" />
+                                                                </button>
+
+                                                                <button type="button" x-on:click="adjust(-0.01)"
+                                                                    :disabled="(parseFloat(value) || 0) <= 0"
+                                                                    aria-label="{{ __('Waarde verlagen') }}"
+                                                                    class="flex h-4 w-7 items-center justify-center rounded-b border border-theme-accent-3 bg-brown-6 text-zinc-900 hover:bg-brown-5 disabled:cursor-not-allowed disabled:opacity-40">
+                                                                    <flux:icon.chevron-down class="size-3" />
+                                                                </button>
+
+                                                            </div>
+
+                                                        </div>
+
+                                                        <div class="min-h-5">
+                                                            <flux:error name="value" />
+                                                        </div>
+
+                                                    </div>
+
+                                                    {{-- Valuta --}}
+                                                    <flux:field>
+                                                        <flux:label>
+                                                            {{ __('Valuta') }}
+                                                            <span class="text-red-600">*</span>
+                                                        </flux:label>
+
+                                                        <flux:input name="currency" :value="$valuation->currency"
+                                                            maxlength="3" required
+                                                            class="[&>input]:bg-brown-5! [&>input]:border-theme-accent-3! [&>input]:text-zinc-900!" />
+                                                    </flux:field>
+
+                                                    {{-- Bron --}}
+                                                    <flux:field>
+                                                        <flux:label>{{ __('Bron') }}</flux:label>
+
+                                                        <flux:input name="source" :value="$valuation->source"
+                                                            maxlength="255"
+                                                            class="[&>input]:bg-brown-5! [&>input]:border-theme-accent-3! [&>input]:text-zinc-900!" />
+                                                    </flux:field>
+
+                                                </div>
+
+                                                {{-- Opmerkingen --}}
+                                                <flux:field>
+                                                    <flux:label>{{ __('Opmerkingen') }}</flux:label>
+
+                                                    <flux:textarea name="notes" rows="3"
+                                                        class="border-theme-accent-3! bg-brown-5!">
+                                                        {{ $valuation->notes }}</flux:textarea>
+                                                </flux:field>
+
+                                                {{-- Acties --}}
+                                                <div class="flex justify-end gap-3">
+
+                                                    <flux:modal.close>
+                                                        <flux:button type="button" variant="ghost">
+                                                            {{ __('Annuleren') }}
+                                                        </flux:button>
+                                                    </flux:modal.close>
+
+                                                    <flux:button type="submit" variant="primary" icon="check"
+                                                        class="bg-brown-2!">
+                                                        {{ __('Wijzigingen opslaan') }}
+                                                    </flux:button>
+
+                                                </div>
+
+                                            </form>
+                                        </div>
+
+                                    </flux:modal>
+                                    {{-- Modal: persoonlijke waardering verwijderen --}}
+                                    <flux:modal :name="'delete-valuation-' . $valuation->id"
+                                        class="md:w-96 bg-brown-3!">
+
+                                        <div class="flex flex-col gap-4">
+
+                                            <flux:heading size="lg" class="text-zinc-900!">
+                                                {{ __('Waardering verwijderen') }}
+                                            </flux:heading>
+
+                                            <flux:text class="text-zinc-700!">
+                                                {{ __('Weet je zeker dat je deze waardering wilt verwijderen? Dit kan niet ongedaan worden gemaakt.') }}
+                                            </flux:text>
+
+                                            <div
+                                                class="rounded-lg border border-theme-accent-3 bg-brown-5 p-3 text-sm text-zinc-900">
+
+                                                <div>
+                                                    <strong>{{ __('Datum') }}:</strong>
+                                                    {{ $valuation->valuation_date?->format('d-m-Y') }}
+                                                </div>
+
+                                                <div>
+                                                    <strong>{{ __('Waarde') }}:</strong>
+                                                    {{ number_format((float) $valuation->value, 2, ',', '.') }}
+                                                    {{ $valuation->currency }}
+                                                </div>
+
+                                            </div>
+
+                                            <div class="flex justify-end gap-3">
+
+                                                <flux:modal.close>
+                                                    <flux:button type="button" variant="ghost">
+                                                        {{ __('Annuleren') }}
+                                                    </flux:button>
+                                                </flux:modal.close>
+
+                                                <form method="POST"
+                                                    action="{{ route('backend.stamp-copies.valuations.destroy', [$stampCopy, $valuation]) }}">
+
+                                                    @csrf
+                                                    @method('DELETE')
+
+                                                    <flux:button type="submit" variant="danger" icon="trash">
+
+                                                        {{ __('Verwijderen') }}
+
+                                                    </flux:button>
+
+                                                </form>
+
+                                            </div>
+
+                                        </div>
+
+                                    </flux:modal>
+                                @endforeach
+
+                            </tbody>
+
+                        </table>
+
+                    </div>
+
+                </div>
+
+            @endif
+
+            <form method="POST" action="{{ route('backend.stamp-copies.valuations.store', $stampCopy) }}"
+                class="mt-6 flex flex-col gap-4">
+
+                @csrf
+
+                <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+
+                    {{-- Waarderingsdatum --}}
+                    <div class="flex flex-col">
+                        <x-forms.date-picker name="valuation_date" :label="__('Waarderingsdatum')" :value="old('valuation_date', now()->format('Y-m-d'))" />
+                    </div>
+
+                    {{-- Waarde --}}
+                    <div class="flex flex-col gap-2">
+
+                        <label for="valuation_value"
+                            class="flex items-center gap-1 text-sm font-medium text-zinc-900">
+                            {{ __('Waarde') }}
+                            <span class="text-red-600">*</span>
+                        </label>
+
+                        <div x-data="{
+                            value: @js(old('value', '')),
+
+                            adjust(amount) {
+                                const current = parseFloat(this.value) || 0;
+
+                                this.value = Math.max(
+                                    0,
+                                    Math.round((current + amount) * 100) / 100
+                                ).toFixed(2);
+                            }
+                        }" class="relative w-full sm:w-40">
+
+                            <input type="text" name="value" id="valuation_value" inputmode="decimal"
+                                x-model="value"
+                                x-on:blur="
+                if (value !== '' && value !== null) {
+                    const number = Number(value);
+
+                    if (Number.isFinite(number) && number >= 0) {
+                        value = number.toFixed(2);
+                    }
+                }
+            "
+                                placeholder="0.00" required
+                                class="quantity-input block h-10 w-full rounded-lg border border-theme-accent-3! bg-brown-5! px-3 pr-10 text-sm text-zinc-900! shadow-xs outline-none transition-colors hover:bg-brown-5! focus:border-theme-accent-3! focus:ring-2 focus:ring-theme-accent-3/30" />
+
+                            {{-- Pijltjes binnen het invoerveld --}}
+                            <div class="absolute inset-y-0 right-1 flex flex-col justify-center">
+
+                                {{-- Waarde verhogen --}}
+                                {{-- Waarde verhogen --}}
+                                <button type="button" x-on:click="adjust(0.01)"
+                                    aria-label="{{ __('Waarde verhogen') }}"
+                                    class="flex h-4 w-7 items-center justify-center rounded-t border border-theme-accent-3 bg-brown-6 text-zinc-900 hover:bg-brown-5">
+
+                                    <flux:icon.chevron-up class="size-3" />
+
+                                </button>
+
+                                {{-- Waarde verlagen --}}
+                                {{-- Waarde verlagen --}}
+                                <button type="button" x-on:click="adjust(-0.01)"
+                                    :disabled="value === '' || value === null || (parseFloat(value) || 0) <= 0"
+                                    aria-label="{{ __('Waarde verlagen') }}"
+                                    class="flex h-4 w-7 items-center justify-center rounded-b border border-theme-accent-3 bg-brown-6 text-zinc-900 hover:bg-brown-5 disabled:cursor-not-allowed disabled:opacity-40">
+
+                                    <flux:icon.chevron-down class="size-3" />
+
+                                </button>
+
+                            </div>
+
+                        </div>
+
+                        <div class="min-h-5">
+                            <flux:error name="value" />
+                        </div>
+
+                    </div>
+
+                    {{-- Valuta --}}
+                    <flux:field>
+                        <flux:label>
+                            <span class="flex items-center gap-1">
+                                {{ __('Valuta') }}
+                                <span class="text-red-600">*</span>
+                            </span>
+                        </flux:label>
+
+                        <input type="text" name="currency" maxlength="3"
+                            value="{{ old('currency', $stampCopy->purchase_currency ?? 'EUR') }}" required
+                            class="block h-10 w-full rounded-lg border border-theme-accent-3! bg-brown-5! px-3 text-sm text-zinc-900! focus:border-theme-accent-3! focus:outline-none focus:ring-2 focus:ring-theme-accent-3/30">
+
+                        <flux:error name="currency" />
+                    </flux:field>
+
+                    {{-- Bron --}}
+                    <flux:field>
+                        <flux:label>{{ __('Bron') }}</flux:label>
+
+                        <input type="text" name="source" maxlength="255" value="{{ old('source') }}"
+                            class="block h-10 w-full rounded-lg border border-theme-accent-3! bg-brown-5! px-3 text-sm text-zinc-900! focus:border-theme-accent-3! focus:outline-none focus:ring-2 focus:ring-theme-accent-3/30">
+
+                        <flux:error name="source" />
+                    </flux:field>
+
+                </div>
+
+                {{-- Opmerkingen --}}
+                <flux:field>
+                    <flux:label>{{ __('Opmerkingen') }}</flux:label>
+
+                    <flux:textarea name="notes" rows="3" class="border-theme-accent-3! bg-brown-5!">
+                        {{ old('notes') }}
+                    </flux:textarea>
+
+                    <flux:error name="notes" />
+                </flux:field>
+
+                {{-- Opslaan --}}
+                <div class="flex justify-end">
+                    <flux:button type="submit" variant="primary" icon="check" class="bg-brown-2!">
+                        {{ __('Waardering toevoegen') }}
+                    </flux:button>
+                </div>
+
+            </form>
+
+        </div>
+
         {{-- Eigen afbeeldingen van het postzegelexemplaar --}}
         <div class="rounded-xl border border-theme-accent-1 bg-brown-6 p-4 md:p-6">
 
@@ -741,7 +1184,8 @@
                         </flux:text>
 
                         <div class="flex justify-center">
-                            <img x-bind:src="preview" alt="{{ __('Voorbeeld van geselecteerde afbeelding') }}"
+                            <img x-bind:src="preview"
+                                alt="{{ __('Voorbeeld van geselecteerde afbeelding') }}"
                                 class="max-h-64 max-w-full rounded-lg border border-theme-accent-3 object-contain">
                         </div>
                     </div>

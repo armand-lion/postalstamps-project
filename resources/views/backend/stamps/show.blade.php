@@ -1,5 +1,5 @@
 <x-layouts::app :title="__('Postzegel bekijken')">
-    <div class="flex flex-col gap-6 p-4 md:p-6">
+    <div class="flex flex-col gap-6 rounded-lg border border-theme-accent-1 bg-brown-6 p-4 md:p-6">
 
         {{-- Paginatitel en acties --}}
         <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -14,74 +14,77 @@
             </div>
 
             <div class="flex flex-wrap gap-3">
-                <flux:button :href="route('backend.stamps.index')" variant="ghost" icon="arrow-left">
+                <flux:button :href="route('backend.stamps.index')" variant="ghost" icon="arrow-left"
+                    class="border border-theme-accent-3! bg-brown-5! text-zinc-900! hover:bg-brown-6!">
                     {{ __('Terug naar overzicht') }}
                 </flux:button>
 
-                <flux:button :href="route('backend.stamps.edit', $stamp)" variant="primary" icon="pencil">
+                <flux:button :href="route('backend.stamps.edit', $stamp)" variant="primary" icon="pencil"
+                    class="border border-theme-accent-3! bg-brown-5! text-zinc-900! hover:bg-brown-6!">
                     {{ __('Postzegel bewerken') }}
                 </flux:button>
             </div>
         </div>
 
         {{-- Algemene gegevens --}}
-        <div class="rounded-xl border border-neutral-200 p-4 dark:border-neutral-700 md:p-6">
-            <flux:heading size="lg">
+        <div class="rounded-xl border border-theme-accent-1 bg-brown-5 p-4 md:p-6">
+            <flux:heading size="lg" class="text-zinc-900!">
                 {{ __('Algemene gegevens') }}
             </flux:heading>
 
             <dl class="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2">
 
                 <div>
-                    <dt class="text-sm text-neutral-500 dark:text-neutral-400">
+                    <dt class="text-sm text-zinc-700">
                         {{ __('Naam') }}
                     </dt>
-                    <dd class="mt-1 font-medium">
+
+                    <dd class="mt-1 font-medium text-zinc-900">
                         {{ $stamp->translationWithFallback()?->name ?? $stamp->name }}
                     </dd>
                 </div>
 
                 <div>
-                    <dt class="text-sm text-neutral-500 dark:text-neutral-400">
+                    <dt class="text-sm text-zinc-700">
                         {{ __('Land') }}
                     </dt>
-                    <dd class="mt-1 font-medium">
+                    <dd class="mt-1 font-medium text-zinc-900">
                         {{ $stamp->country?->translationWithFallback()?->name ?? ($stamp->country?->name ?? '—') }}
                     </dd>
                 </div>
 
                 <div>
-                    <dt class="text-sm text-neutral-500 dark:text-neutral-400">
+                    <dt class="text-sm text-zinc-700">
                         {{ __('Postzegelserie') }}
                     </dt>
-                    <dd class="mt-1 font-medium">
+                    <dd class="mt-1 font-medium text-zinc-900">
                         {{ $stamp->series?->translationWithFallback()?->name ?? ($stamp->series?->name ?? '—') }}
                     </dd>
                 </div>
 
                 <div>
-                    <dt class="text-sm text-neutral-500 dark:text-neutral-400">
+                    <dt class="text-sm text-zinc-700">
                         {{ __('Uitgiftejaar') }}
                     </dt>
-                    <dd class="mt-1 font-medium">
+                    <dd class="mt-1 font-medium text-zinc-900">
                         {{ $stamp->issue_year ?? '—' }}
                     </dd>
                 </div>
 
                 <div>
-                    <dt class="text-sm text-neutral-500 dark:text-neutral-400">
+                    <dt class="text-sm text-zinc-700">
                         {{ __('Uitgiftedatum') }}
                     </dt>
-                    <dd class="mt-1 font-medium">
+                    <dd class="mt-1 font-medium text-zinc-900">
                         {{ $stamp->issue_date?->format('d-m-Y') ?? '—' }}
                     </dd>
                 </div>
 
                 <div>
-                    <dt class="text-sm text-neutral-500 dark:text-neutral-400">
+                    <dt class="text-sm text-zinc-700">
                         {{ __('Nominale waarde') }}
                     </dt>
-                    <dd class="mt-1 font-medium">
+                    <dd class="mt-1 font-medium text-zinc-900">
                         @if ($stamp->face_value !== null)
                             {{ number_format((float) $stamp->face_value, 2, ',', '.') }}
                             {{ $stamp->currency ?? '' }}
@@ -92,28 +95,28 @@
                 </div>
 
                 <div>
-                    <dt class="text-sm text-neutral-500 dark:text-neutral-400">
+                    <dt class="text-sm text-zinc-700">
                         {{ __('Ontwerper') }}
                     </dt>
-                    <dd class="mt-1 font-medium">
+                    <dd class="mt-1 font-medium text-zinc-900">
                         {{ $stamp->designer ?: '—' }}
                     </dd>
                 </div>
 
                 <div>
-                    <dt class="text-sm text-neutral-500 dark:text-neutral-400">
+                    <dt class="text-sm text-zinc-700">
                         {{ __('Druktechniek') }}
                     </dt>
-                    <dd class="mt-1 font-medium">
+                    <dd class="mt-1 font-medium text-zinc-900">
                         {{ $stamp->printing_method ?: '—' }}
                     </dd>
                 </div>
 
                 <div>
-                    <dt class="text-sm text-neutral-500 dark:text-neutral-400">
+                    <dt class="text-sm text-zinc-700">
                         {{ __('Catalogusreferentie') }}
                     </dt>
-                    <dd class="mt-1 font-medium">
+                    <dd class="mt-1 font-medium text-zinc-900">
                         {{ $stamp->catalog_reference ?: '—' }}
                     </dd>
                 </div>
@@ -122,9 +125,9 @@
         </div>
 
         {{-- Catalogusnummers en cataloguswaarden --}}
-        <div class="rounded-xl border border-neutral-200 p-4 dark:border-neutral-700 md:p-6">
+        <div class="rounded-xl border border-theme-accent-1 bg-brown-5 p-4 md:p-6">
 
-            <flux:heading size="lg">
+            <flux:heading size="lg" class="text-zinc-900!">
                 {{ __('Catalogusnummers en cataloguswaarden') }}
             </flux:heading>
 
@@ -134,13 +137,13 @@
 
                     <table class="w-full text-sm">
 
-                        <thead>
-                            <tr class="border-b border-neutral-200 text-left dark:border-neutral-700">
-                                <th class="px-3 py-2">{{ __('Catalogus') }}</th>
-                                <th class="px-3 py-2">{{ __('Cataloguseditie') }}</th>
-                                <th class="px-3 py-2">{{ __('Catalogusnummer') }}</th>
-                                <th class="px-3 py-2">{{ __('Postfris') }}</th>
-                                <th class="px-3 py-2">{{ __('Gestempeld') }}</th>
+                        <thead class="bg-brown-6">
+                            <tr class="border-b border-theme-accent-3 text-left text-zinc-900">
+                                <th class="px-3 py-2 font-semibold">{{ __('Catalogus') }}</th>
+                                <th class="px-3 py-2 font-semibold">{{ __('Cataloguseditie') }}</th>
+                                <th class="px-3 py-2 font-semibold">{{ __('Catalogusnummer') }}</th>
+                                <th class="px-3 py-2 font-semibold">{{ __('Postfris') }}</th>
+                                <th class="px-3 py-2 font-semibold">{{ __('Gestempeld') }}</th>
                             </tr>
                         </thead>
 
@@ -156,7 +159,7 @@
                                     );
                                 @endphp
 
-                                <tr class="border-b border-neutral-200/50 dark:border-neutral-700/50">
+                                <tr class="border-b border-theme-accent-1 bg-brown-5 text-zinc-900 hover:bg-brown-6">
 
                                     <td class="px-3 py-2">
                                         {{ $entry->catalogEdition?->catalog?->abbreviation ?: $entry->catalogEdition?->catalog?->name }}
@@ -203,10 +206,14 @@
             @endif
 
         </div>
-        {{-- Thema's --}}
-        <div class="rounded-xl border border-neutral-200 p-4 dark:border-neutral-700 md:p-6">
 
-            <flux:heading size="lg">
+        {{-- Historische cataloguswaarden --}}
+        <x-backend.stamps.historical-catalog-values :catalog-entries="$stamp->catalogEntries" />
+
+        {{-- Thema's --}}
+        <div class="rounded-xl border border-theme-accent-1 bg-brown-5 p-4 md:p-6">
+
+            <flux:heading size="lg" class="text-zinc-900!">
                 {{ __('Thema\'s') }}
             </flux:heading>
 
@@ -216,7 +223,7 @@
 
                     @foreach ($stamp->themes as $theme)
                         <span
-                            class="inline-flex items-center rounded-lg border border-neutral-200 bg-neutral-100 px-3 py-1.5 text-sm font-medium dark:border-neutral-700 dark:bg-neutral-800">
+                            class="inline-flex items-center rounded-lg border border-theme-accent-3 bg-brown-6 px-3 py-1.5 text-sm font-medium text-zinc-900">
 
                             {{ $theme->translationWithFallback()?->name ?? $theme->name }}
 
@@ -235,43 +242,49 @@
 
 
         {{-- Beschrijving --}}
-        <div class="rounded-xl border border-neutral-200 p-4 dark:border-neutral-700 md:p-6">
-            <flux:heading size="lg">
+        <div class="rounded-xl border border-theme-accent-1 bg-brown-5 p-4 md:p-6">
+
+            <flux:heading size="lg" class="text-zinc-900!">
                 {{ __('Beschrijving') }}
             </flux:heading>
 
-            <div class="mt-4 whitespace-pre-line text-sm">
+            <div class="mt-4 whitespace-pre-line text-sm text-zinc-900">
                 {{ $stamp->translationWithFallback()?->description ?? ($stamp->description ?? '—') }}
             </div>
+
         </div>
 
         {{-- Notities --}}
-        <div class="rounded-xl border border-neutral-200 p-4 dark:border-neutral-700 md:p-6">
-            <flux:heading size="lg">
+        <div class="rounded-xl border border-theme-accent-1 bg-brown-5 p-4 md:p-6">
+
+            <flux:heading size="lg" class="text-zinc-900!">
                 {{ __('Notities') }}
             </flux:heading>
 
-            <div class="mt-4 whitespace-pre-line text-sm">
+            <div class="mt-4 whitespace-pre-line text-sm text-zinc-900">
                 {{ $stamp->notes ?: '—' }}
             </div>
+
         </div>
 
         {{-- Postzegelafbeeldingen --}}
-        <div class="rounded-xl border border-neutral-200 p-4 dark:border-neutral-700 md:p-6">
-            <flux:heading size="lg">
+        <div class="rounded-xl border border-theme-accent-1 bg-brown-5 p-4 md:p-6">
+
+            <flux:heading size="lg" class="text-zinc-900!">
                 {{ __('Postzegelafbeeldingen') }}
             </flux:heading>
 
             @if ($stamp->images->isNotEmpty())
                 <div class="mt-4 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
                     @foreach ($stamp->images as $image)
-                        <div class="rounded-lg border border-neutral-200 p-4 dark:border-neutral-700">
+                        <div class="rounded-lg border border-theme-accent-3 bg-brown-6 p-4">
+
                             <img src="{{ asset('storage/' . $image->path) }}"
                                 alt="{{ $image->alt_text ?: __('Postzegelafbeelding') }}"
                                 class="h-64 w-full rounded-lg object-contain" />
 
                             <div class="mt-3">
-                                <flux:text class="font-medium">
+                                <flux:text class="font-medium text-zinc-900!">
                                     @switch($image->image_type)
                                         @case('front')
                                             {{ __('Voorzijde') }}
@@ -288,7 +301,7 @@
                                 </flux:text>
 
                                 @if ($image->alt_text)
-                                    <flux:text class="mt-1 text-sm">
+                                    <flux:text class="mt-1 text-sm text-zinc-700!">
                                         {{ $image->alt_text }}
                                     </flux:text>
                                 @endif
@@ -302,55 +315,6 @@
                 </flux:text>
             @endif
 
-        </div>
-
-        {{-- Fysieke exemplaren --}}
-        <div class="rounded-xl border border-neutral-200 p-4 dark:border-neutral-700 md:p-6">
-            <flux:heading size="lg">
-                {{ __('Fysieke exemplaren') }}
-            </flux:heading>
-
-            @if ($stamp->copies->isNotEmpty())
-                <flux:table class="mt-4">
-                    <flux:table.columns>
-                        <flux:table.column>{{ __('Conditie') }}</flux:table.column>
-                        <flux:table.column>{{ __('Aantal') }}</flux:table.column>
-                        <flux:table.column>{{ __('Aankoopdatum') }}</flux:table.column>
-                        <flux:table.column>{{ __('Aankoopprijs') }}</flux:table.column>
-                    </flux:table.columns>
-
-                    <flux:table.rows>
-                        @foreach ($stamp->copies as $copy)
-                            <flux:table.row>
-                                <flux:table.cell>
-                                    {{ $copy->condition?->translationWithFallback()?->name ?? '—' }}
-                                </flux:table.cell>
-
-                                <flux:table.cell>
-                                    {{ $copy->quantity ?? 1 }}
-                                </flux:table.cell>
-
-                                <flux:table.cell>
-                                    {{ $copy->purchase_date?->format('d-m-Y') ?? '—' }}
-                                </flux:table.cell>
-
-                                <flux:table.cell>
-                                    @if ($copy->purchase_price !== null)
-                                        {{ number_format((float) $copy->purchase_price, 2, ',', '.') }}
-                                        {{ $copy->purchase_currency ?? '' }}
-                                    @else
-                                        —
-                                    @endif
-                                </flux:table.cell>
-                            </flux:table.row>
-                        @endforeach
-                    </flux:table.rows>
-                </flux:table>
-            @else
-                <flux:text class="mt-4">
-                    {{ __('Er zijn nog geen fysieke exemplaren geregistreerd.') }}
-                </flux:text>
-            @endif
         </div>
 
     </div>

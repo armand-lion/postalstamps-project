@@ -95,6 +95,7 @@ class StampCopyController extends Controller
             'stamp.translations',
             'stamp.images',
             'stamp.catalogEntries.catalogEdition.catalog',
+            'stamp.catalogEntries.values.condition',
             'condition.translations',
         ])
             ->when(
@@ -299,7 +300,43 @@ class StampCopyController extends Controller
                 ], true),
                 fn ($query) => $query->orderBy('created_at', 'desc')
             )
-            ->orderBy('stamp_copies.id', 'desc')
+            ->orderBy('stamp_copies.id', 'desc');
+
+        // Dezelfde gefilterde query gebruiken voor de tabel
+        // en later voor de totale cataloguswaardering.
+        $stampCopiesQuery = $stampCopies;
+
+        // Bereken de totale cataloguswaarde van alle gefilterde exemplaren.
+        $totalCatalogValues = [];
+
+        if ($activeCatalogEditionId !== null) {
+            $copiesForTotal = (clone $stampCopiesQuery)
+                ->reorder()
+                ->get();
+
+            foreach ($copiesForTotal as $copy) {
+                $catalogEntry = $copy->stamp?->catalogEntries?->firstWhere(
+                    'catalog_edition_id',
+                    $activeCatalogEditionId
+                );
+
+                $catalogValue = $catalogEntry?->values?->firstWhere(
+                    'condition_id',
+                    $copy->condition_id
+                );
+
+                if ($catalogValue === null) {
+                    continue;
+                }
+
+                $currency = $catalogValue->currency;
+
+                $totalCatalogValues[$currency] = ($totalCatalogValues[$currency] ?? 0)
+                    + ((float) $catalogValue->catalog_value * $copy->quantity);
+            }
+        }
+
+        $stampCopies = $stampCopiesQuery
             ->paginate(20)
             ->withQueryString();
 
@@ -310,7 +347,8 @@ class StampCopyController extends Controller
             'countries',
             'conditions',
             'catalogEditions',
-            'activeCatalogEditionId'
+            'activeCatalogEditionId',
+            'totalCatalogValues'
         ));
     }
 
@@ -394,6 +432,8 @@ class StampCopyController extends Controller
             'stamp.country',
             'stamp.translations',
             'stamp.images',
+            'stamp.catalogEntries.catalogEdition.catalog',
+            'stamp.catalogEntries.values.condition.translations',
             'condition.translations',
             'images',
             'valuations',
@@ -412,6 +452,7 @@ class StampCopyController extends Controller
             'stamp.translations',
             'condition.translations',
             'images',
+            'valuations',
         ]);
 
         $conditions = Condition::query()

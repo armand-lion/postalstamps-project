@@ -3,7 +3,7 @@
 
         {{-- Paginatitel --}}
         <div
-            class="flex flex-col justify-between gap-4 sm:flex-row sm:items-center bg-brown-6 rounded-lg border border-theme-accent-1 p-5">
+            class="rounded-xl flex flex-col justify-between gap-4 sm:flex-row sm:items-center bg-brown-6 rounded-lg border border-theme-accent-1 p-5">
             <div>
                 <flux:heading size="xl">
                     {{ __('Postzegels beheren') }}
@@ -14,7 +14,7 @@
                 </flux:text>
             </div>
 
-            <flux:button :href="route('backend.stamps.create')" variant="primary" icon="plus" class="bg-brown-2!">
+            <flux:button :href="route('backend.stamps.create')" variant="primary" icon="plus" class="bg-brown-2 hover:bg-brown-1">
                 {{ __('Postzegel toevoegen') }}
             </flux:button>
         </div>
@@ -151,11 +151,11 @@
 
             {{-- Acties --}}
             <div class="flex gap-2">
-                <flux:button type="submit" variant="primary" class="bg-brown-2">
+                <flux:button type="submit" variant="primary" class="bg-brown-2 hover:bg-brown-1">
                     {{ __('Filteren') }}
                 </flux:button>
 
-                <flux:button :href="route('backend.stamps.index')" variant="ghost">
+                <flux:button :href="route('backend.stamps.index')" variant="ghost" class="hover:text-brown-2! hover:bg-transparent!">
                     {{ __('Wissen') }}
                 </flux:button>
             </div>

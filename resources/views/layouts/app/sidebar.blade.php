@@ -5,7 +5,7 @@
         @include('partials.head')
     </head>
 
-    <body class="min-h-screen bg-theme-accent-2 ">
+    <body class="min-h-screen bg-theme-accent-2">
         <flux:sidebar sticky collapsible="mobile" class="border-e border-theme-accent-1 bg-theme-accent-3">
             <flux:sidebar.header>
                 <x-app-logo :sidebar="true" href="{{ route('dashboard') }}" wire:navigate />
@@ -29,9 +29,15 @@
                     </flux:sidebar.item>
 
                     <flux:sidebar.item icon="book-open" :href="route('backend.catalogs.index')"
-                        :current="request()->routeIs('backend.catalogs.*')"
+                        :current="request()->routeIs('backend.catalogs.*') && !request()->routeIs('backend.catalogs.editions.*')"
                         class="hover:bg-brown-5! data-current:bg-brown-4! border-transparent!" wire:navigate>
                         {{ __('Catalogi') }}
+                    </flux:sidebar.item>
+
+                    <flux:sidebar.item icon="book-open" :href="route('backend.catalog-editions.index')"
+                        :current="request()->routeIs('backend.catalog-editions.*') || request()->routeIs('backend.catalogs.editions.*')"
+                        class="hover:bg-brown-5! data-current:bg-brown-4! border-transparent!" wire:navigate>
+                        {{ __('Catalogusedities') }}
                     </flux:sidebar.item>
 
                     <flux:sidebar.item icon="rectangle-stack" :href="route('backend.stamp-series.index')"

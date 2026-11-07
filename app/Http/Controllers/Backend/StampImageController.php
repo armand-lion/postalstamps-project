@@ -46,7 +46,7 @@ class StampImageController extends Controller
         }
 
         return redirect()
-            ->route('backend.stamps.show', $stamp)
+            ->route('backend.stamps.edit', $stamp)
             ->with('success', __('De afbeelding is succesvol geüpload.'));
     }
 

@@ -111,7 +111,7 @@ return [
         'array' => 'Het veld :attribute moet ten minste :min items hebben.',
         'file' => 'Het veld :attribute moet ten minste :min kilobytes zijn.',
         'numeric' => 'Het veld :attribute moet ten minste :min zijn.',
-        'string' => 'Het veld :attribute moet ten minste :min tekens hebben.',
+        'string' => 'Het veld :attribute moet minimaal :min tekens bevatten.',
     ],
     'min_digits' => 'Het veld :attribute moet ten minste :min cijfers bevatten.',
     'missing' => 'Het veld :attribute moet ontbreken.',
@@ -129,7 +129,10 @@ return [
         'numbers' => 'Het :attribute veld moet minstens één cijfer bevatten.',
         'symbols' => 'Het :attribute veld moet minstens één symbool bevatten.',
         'uncompromised' => 'Het opgegeven :attribute is verschenen in een datalek. Kies een ander :attribute.',
+        'password' => 'wachtwoord',
     ],
+
+    'password_confirmation' => 'wachtwoordbevestiging',
     'present' => 'Het veld :attribute moet aanwezig zijn.',
     'present_if' => 'Het veld :attribute moet aanwezig zijn wanneer :other :value is.',
     'present_unless' => 'Het veld :attribute moet aanwezig zijn tenzij :other :value is.',
@@ -184,6 +187,10 @@ return [
         'stamp_series_id' => [
             'exists' => 'De geselecteerde postzegelserie is ongeldig.',
         ],
+        'password' => [
+            'min' => 'Het wachtwoord moet minimaal :min tekens bevatten.',
+            'confirmed' => 'De wachtwoorden komen niet overeen.',
+        ],
     ],
 
     /*
@@ -201,6 +208,9 @@ return [
         'country_id' => 'land',
         'stamp_series_id' => 'postzegelserie',
         'name' => 'naam',
+        'email' => 'e-mailadres',
+        'password' => 'wachtwoord',
+        'password_confirmation' => 'wachtwoordbevestiging',
         'description' => 'beschrijving',
         'issue_year' => 'uitgiftejaar',
         'issue_date' => 'uitgiftedatum',

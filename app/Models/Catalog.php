@@ -32,4 +32,14 @@ class Catalog extends Model
     {
         return $this->hasMany(CatalogEdition::class);
     }
+
+    /**
+     * De configureerbare waarderingscategorieën van deze catalogus.
+     *
+     * @return HasMany<CatalogConditionRule, $this>
+     */
+    public function conditionRules(): HasMany
+    {
+        return $this->hasMany(CatalogConditionRule::class);
+    }
 }

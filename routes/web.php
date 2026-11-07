@@ -7,6 +7,7 @@ use App\Http\Controllers\Backend\CountryController;
 use App\Http\Controllers\Backend\StampController;
 use App\Http\Controllers\Backend\StampCopyController;
 use App\Http\Controllers\Backend\StampCopyImageController;
+use App\Http\Controllers\Backend\StampCopyValuationController;
 use App\Http\Controllers\Backend\StampImageController;
 use App\Http\Controllers\Backend\StampSeriesController;
 use App\Http\Controllers\Backend\ThemeController;
@@ -41,12 +42,26 @@ Route::middleware(['auth'])->group(function () { //
             Route::resource('watermarks', WatermarkController::class);
             Route::resource('stamps', StampController::class);
             Route::resource('stamp-copies', StampCopyController::class);
+
             Route::resource('stamp-copies.images', StampCopyImageController::class)
                 ->only(['store', 'update', 'destroy'])
                 ->parameters(['stamp-copies' => 'stampCopy']);
+
+            Route::resource('stamp-copies.valuations', StampCopyValuationController::class)
+                ->only(['store', 'update', 'destroy'])
+                ->parameters([
+                    'stamp-copies' => 'stampCopy',
+                    'valuations' => 'valuation',
+                ]);
+
             Route::resource('collectibles', CollectibleController::class);
             Route::resource('stamp-series', StampSeriesController::class);
             Route::resource('catalogs', CatalogController::class);
+
+            // Algemeen overzicht van catalogusedities
+            Route::get('catalog-editions', [CatalogEditionController::class, 'all'])
+                ->name('catalog-editions.index');
+
             Route::resource('stamps.images', StampImageController::class)
                 ->only(['store', 'update', 'destroy']);
 

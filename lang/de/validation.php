@@ -184,6 +184,10 @@ return [
         'attribute-name' => [
             'rule-name' => 'Benutzerdefinierte Fehlermeldung.',
         ],
+        'password' => [
+            'min' => 'Das Passwort muss mindestens :min Zeichen lang sein.',
+            'confirmed' => 'Die Passwörter stimmen nicht überein.',
+        ],
     ],
 
     /*
@@ -201,6 +205,9 @@ return [
         'country_id' => 'Land',
         'stamp_series_id' => 'Briefmarkenserie',
         'name' => 'Name',
+        'email' => 'E-Mail-Adresse',
+        'password' => 'Passwort',
+        'password_confirmation' => 'Passwortbestätigung',
         'description' => 'Beschreibung',
         'issue_year' => 'Ausgabejahr',
         'issue_date' => 'Ausgabedatum',

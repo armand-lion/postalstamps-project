@@ -185,6 +185,9 @@ return [
         'attribute-name' => [
             'rule-name' => 'custom-message',
         ],
+        'password' => [
+            'confirmed' => 'Les mots de passe ne correspondent pas.',
+        ],
     ],
 
     /*
@@ -202,6 +205,9 @@ return [
         'country_id' => 'pays',
         'stamp_series_id' => 'série de timbres',
         'name' => 'nom',
+        'email' => 'adresse e-mail',
+        'password' => 'mot de passe',
+        'password_confirmation' => 'confirmation du mot de passe',
         'description' => 'description',
         'issue_year' => 'année d’émission',
         'issue_date' => 'date d’émission',

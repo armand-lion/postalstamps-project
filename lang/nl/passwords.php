@@ -14,9 +14,9 @@ return [
     */
 
     'reset' => 'Uw wachtwoord is gereset.',
-    'sent' => 'We hebben uw wachtwoord reset link gemaild.',
+    'sent' => 'We hebben een link om uw wachtwoord opnieuw in te stellen naar uw e-mailadres verzonden.',
     'throttled' => 'Wacht alvorens opnieuw te proberen.',
     'token' => 'Deze wachtwoord reset token is ongeldig.',
-    'user' => 'We kunnen geen gebruiker vinden met dat email adres.',
+    'user' => 'We kunnen geen gebruiker vinden met dat e-mailadres.',
 
 ];

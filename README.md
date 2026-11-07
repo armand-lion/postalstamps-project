@@ -631,6 +631,33 @@ Planned checks include:
 9. PHPStan static analysis, where configured.
 10. Full Laravel test suite execution.
 
+Extra onderdeel H — Personal Stamp Copy Valuation History
+Dit onderdeel zou ik officieel toevoegen aan fase 14.
+
+Status: ✅ Functioneel afgerond en handmatig getest.
+
+Het omvat:
+
+- Meerdere persoonlijke waarderingen per postzegelexemplaar.
+- Registratie van waarderingsdatum, bedrag, valuta, bron en opmerkingen.
+- Weergave van bestaande waarderingen.
+- Toevoegen, bewerken en verwijderen.
+- Bevestigingsmodal voor verwijderen.
+- Validatie en succesmeldingen.
+Het gaat hier om handmatig vastgelegde persoonlijke waarderingen. Deze staan los van de automatische cataloguswaardeberekeningen.
+Extra onderdeel I — Catalog Condition Rules
+We hebben ook gewerkt aan waarderingscategorieën die aan catalogi zijn gekoppeld.
+
+Daarbij zijn onder andere gerealiseerd:
+
+- Waarderingscategorieën toevoegen.
+- Waarderingscategorieën verwijderen uit het aanmaakformulier.
+- Beginjaar en eindjaar instellen.
+- Volgorde instellen.
+- Waarderingscategorieën opslaan bij een catalogus.
+- De juiste gegevens opnieuw weergeven in het formulier.
+De werking is handmatig getest.
+
 ### Development Strategy
 
 Phase 14 will be implemented incrementally.
