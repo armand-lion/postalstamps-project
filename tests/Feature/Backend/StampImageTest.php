@@ -37,9 +37,8 @@ class StampImageTest extends TestCase
         );
 
         $response->assertRedirect(
-            route('backend.stamps.show', $stamp)
+            route('backend.stamps.edit', $stamp)
         );
-
         $this->assertDatabaseHas('stamp_images', [
             'stamp_id' => $stamp->id,
             'image_type' => 'front',

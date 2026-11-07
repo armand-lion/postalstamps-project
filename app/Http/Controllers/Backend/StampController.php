@@ -1147,7 +1147,7 @@ class StampController extends Controller
                 );
 
                 if ($submittedValues !== []) {
-                    $edition = CatalogEdition::findOrFail($editionId);
+                    $edition = CatalogEdition::findOrFail((int) $editionId);
 
                     $allowedConditionIds = CatalogConditionRule::query()
                         ->where('catalog_id', $edition->catalog_id)

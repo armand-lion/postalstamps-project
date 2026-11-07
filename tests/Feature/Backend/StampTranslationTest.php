@@ -984,6 +984,8 @@ test('de backend voegt een tweede cataloguskoppeling toe zonder de eerste te ver
         'abbreviation' => 'NVPH',
     ]);
 
+    $catalog->countries()->attach($stamp->country_id);
+
     $firstEdition = CatalogEdition::create([
         'catalog_id' => $catalog->id,
         'edition_name' => 'NVPH 2026',
@@ -1048,6 +1050,8 @@ test('de backend werkt meerdere bestaande catalogusnummers tegelijk bij', functi
         'name' => 'Testcatalogus meerdere edities',
         'abbreviation' => 'TEST',
     ]);
+
+    $catalog->countries()->attach($stamp->country_id);
 
     $firstEdition = CatalogEdition::create([
         'catalog_id' => $catalog->id,
@@ -1124,6 +1128,8 @@ test('de backend werkt cataloguswaarden van meerdere edities tegelijk bij', func
         'name' => 'Testcatalogus meerdere waarden',
         'abbreviation' => 'TEST',
     ]);
+
+    $catalog->countries()->attach($stamp->country_id);
 
     $firstEdition = CatalogEdition::create([
         'catalog_id' => $catalog->id,
@@ -1247,6 +1253,8 @@ test('de backend behoudt bestaande cataloguswaarden bij lege invoervelden', func
         'name' => 'Testcatalogus behoud waarden',
         'abbreviation' => 'TEST',
     ]);
+
+    $catalog->countries()->attach($stamp->country_id);
 
     $edition = CatalogEdition::create([
         'catalog_id' => $catalog->id,
