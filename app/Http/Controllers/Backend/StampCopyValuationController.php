@@ -19,7 +19,7 @@ class StampCopyValuationController extends Controller
             'valuation_date' => ['required', 'date'],
             'value' => ['required', 'numeric', 'min:0'],
             'currency' => ['required', 'string', 'size:3'],
-            'source' => ['nullable', 'string', 'max:255'],
+            'source' => ['nullable', 'string', 'max:150'],
             'notes' => ['nullable', 'string'],
         ]);
 
@@ -48,7 +48,7 @@ class StampCopyValuationController extends Controller
             'valuation_date' => ['required', 'date'],
             'value' => ['required', 'numeric', 'min:0'],
             'currency' => ['required', 'string', 'size:3'],
-            'source' => ['nullable', 'string', 'max:255'],
+            'source' => ['nullable', 'string', 'max:150'],
             'notes' => ['nullable', 'string'],
         ]);
 
