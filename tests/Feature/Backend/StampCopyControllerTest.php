@@ -447,3 +447,36 @@ test('een gebruiker ziet alleen eigen verzamelexemplaren in het overzicht', func
 
     $response->assertDontSee('Andermans testzegel');
 });
+
+test('een ongeldige cataloguseditie toont geen verzamelexemplaren', function () {
+    $user = User::factory()->create();
+
+    $stamp = Stamp::factory()->create([
+        'name' => 'Testzegel Ongeldige Editie',
+    ]);
+
+    $condition = Condition::create([
+        'slug' => 'postfris',
+        'sort_order' => 1,
+        'is_active' => true,
+    ]);
+
+    StampCopy::create([
+        'user_id' => $user->id,
+        'stamp_id' => $stamp->id,
+        'condition_id' => $condition->id,
+        'quantity' => 1,
+    ]);
+
+    // Filter op een cataloguseditie die niet bestaat.
+    $response = $this
+        ->actingAs($user)
+        ->get(route('backend.stamp-copies.index', [
+            'catalog_edition_id' => 999999,
+        ]));
+
+    $response->assertOk();
+
+    // Een ongeldige cataloguseditie mag geen resultaten opleveren.
+    $response->assertDontSee('Testzegel Ongeldige Editie');
+});
