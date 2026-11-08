@@ -583,6 +583,8 @@
                                         @if (request()->filled('country_id') ||
                                                 request()->filled('issue_year') ||
                                                 request()->filled('condition_id') ||
+                                                request()->filled('catalog_id') ||
+                                                request()->filled('catalog_edition_id') ||
                                                 request()->filled('search'))
                                             {{ __('Geen postzegels gevonden voor de geselecteerde filters.') }}
                                         @else
