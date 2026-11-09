@@ -3,7 +3,8 @@
     <div class="flex flex-col gap-6 p-4 md:p-6">
 
         {{-- Paginatitel --}}
-        <div>
+        <div class="rounded-lg border border-theme-accent-1 bg-brown-6 p-5">
+
             <flux:heading size="xl">
                 {{ __('Verzamelobject bewerken') }}
             </flux:heading>
@@ -11,6 +12,7 @@
             <flux:text class="mt-2">
                 {{ __('Bewerk de gegevens van dit bijzondere verzamelobject.') }}
             </flux:text>
+
         </div>
 
         {{-- Validatiefouten --}}
@@ -34,7 +36,7 @@
             @method('PUT')
 
             {{-- Algemene gegevens --}}
-            <div class="rounded-xl border border-neutral-200 p-4 dark:border-neutral-700 md:p-6">
+            <div class="rounded-xl border border-theme-accent-1 bg-brown-6 p-4 md:p-6">
 
                 <flux:heading size="lg">
                     {{ __('Algemene gegevens') }}
@@ -51,8 +53,9 @@
                             </span>
                         </flux:label>
 
-                        <flux:input name="name" value="{{ old('name', $collectible->name) }}" maxlength="200"
-                            required autofocus />
+                        <input type="text" name="name" value="{{ old('name', $collectible->name) }}"
+                            maxlength="200" required autofocus
+                            class="block h-10 w-full rounded-lg border border-theme-accent-3 bg-brown-5 px-3 text-sm text-zinc-900 placeholder:text-zinc-500 focus:border-theme-accent-3 focus:outline-none focus:ring-2 focus:ring-theme-accent-3 focus:ring-offset-2 focus:ring-offset-brown-5" />
 
                         <div class="min-h-5">
                             <flux:error name="name" />
@@ -68,17 +71,54 @@
                             </span>
                         </flux:label>
 
-                        <flux:select name="collectible_type_id" required>
-                            <option value="">
-                                {{ __('Selecteer een type') }}
-                            </option>
+                        @php
+                            $selectedTypeId = old('collectible_type_id', $collectible->collectible_type_id);
+                            $selectedType = $collectibleTypes->firstWhere('id', $selectedTypeId);
+                        @endphp
 
-                            @foreach ($collectibleTypes as $type)
-                                <option value="{{ $type->id }}" @selected((string) old('collectible_type_id', $collectible->collectible_type_id) === (string) $type->id)>
-                                    {{ $type->translationWithFallback()?->name ?? $type->slug }}
-                                </option>
-                            @endforeach
-                        </flux:select>
+                        <div x-data="{
+                            selectedId: @js((string) ($selectedTypeId ?? '')),
+                            selectedName: @js($selectedType?->translationWithFallback()?->name ?? ($selectedType?->slug ?? __('Selecteer een type')))
+                        }">
+
+                            <input type="hidden" name="collectible_type_id" x-model="selectedId">
+
+                            <flux:dropdown position="bottom" align="start" class="block w-full">
+
+                                <flux:button type="button" icon-trailing="chevron-down"
+                                    class="w-full min-w-0 justify-between! border-theme-accent-3! bg-brown-5! text-zinc-900! hover:bg-brown-5!">
+
+                                    <span x-text="selectedName" class="min-w-0 truncate text-left"></span>
+
+                                </flux:button>
+
+                                <flux:menu class="max-h-80 min-w-64 overflow-y-auto border-theme-accent-3! bg-brown-6!">
+
+                                    {{-- Standaardoptie --}}
+                                    <flux:menu.item as="button" type="button"
+                                        x-on:click="selectedId = ''; selectedName = @js(__('Selecteer een type'))"
+                                        class="w-full cursor-pointer text-zinc-900! hover:bg-brown-5!">
+
+                                        {{ __('Selecteer een type') }}
+
+                                    </flux:menu.item>
+
+                                    {{-- Beschikbare verzamelobjecttypen --}}
+                                    @foreach ($collectibleTypes as $type)
+                                        <flux:menu.item as="button" type="button"
+                                            x-on:click="selectedId = @js((string) $type->id); selectedName = @js($type->translationWithFallback()?->name ?? $type->slug)"
+                                            class="w-full cursor-pointer text-zinc-900! hover:bg-brown-5!">
+
+                                            {{ $type->translationWithFallback()?->name ?? $type->slug }}
+
+                                        </flux:menu.item>
+                                    @endforeach
+
+                                </flux:menu>
+
+                            </flux:dropdown>
+
+                        </div>
 
                         <div class="min-h-5">
                             <flux:error name="collectible_type_id" />
@@ -94,17 +134,58 @@
                             </span>
                         </flux:label>
 
-                        <flux:select name="country_id" required>
-                            <option value="">
-                                {{ __('Selecteer een land') }}
-                            </option>
+                        @php
+                            $selectedCountryId = old('country_id', $collectible->country_id);
+                            $selectedCountry = $countries->firstWhere('id', $selectedCountryId);
+                        @endphp
 
-                            @foreach ($countries as $country)
-                                <option value="{{ $country->id }}" @selected((string) old('country_id', $collectible->country_id) === (string) $country->id)>
-                                    {{ $country->translationWithFallback()?->name ?? $country->name }}
-                                </option>
-                            @endforeach
-                        </flux:select>
+                        <div x-data="{
+                            selectedId: @js((string) ($selectedCountryId ?? '')),
+                            selectedName: @js($selectedCountry?->translationWithFallback()?->name ?? ($selectedCountry?->name ?? __('Selecteer een land')))
+                        }">
+
+                            <input type="hidden" name="country_id" x-model="selectedId" x-ref="countryInput">
+
+                            <flux:dropdown position="bottom" align="start" class="block w-full">
+
+                                <flux:button type="button" icon-trailing="chevron-down"
+                                    class="w-full min-w-0 justify-between! border-theme-accent-3! bg-brown-5! text-zinc-900! hover:bg-brown-5!">
+
+                                    <span x-text="selectedName" class="min-w-0 truncate text-left"></span>
+
+                                </flux:button>
+
+                                <flux:menu class="max-h-80 min-w-64 overflow-y-auto border-theme-accent-3! bg-brown-6!">
+
+                                    {{-- Standaardoptie --}}
+                                    <flux:menu.item as="button" type="button"
+                                        x-on:click="selectedId = ''; selectedName = @js(__('Selecteer een land'))"
+                                        class="w-full cursor-pointer text-zinc-900! hover:bg-brown-5!">
+
+                                        {{ __('Selecteer een land') }}
+
+                                    </flux:menu.item>
+
+                                    {{-- Beschikbare landen --}}
+                                    @foreach ($countries as $country)
+                                        <flux:menu.item as="button" type="button"
+                                            x-on:click="
+                                                selectedId = @js((string) $country->id);
+                                                selectedName = @js($country->translationWithFallback()?->name ?? $country->name);
+                                                $nextTick(() => $refs.countryInput.dispatchEvent(new Event('input', { bubbles: true })));
+                                            "
+                                            class="w-full cursor-pointer text-zinc-900! hover:bg-brown-5!">
+
+                                            {{ $country->translationWithFallback()?->name ?? $country->name }}
+
+                                        </flux:menu.item>
+                                    @endforeach
+
+                                </flux:menu>
+
+                            </flux:dropdown>
+
+                        </div>
 
                         <div class="min-h-5">
                             <flux:error name="country_id" />
@@ -117,16 +198,78 @@
                             {{ __('Postzegelserie') }}
                         </flux:label>
 
-                        <flux:select name="stamp_series_id">
-                            <option value="">
-                                {{ __('Geen serie') }}
-                            </option>
+                        @php
+                            $selectedSeriesId = old('stamp_series_id', $collectible->stamp_series_id);
+                            $selectedSeries = $series->firstWhere('id', $selectedSeriesId);
+                        @endphp
 
-                            @foreach ($series as $item)
-                                <option value="{{ $item->id }}" data-country-id="{{ $item->country_id }}"
-                                    @selected((string) old('stamp_series_id', $collectible->stamp_series_id) === (string) $item->id) {{ $item->name }} </option>
-                            @endforeach
-                        </flux:select>
+                        <div x-data="{
+                            selectedId: @js((string) ($selectedSeriesId ?? '')),
+                            selectedName: @js($selectedSeries?->name ?? __('Geen serie')),
+                            countryId: @js((string) old('country_id', $collectible->country_id)),
+
+                            changeCountry(newCountryId) {
+                                this.countryId = String(newCountryId);
+
+                                const selectedSeries = this.$el.querySelector(
+                                    `[data-series-id='${this.selectedId}']`
+                                );
+
+                                if (
+                                    this.selectedId !== '' &&
+                                    (
+                                        !selectedSeries ||
+                                        selectedSeries.dataset.countryId !== this.countryId
+                                    )
+                                ) {
+                                    this.selectedId = '';
+                                    this.selectedName = @js(__('Geen serie'));
+                                }
+                            }
+                        }"
+                            x-on:collectible-country-changed.window="changeCountry($event.detail.countryId)">
+
+                            <input type="hidden" name="stamp_series_id" x-model="selectedId">
+
+                            <flux:dropdown position="bottom" align="start" class="block w-full">
+
+                                <flux:button type="button" icon-trailing="chevron-down"
+                                    class="w-full min-w-0 justify-between! border-theme-accent-3! bg-brown-5! text-zinc-900! hover:bg-brown-5!">
+                                    <span x-text="selectedName" class="min-w-0 truncate text-left"></span>
+                                </flux:button>
+
+                                <flux:menu class="max-h-80 min-w-64 overflow-y-auto border-theme-accent-3! bg-brown-6!">
+
+                                    {{-- Geen serie --}}
+                                    <flux:menu.item as="button" type="button"
+                                        x-on:click="
+                                            selectedId = '';
+                                            selectedName = @js(__('Geen serie'));
+                                        "
+                                        class="w-full cursor-pointer text-zinc-900! hover:bg-brown-5!">
+                                        {{ __('Geen serie') }}
+                                    </flux:menu.item>
+
+                                    {{-- Beschikbare postzegelseries --}}
+                                    @foreach ($series as $item)
+                                        <flux:menu.item as="button" type="button"
+                                            data-series-id="{{ $item->id }}"
+                                            data-country-id="{{ $item->country_id }}"
+                                            x-show="countryId === @js((string) $item->country_id)"
+                                            x-on:click="
+                                                selectedId = @js((string) $item->id);
+                                                selectedName = @js($item->name);
+                                            "
+                                            class="w-full cursor-pointer text-zinc-900! hover:bg-brown-5!">
+                                            {{ $item->name }}
+                                        </flux:menu.item>
+                                    @endforeach
+
+                                </flux:menu>
+
+                            </flux:dropdown>
+
+                        </div>
 
                         <div class="min-h-5">
                             <flux:error name="stamp_series_id" />
@@ -142,8 +285,52 @@
                             </span>
                         </flux:label>
 
-                        <flux:input type="number" name="issue_year" min="1840" max="2200"
-                            value="{{ old('issue_year', $collectible->issue_year) }}" required />
+                        <div x-data="{
+                            value: @js(old('issue_year', $collectible->issue_year)),
+
+                            increase() {
+                                let value = Number(this.value || 1840);
+                                this.value = Math.min(2200, value + 1);
+                                this.updateFilter();
+                            },
+
+                            decrease() {
+                                let value = Number(this.value || 1840);
+                                this.value = Math.max(1840, value - 1);
+                                this.updateFilter();
+                            },
+
+                            updateFilter() {
+                                this.$nextTick(() => {
+                                    this.$refs.yearInput.dispatchEvent(
+                                        new Event('input', { bubbles: true })
+                                    );
+                                });
+                            }
+                        }" class="relative">
+
+                            <input x-ref="yearInput" type="number" name="issue_year" x-model="value"
+                                min="1840" max="2200" required
+                                class="block h-10 w-full appearance-none rounded-lg border border-theme-accent-3 bg-brown-5 px-3 pr-10 text-sm text-zinc-900 placeholder:text-zinc-500 focus:border-theme-accent-3 focus:outline-none focus:ring-2 focus:ring-theme-accent-3 focus:ring-offset-2 focus:ring-offset-brown-5 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [-moz-appearance:textfield]" />
+
+                            <div class="absolute inset-y-0 right-1 flex flex-col justify-center">
+
+                                <button type="button" x-on:click="increase()"
+                                    aria-label="{{ __('Jaar verhogen') }}"
+                                    class="flex h-4 w-7 items-center justify-center rounded-t border border-theme-accent-3 bg-brown-6 text-zinc-900 hover:bg-brown-5">
+
+                                    <flux:icon.chevron-up class="size-3" />
+                                </button>
+
+                                <button type="button" x-on:click="decrease()"
+                                    aria-label="{{ __('Jaar verlagen') }}"
+                                    class="flex h-4 w-7 items-center justify-center rounded-b border border-theme-accent-3 bg-brown-6 text-zinc-900 hover:bg-brown-5">
+
+                                    <flux:icon.chevron-down class="size-3" />
+                                </button>
+
+                            </div>
+                        </div>
 
                         <div class="min-h-5">
                             <flux:error name="issue_year" />
@@ -151,18 +338,13 @@
                     </flux:field>
 
                     {{-- Uitgiftedatum --}}
-                    <flux:field>
-                        <flux:label>
-                            {{ __('Uitgiftedatum') }}
-                        </flux:label>
-
-                        <flux:input type="date" name="issue_date"
-                            value="{{ old('issue_date', $collectible->issue_date ? \Illuminate\Support\Carbon::parse($collectible->issue_date)->format('Y-m-d') : '') }}" />
-
-                        <div class="min-h-5">
-                            <flux:error name="issue_date" />
-                        </div>
-                    </flux:field>
+                    {{-- Uitgiftedatum --}}
+                    <x-forms.date-picker name="issue_date" :label="__('Uitgiftedatum')" :value="old(
+                        'issue_date',
+                        $collectible->issue_date
+                            ? \Illuminate\Support\Carbon::parse($collectible->issue_date)->format('Y-m-d')
+                            : '',
+                    )" />
 
                     {{-- Beschrijving --}}
                     <flux:field class="md:col-span-2">
@@ -170,8 +352,8 @@
                             {{ __('Beschrijving') }}
                         </flux:label>
 
-                        <flux:textarea name="description" rows="4">
-                            {{ old('description', $collectible->description) }}</flux:textarea>
+                        <textarea name="description" rows="4"
+                            class="block w-full rounded-lg border border-theme-accent-3 bg-brown-5 px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-500 focus:border-theme-accent-3 focus:outline-none focus:ring-2 focus:ring-theme-accent-3 focus:ring-offset-2 focus:ring-offset-brown-5">{{ old('description', $collectible->description) }}</textarea>
 
                         <div class="min-h-5">
                             <flux:error name="description" />
@@ -184,8 +366,8 @@
                             {{ __('Notities') }}
                         </flux:label>
 
-                        <flux:textarea name="notes" rows="4">{{ old('notes', $collectible->notes) }}
-                        </flux:textarea>
+                        <textarea name="notes" rows="4"
+                            class="block w-full rounded-lg border border-theme-accent-3 bg-brown-5 px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-500 focus:border-theme-accent-3 focus:outline-none focus:ring-2 focus:ring-theme-accent-3 focus:ring-offset-2 focus:ring-offset-brown-5">{{ old('notes', $collectible->notes) }}</textarea>
 
                         <div class="min-h-5">
                             <flux:error name="notes" />
@@ -220,13 +402,51 @@
                             @forelse ($stamps as $stamp)
                                 <label
                                     class="collectible-stamp-item flex cursor-pointer items-center gap-3 rounded-lg p-2 hover:bg-brown-5"
-                                    data-country-id="{{ $stamp->country_id }}">
-                                    <input type="checkbox" name="stamp_ids[]" value="{{ $stamp->id }}"
-                                        @checked(in_array($stamp->id, old('stamp_ids', $collectible->stamps->pluck('id')->all()))) class="h-4 w-4 rounded border-theme-accent-1">
+                                    data-country-id="{{ $stamp->country_id }}"
+                                    data-issue-year="{{ $stamp->issue_year }}">
+                                    <flux:checkbox name="stamp_ids[]" value="{{ $stamp->id }}"
+                                        :checked="in_array($stamp->id, old('stamp_ids', $collectible->stamps->pluck('id')->all()))"
+                                        class="[&_[data-flux-checkbox-indicator]]:bg-brown-5! [&_[data-flux-checkbox-indicator]]:border-theme-accent-3!" />
+                                    <div class="flex flex-col gap-1">
+                                        {{-- Naam van de postzegel --}}
+                                        <span class="text-sm font-medium text-zinc-900">
+                                            {{ $stamp->name }}
+                                        </span>
 
-                                    <span class="text-sm">
-                                        {{ $stamp->name }}
-                                    </span>
+                                        {{-- Catalogusnummers en uitgiftejaar --}}
+                                        <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-600">
+                                            <span>
+                                                {{ __('Uitgiftejaar') }}: {{ $stamp->issue_year ?? '—' }}
+                                            </span>
+
+                                            @forelse ($stamp->catalogEntries->sortBy(fn ($entry) => $entry->catalogEdition?->edition_year ?? 0) as $entry)
+                                                @php
+                                                    $edition = $entry->catalogEdition;
+                                                    $editionName = $edition?->edition_name;
+                                                    $editionYear = $edition?->edition_year;
+
+                                                    $displayEdition =
+                                                        $editionName ?: ($editionYear ? (string) $editionYear : '—');
+
+                                                    if (
+                                                        $editionName &&
+                                                        $editionYear &&
+                                                        !str_contains($editionName, (string) $editionYear)
+                                                    ) {
+                                                        $displayEdition .= ' (' . $editionYear . ')';
+                                                    }
+                                                @endphp
+
+                                                <span>
+                                                    {{ $edition?->catalog?->name ?? __('Catalogus') }}
+                                                    — {{ $displayEdition }}
+                                                    — {{ $entry->catalog_number }}
+                                                </span>
+                                            @empty
+                                                <span>{{ __('Geen catalogusnummer') }}</span>
+                                            @endforelse
+                                        </div>
+                                    </div>
                                 </label>
                             @empty
                                 <flux:text>
@@ -244,16 +464,18 @@
                 </div>
 
             </div>
+
             {{-- Acties --}}
-            <div class="flex flex-wrap justify-end gap-3">
+            <div class="flex flex-wrap justify-end gap-3 rounded-lg border border-theme-accent-1 bg-brown-6 p-5">
 
                 {{-- Annuleren --}}
-                <flux:button :href="route('backend.collectibles.index')" variant="ghost" icon="x-mark">
+                <flux:button :href="route('backend.collectibles.index')" variant="ghost" icon="x-mark"
+                    class="text-zinc-900!">
                     {{ __('Annuleren') }}
                 </flux:button>
 
                 {{-- Opslaan --}}
-                <flux:button type="submit" variant="primary" icon="check">
+                <flux:button type="submit" variant="primary" icon="check" class="bg-brown-2!">
                     {{ __('Verzamelobject opslaan') }}
                 </flux:button>
 
@@ -261,82 +483,86 @@
 
         </form>
     </div>
+
+
     {{-- Postzegelseries filteren op geselecteerd land --}}
     <script>
         // Land en postzegelserie selecteren.
-        const countrySelect = document.querySelector('select[name="country_id"]');
-        const seriesSelect = document.querySelector('select[name="stamp_series_id"]');
+        const countrySelect = document.querySelector('input[name="country_id"]');
+
 
         // Postzegelseries filteren op geselecteerd land.
         function filterStampSeries() {
-            if (!countrySelect || !seriesSelect) {
+            if (!countrySelect) {
                 return;
             }
 
-            const selectedCountryId = countrySelect.value;
-
-            Array.from(seriesSelect.options).forEach(option => {
-                if (option.value === '') {
-                    option.hidden = false;
-                    return;
-                }
-
-                option.hidden =
-                    option.dataset.countryId !== selectedCountryId;
-            });
-
-            const selectedOption = seriesSelect.selectedOptions[0];
-
-            if (
-                selectedOption &&
-                selectedOption.value !== '' &&
-                selectedOption.dataset.countryId !== selectedCountryId
-            ) {
-                seriesSelect.value = '';
-            }
+            window.dispatchEvent(
+                new CustomEvent('collectible-country-changed', {
+                    detail: {
+                        countryId: countrySelect.value
+                    }
+                })
+            );
         }
 
-        // Postzegels filteren op geselecteerd land.
+        // Postzegels selecteren voor filtering op land en uitgiftejaar.
         const stampItems = document.querySelectorAll('.collectible-stamp-item');
+        const issueYearInput = document.querySelector('input[name="issue_year"]');
 
+        // Postzegels filteren op geselecteerd land en uitgiftejaar.
         function filterStampsByCountry() {
             if (!countrySelect) {
                 return;
             }
 
             const selectedCountryId = countrySelect.value;
+            const selectedYear = issueYearInput?.value ?? '';
 
             stampItems.forEach(item => {
                 const belongsToCountry =
                     selectedCountryId !== '' &&
                     item.dataset.countryId === selectedCountryId;
 
-                // Alleen postzegels van het geselecteerde land tonen.
-                item.classList.toggle('hidden', !belongsToCountry);
+                const belongsToYear =
+                    selectedYear !== '' &&
+                    item.dataset.issueYear === selectedYear;
 
-                // Selecties van andere landen verwijderen.
-                const checkbox = item.querySelector('input[type="checkbox"]');
+                const checkbox = item.querySelector('ui-checkbox');
 
+                const isVisible =
+                    belongsToCountry &&
+                    (belongsToYear || checkbox?.hasAttribute('data-checked'));
+
+                // Alleen postzegels van het geselecteerde land en jaar tonen.
+                item.classList.toggle('hidden', !isVisible);
+
+                // Bestaande vinkjes behouden bij het wisselen van filters.
                 if (checkbox) {
-                    checkbox.disabled = !belongsToCountry;
-
-                    if (!belongsToCountry) {
-                        checkbox.checked = false;
-                    }
+                    checkbox.disabled = !isVisible;
                 }
             });
         }
-
         // Beide filters uitvoeren wanneer het land verandert.
         if (countrySelect) {
-            countrySelect.addEventListener('change', () => {
+            countrySelect.addEventListener('input', () => {
                 filterStampSeries();
                 filterStampsByCountry();
             });
 
             // Filters ook uitvoeren bij het openen van de pagina.
-            filterStampSeries();
-            filterStampsByCountry();
+            // Filters uitvoeren nadat Alpine de landselectie heeft geïnitialiseerd.
+            document.addEventListener('alpine:initialized', () => {
+                filterStampSeries();
+                filterStampsByCountry();
+            });
+        }
+
+        // Postzegels opnieuw filteren wanneer het uitgiftejaar verandert.
+        if (issueYearInput) {
+            issueYearInput.addEventListener('input', () => {
+                filterStampsByCountry();
+            });
         }
     </script>
 </x-layouts::app>

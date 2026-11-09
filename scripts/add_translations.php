@@ -16,7 +16,7 @@ $languages = ['nl', 'en', 'de', 'fr', 'es'];
 |
 */
 
-$translations = require __DIR__.'/translations_fase14f_batch3.php';
+$translations = require __DIR__.'/translations_fase14f_batch4.php';
 
 /*
 |--------------------------------------------------------------------------

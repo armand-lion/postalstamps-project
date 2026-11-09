@@ -221,7 +221,11 @@ class CollectibleController extends Controller
             ->get();
 
         // Haal de beschikbare postzegels op.
-        $stamps = Stamp::orderBy('id')->get();
+        $stamps = Stamp::with([
+            'catalogEntries.catalogEdition.catalog',
+        ])
+            ->orderBy('id')
+            ->get();
 
         return view('backend.collectibles.edit', compact(
             'collectible',

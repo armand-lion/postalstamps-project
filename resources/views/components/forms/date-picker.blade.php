@@ -10,6 +10,15 @@
     currentMonth: new Date().getMonth(),
     currentYear: new Date().getFullYear(),
 
+    minYear: 1840,
+    maxYear: 2200,
+
+    get years() {
+        return Array.from({ length: this.maxYear - this.minYear + 1 },
+            (_, index) => this.minYear + index
+        );
+    },
+
     init() {
         if (this.selectedDate) {
             const parts = this.selectedDate.split('-');
@@ -150,48 +159,79 @@
         {{-- Kalenderkop --}}
         <div class="flex items-center justify-between gap-3 rounded-lg bg-brown-2 p-3">
 
-            {{-- Vorige maand --}}
-            <button type="button"
-                x-on:click="
-                currentMonth--;
-
-                if (currentMonth < 0) {
-                    currentMonth = 11;
-                    currentYear--;
-                }
-            "
-                aria-label="{{ __('Vorige maand') }}"
-                class="flex h-9 w-9 items-center justify-center rounded-lg bg-brown-3 text-white hover:bg-brown-4">
-                <flux:icon.chevron-left class="size-5" />
-            </button>
-
             {{-- Maand en jaar --}}
-            <div class="text-center text-sm font-semibold text-white">
+            <div class="flex items-center justify-center gap-2">
 
-                <span
-                    x-text="new Intl.DateTimeFormat(
+                {{-- Maand selecteren --}}
+                <div class="min-w-0 w-32">
+
+                    <flux:dropdown>
+
+                        <flux:button type="button" icon-trailing="chevron-down"
+                            aria-label="{{ __('Maand selecteren') }}"
+                            class="w-full min-w-0 justify-between! border-theme-accent-3! bg-brown-5! text-zinc-900! hover:bg-brown-5!">
+
+                            <span
+                                x-text="new Intl.DateTimeFormat(
                     @js(str_replace('_', '-', app()->getLocale())),
                     { month: 'long' }
-                ).format(new Date(currentYear, currentMonth, 1))"></span>
+                ).format(new Date(2024, currentMonth, 1))">
+                            </span>
 
-                <span x-text="currentYear"></span>
+                        </flux:button>
 
+                        <flux:menu class="max-h-80 min-w-40 overflow-y-auto border-theme-accent-3! bg-brown-6!">
+
+                            <template x-for="month in 12" :key="month">
+
+                                <flux:menu.item x-on:click="currentMonth = month - 1"
+                                    class="text-zinc-900! hover:bg-brown-5!">
+
+                                    <span
+                                        x-text="new Intl.DateTimeFormat(
+                            @js(str_replace('_', '-', app()->getLocale())),
+                            { month: 'long' }
+                        ).format(new Date(2024, month - 1, 1))">
+                                    </span>
+
+                                </flux:menu.item>
+
+                            </template>
+
+                        </flux:menu>
+
+                    </flux:dropdown>
+
+                </div>
+
+                {{-- Jaar rechtstreeks invoeren --}}
+                <div class="relative w-28">
+
+                    <input type="number" x-model.number="currentYear" min="1840" max="2200"
+                        aria-label="{{ __('Jaar selecteren') }}"
+                        class="block h-9 w-full appearance-none rounded-lg border border-theme-accent-3 bg-brown-5 px-2 pr-9 text-sm font-medium text-zinc-900 focus:border-theme-accent-3 focus:outline-none focus:ring-2 focus:ring-theme-accent-3 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [-moz-appearance:textfield]" />
+
+                    {{-- Jaar verhogen en verlagen --}}
+                    <div class="absolute inset-y-0 right-1 flex flex-col justify-center">
+
+                        <button type="button"
+                            x-on:click="currentYear = Math.min(2200, Math.max(1840, Number(currentYear) || 1840) + 1)"
+                            aria-label="{{ __('Jaar verhogen') }}"
+                            class="flex h-4 w-7 items-center justify-center rounded-t border border-theme-accent-3 bg-brown-6 text-zinc-900 hover:bg-brown-5">
+                            <flux:icon.chevron-up class="size-3" />
+                        </button>
+
+                        <button type="button"
+                            x-on:click="currentYear = Math.max(1840, Math.min(2200, Number(currentYear) || 1840) - 1)"
+                            aria-label="{{ __('Jaar verlagen') }}"
+                            class="flex h-4 w-7 items-center justify-center rounded-b border border-theme-accent-3 bg-brown-6 text-zinc-900 hover:bg-brown-5">
+                            <flux:icon.chevron-down class="size-3" />
+                        </button>
+
+                    </div>
+
+                </div>
             </div>
-
-            {{-- Volgende maand --}}
-            <button type="button"
-                x-on:click="
-                currentMonth++;
-
-                if (currentMonth > 11) {
-                    currentMonth = 0;
-                    currentYear++;
-                }
-            "
-                aria-label="{{ __('Volgende maand') }}"
-                class="flex h-9 w-9 items-center justify-center rounded-lg bg-brown-3 text-white hover:bg-brown-4">
-                <flux:icon.chevron-right class="size-5" />
-            </button>
 
         </div>
 

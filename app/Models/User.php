@@ -84,4 +84,14 @@ class User extends Authenticatable implements MustVerifyEmail, PasskeyUser
     {
         return $this->hasMany(StampCopy::class);
     }
+
+    /**
+     * De persoonlijke bijzondere verzamelobjecten van deze gebruiker.
+     *
+     * @return HasMany<CollectibleCopy, $this>
+     */
+    public function collectibleCopies(): HasMany
+    {
+        return $this->hasMany(CollectibleCopy::class);
+    }
 }

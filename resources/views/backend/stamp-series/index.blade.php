@@ -117,42 +117,27 @@
                                         <div class="flex flex-wrap justify-end gap-2">
 
                                             {{-- Bekijken --}}
-                                            <flux:button
-                                                :href="route('backend.stamp-series.show', $item)"
-                                                size="sm"
-                                                variant="ghost"
-                                                icon="eye"
-                                            >
+                                            <flux:button :href="route('backend.stamp-series.show', $item)"
+                                                size="sm" variant="ghost" icon="eye">
                                                 {{ __('Bekijken') }}
                                             </flux:button>
 
                                             {{-- Bewerken --}}
-                                            <flux:button
-                                                :href="route('backend.stamp-series.edit', $item)"
-                                                size="sm"
-                                                variant="ghost"
-                                                icon="pencil"
-                                            >
+                                            <flux:button :href="route('backend.stamp-series.edit', $item)"
+                                                size="sm" variant="ghost" icon="pencil">
                                                 {{ __('Bewerken') }}
                                             </flux:button>
 
                                             {{-- Verwijderen --}}
-                                            <form
-                                                method="POST"
+                                            <form method="POST"
                                                 action="{{ route('backend.stamp-series.destroy', $item) }}"
-                                                class="delete-confirm-form"
-                                            >
+                                                class="delete-confirm-form">
                                                 @csrf
                                                 @method('DELETE')
 
-                                                <flux:button
-                                                    type="button"
-                                                    size="sm"
-                                                    variant="ghost"
-                                                    icon="trash"
-                                                    class="text-red-600 dark:text-red-400"
-                                                    onclick="openDeleteModal(this.closest('form'))"
-                                                >
+                                                <flux:button type="button" size="sm" variant="ghost"
+                                                    icon="trash" class="text-red-600 dark:text-red-400"
+                                                    onclick="openDeleteModal(this.closest('form'))">
                                                     {{ __('Verwijderen') }}
                                                 </flux:button>
                                             </form>

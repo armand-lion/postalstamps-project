@@ -1,9 +1,12 @@
 <?php
 
+use App\Models\Catalog;
+use App\Models\CatalogEdition;
 use App\Models\Condition;
 use App\Models\Country;
 use App\Models\Stamp;
 use App\Models\StampCopy;
+use App\Models\StampSeries;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
@@ -479,4 +482,488 @@ test('een ongeldige cataloguseditie toont geen verzamelexemplaren', function () 
 
     // Een ongeldige cataloguseditie mag geen resultaten opleveren.
     $response->assertDontSee('Testzegel Ongeldige Editie');
+});
+
+test('verzamelexemplaren worden natuurlijk gesorteerd op numeriek catalogusnummer', function () {
+    $user = User::factory()->create();
+
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus sortering',
+    ]);
+
+    $edition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Testeditie sortering',
+        'edition_year' => 2026,
+    ]);
+
+    $condition = Condition::create([
+        'slug' => 'postfris-sortering',
+        'sort_order' => 1,
+        'is_active' => true,
+    ]);
+
+    foreach (['1', '10', '2'] as $number) {
+        $stamp = Stamp::factory()->create([
+            'name' => 'Sorteertest '.$number,
+        ]);
+
+        $stamp->catalogEntries()->create([
+            'catalog_edition_id' => $edition->id,
+            'catalog_number' => $number,
+        ]);
+
+        StampCopy::create([
+            'user_id' => $user->id,
+            'stamp_id' => $stamp->id,
+            'condition_id' => $condition->id,
+            'quantity' => 1,
+        ]);
+    }
+
+    $response = $this
+        ->actingAs($user)
+        ->get(route('backend.stamp-copies.index', [
+            'catalog_edition_id' => $edition->id,
+            'sort' => 'catalog_asc',
+        ]));
+
+    $response->assertOk();
+
+    $response->assertViewHas('stampCopies', function ($stampCopies) use ($edition) {
+        $numbers = $stampCopies->getCollection()
+            ->map(fn ($copy) => $copy->stamp->catalogEntries
+                ->firstWhere('catalog_edition_id', $edition->id)
+                ?->catalog_number)
+            ->all();
+
+        return $numbers === ['1', '2', '10'];
+    });
+});
+
+test('varianten worden na de gewone postzegels van dezelfde serie gesorteerd', function () {
+    $user = User::factory()->create();
+
+    $country = Country::factory()->create();
+
+    $series = StampSeries::create([
+        'country_id' => $country->id,
+        'name' => 'Testserie varianten',
+        'issue_year' => 1940,
+    ]);
+
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus varianten',
+    ]);
+
+    $edition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Testeditie varianten',
+        'edition_year' => 2026,
+    ]);
+
+    $condition = Condition::create([
+        'slug' => 'postfris-varianten',
+        'sort_order' => 1,
+        'is_active' => true,
+    ]);
+
+    $parentStamp = null;
+
+    foreach (['332', '332v', '333', '334'] as $number) {
+        $stamp = Stamp::factory()->create([
+            'country_id' => $country->id,
+            'name' => 'Sorteertest '.$number,
+            'stamp_series_id' => $series->id,
+            'parent_stamp_id' => $number === '332v'
+                ? $parentStamp?->id
+                : null,
+            'issue_year' => 1940,
+        ]);
+
+        if ($number === '332') {
+            $parentStamp = $stamp;
+        }
+
+        $stamp->catalogEntries()->create([
+            'catalog_edition_id' => $edition->id,
+            'catalog_number' => $number,
+        ]);
+
+        StampCopy::create([
+            'user_id' => $user->id,
+            'stamp_id' => $stamp->id,
+            'condition_id' => $condition->id,
+            'quantity' => 1,
+        ]);
+    }
+
+    $response = $this
+        ->actingAs($user)
+        ->get(route('backend.stamp-copies.index', [
+            'catalog_edition_id' => $edition->id,
+            'sort' => 'catalog_asc',
+        ]));
+
+    $response->assertOk();
+
+    $response->assertViewHas('stampCopies', function ($stampCopies) use ($edition) {
+        $numbers = $stampCopies->getCollection()
+            ->map(fn ($copy) => $copy->stamp->catalogEntries
+                ->firstWhere('catalog_edition_id', $edition->id)
+                ?->catalog_number)
+            ->all();
+
+        return $numbers === ['332', '333', '334', '332v'];
+    });
+});
+
+test('catalogusnummers met letterprefix worden na numerieke nummers binnen dezelfde serie gesorteerd', function () {
+    $user = User::factory()->create();
+
+    $country = Country::factory()->create();
+
+    $series = StampSeries::create([
+        'country_id' => $country->id,
+        'name' => 'Testserie letterprefix',
+        'issue_year' => 1940,
+    ]);
+
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus letterprefix',
+    ]);
+
+    $edition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Testeditie letterprefix',
+        'edition_year' => 2026,
+    ]);
+
+    $condition = Condition::create([
+        'slug' => 'postfris-letterprefix',
+        'sort_order' => 1,
+        'is_active' => true,
+    ]);
+
+    foreach (['745', 'E45', '755'] as $number) {
+        $stamp = Stamp::factory()->create([
+            'country_id' => $country->id,
+            'name' => 'Sorteertest '.$number,
+            'stamp_series_id' => $series->id,
+            'parent_stamp_id' => null,
+            'issue_year' => 1940,
+        ]);
+
+        $stamp->catalogEntries()->create([
+            'catalog_edition_id' => $edition->id,
+            'catalog_number' => $number,
+        ]);
+
+        StampCopy::create([
+            'user_id' => $user->id,
+            'stamp_id' => $stamp->id,
+            'condition_id' => $condition->id,
+            'quantity' => 1,
+        ]);
+    }
+
+    $response = $this
+        ->actingAs($user)
+        ->get(route('backend.stamp-copies.index', [
+            'catalog_edition_id' => $edition->id,
+            'sort' => 'catalog_asc',
+        ]));
+
+    $response->assertOk();
+
+    $response->assertViewHas('stampCopies', function ($stampCopies) use ($edition) {
+        $numbers = $stampCopies->getCollection()
+            ->map(fn ($copy) => $copy->stamp->catalogEntries
+                ->firstWhere('catalog_edition_id', $edition->id)
+                ?->catalog_number)
+            ->all();
+
+        return $numbers === ['745', '755', 'E45'];
+    });
+});
+
+test('losse postzegels worden op catalogusnummer tussen series gesorteerd', function () {
+    $user = User::factory()->create();
+
+    $country = Country::factory()->create();
+
+    $series = StampSeries::create([
+        'country_id' => $country->id,
+        'name' => 'Testserie tussen losse postzegels',
+        'issue_year' => 1940,
+    ]);
+
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus losse postzegels',
+    ]);
+
+    $edition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Testeditie losse postzegels',
+        'edition_year' => 2026,
+    ]);
+
+    $condition = Condition::create([
+        'slug' => 'postfris-losse-postzegels',
+        'sort_order' => 1,
+        'is_active' => true,
+    ]);
+
+    $parentStamp = null;
+
+    foreach (['332', '106', '350', '333', '332v', '107', '334'] as $number) {
+        $stamp = Stamp::factory()->create([
+            'country_id' => $country->id,
+            'name' => 'Sorteertest '.$number,
+            'stamp_series_id' => in_array($number, ['332', '333', '334', '332v'], true)
+                ? $series->id
+                : null,
+            'parent_stamp_id' => $number === '332v'
+                ? $parentStamp?->id
+                : null,
+            'issue_year' => 1940,
+        ]);
+
+        if ($number === '332') {
+            $parentStamp = $stamp;
+        }
+
+        $stamp->catalogEntries()->create([
+            'catalog_edition_id' => $edition->id,
+            'catalog_number' => $number,
+        ]);
+
+        StampCopy::create([
+            'user_id' => $user->id,
+            'stamp_id' => $stamp->id,
+            'condition_id' => $condition->id,
+            'quantity' => 1,
+        ]);
+    }
+
+    $response = $this
+        ->actingAs($user)
+        ->get(route('backend.stamp-copies.index', [
+            'catalog_edition_id' => $edition->id,
+            'sort' => 'catalog_asc',
+        ]));
+
+    $response->assertOk();
+
+    $response->assertViewHas('stampCopies', function ($stampCopies) use ($edition) {
+        $numbers = $stampCopies->getCollection()
+            ->map(fn ($copy) => $copy->stamp->catalogEntries
+                ->firstWhere('catalog_edition_id', $edition->id)
+                ?->catalog_number)
+            ->all();
+
+        return $numbers === ['106', '107', '332', '333', '334', '332v', '350'];
+    });
+});
+
+test('onvolledige serie behoudt oorspronkelijke cataloguspositie', function () {
+    $user = User::factory()->create();
+
+    $country = Country::factory()->create();
+
+    $series = StampSeries::create([
+        'country_id' => $country->id,
+        'name' => 'Testserie onvolledig',
+        'issue_year' => 1940,
+    ]);
+
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus onvolledig',
+    ]);
+
+    $edition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Testeditie onvolledig',
+        'edition_year' => 2026,
+    ]);
+
+    $condition = Condition::create([
+        'slug' => 'postfris-onvolledig',
+        'sort_order' => 1,
+        'is_active' => true,
+    ]);
+
+    foreach (['332', '333', '334', '335'] as $number) {
+        $stamp = Stamp::factory()->create([
+            'country_id' => $country->id,
+            'name' => 'Seriepostzegel '.$number,
+            'stamp_series_id' => $series->id,
+            'parent_stamp_id' => null,
+            'issue_year' => 1940,
+        ]);
+
+        $stamp->catalogEntries()->create([
+            'catalog_edition_id' => $edition->id,
+            'catalog_number' => $number,
+        ]);
+
+        // Alleen de laatste twee postzegels zijn in bezit.
+        if (in_array($number, ['334', '335'], true)) {
+            StampCopy::create([
+                'user_id' => $user->id,
+                'stamp_id' => $stamp->id,
+                'condition_id' => $condition->id,
+                'quantity' => 1,
+            ]);
+        }
+    }
+
+    // Een losse postzegel met catalogusnummer 333.
+    $looseStamp = Stamp::factory()->create([
+        'country_id' => $country->id,
+        'name' => 'Losse postzegel 333',
+        'stamp_series_id' => null,
+        'parent_stamp_id' => null,
+        'issue_year' => 1940,
+    ]);
+
+    $looseStamp->catalogEntries()->create([
+        'catalog_edition_id' => $edition->id,
+        'catalog_number' => '333',
+    ]);
+
+    StampCopy::create([
+        'user_id' => $user->id,
+        'stamp_id' => $looseStamp->id,
+        'condition_id' => $condition->id,
+        'quantity' => 1,
+    ]);
+
+    $response = $this
+        ->actingAs($user)
+        ->get(route('backend.stamp-copies.index', [
+            'catalog_edition_id' => $edition->id,
+            'sort' => 'catalog_asc',
+        ]));
+
+    $response->assertOk();
+
+    $response->assertViewHas('stampCopies', function ($stampCopies) use ($edition) {
+        $numbers = $stampCopies->getCollection()
+            ->map(fn ($copy) => $copy->stamp->catalogEntries
+                ->firstWhere('catalog_edition_id', $edition->id)
+                ?->catalog_number)
+            ->all();
+
+        return $numbers === ['334', '335', '333'];
+    });
+});
+
+test('meerdere series blijven bij elkaar tijdens sorteren op catalogusnummer', function () {
+    $user = User::factory()->create();
+
+    $country = Country::factory()->create();
+
+    $seriesA = StampSeries::create([
+        'country_id' => $country->id,
+        'name' => 'Testserie A',
+        'issue_year' => 1940,
+    ]);
+
+    $seriesB = StampSeries::create([
+        'country_id' => $country->id,
+        'name' => 'Testserie B',
+        'issue_year' => 1940,
+    ]);
+
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus meerdere series',
+    ]);
+
+    $edition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Testeditie meerdere series',
+        'edition_year' => 2026,
+    ]);
+
+    $condition = Condition::create([
+        'slug' => 'postfris-meerdere-series',
+        'sort_order' => 1,
+        'is_active' => true,
+    ]);
+
+    $parentA = null;
+    $parentB = null;
+
+    // Bewust een willekeurige invoervolgorde gebruiken.
+    foreach (['300', '100', '200', '350', '301', '201', '250', '200v', '300v'] as $number) {
+        $seriesId = match ($number) {
+            '200', '201', '200v' => $seriesA->id,
+            '300', '301', '300v' => $seriesB->id,
+            default => null,
+        };
+
+        $parentId = match ($number) {
+            '200v' => $parentA?->id,
+            '300v' => $parentB?->id,
+            default => null,
+        };
+
+        $stamp = Stamp::factory()->create([
+            'country_id' => $country->id,
+            'name' => 'Sorteertest '.$number,
+            'stamp_series_id' => $seriesId,
+            'parent_stamp_id' => $parentId,
+            'issue_year' => 1940,
+        ]);
+
+        if ($number === '200') {
+            $parentA = $stamp;
+        }
+
+        if ($number === '300') {
+            $parentB = $stamp;
+        }
+
+        $stamp->catalogEntries()->create([
+            'catalog_edition_id' => $edition->id,
+            'catalog_number' => $number,
+        ]);
+
+        StampCopy::create([
+            'user_id' => $user->id,
+            'stamp_id' => $stamp->id,
+            'condition_id' => $condition->id,
+            'quantity' => 1,
+        ]);
+    }
+
+    $response = $this
+        ->actingAs($user)
+        ->get(route('backend.stamp-copies.index', [
+            'catalog_edition_id' => $edition->id,
+            'sort' => 'catalog_asc',
+        ]));
+
+    $response->assertOk();
+
+    $response->assertViewHas('stampCopies', function ($stampCopies) use ($edition) {
+        $numbers = $stampCopies->getCollection()
+            ->map(fn ($copy) => $copy->stamp->catalogEntries
+                ->firstWhere('catalog_edition_id', $edition->id)
+                ?->catalog_number)
+            ->all();
+
+        return $numbers === [
+            '100',
+            '200',
+            '201',
+            '200v',
+            '250',
+            '300',
+            '301',
+            '300v',
+            '350',
+        ];
+    });
 });

@@ -3,6 +3,7 @@
 use App\Http\Controllers\Backend\CatalogController;
 use App\Http\Controllers\Backend\CatalogEditionController;
 use App\Http\Controllers\Backend\CollectibleController;
+use App\Http\Controllers\Backend\CollectibleTypeController;
 use App\Http\Controllers\Backend\CountryController;
 use App\Http\Controllers\Backend\StampController;
 use App\Http\Controllers\Backend\StampCopyController;
@@ -56,6 +57,12 @@ Route::middleware(['auth'])->group(function () { //
                 ]);
 
             Route::resource('collectibles', CollectibleController::class);
+
+            // Overzicht van verzamelobjecttypen.
+            Route::resource('collectible-types', CollectibleTypeController::class)
+                ->except(['show'])
+                ->parameters(['collectible-types' => 'collectibleType']);
+
             Route::resource('stamp-series', StampSeriesController::class);
             Route::resource('catalogs', CatalogController::class);
 

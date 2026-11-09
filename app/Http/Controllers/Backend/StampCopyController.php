@@ -249,20 +249,68 @@ class StampCopyController extends Controller
                         ->whereColumn('stamp_catalog_entries.stamp_id', 'stamp_copies.stamp_id')
                         ->where('catalog_edition_id', $activeCatalogEditionId)
                         ->limit(1);
-
+                    // Bepaal de cataloguspositie van de serie.
+                    // Losse postzegels behouden hun eigen catalogusnummer.
+                    $seriesPosition = '
+                        COALESCE(
+                            (
+                                SELECT MIN(CAST(series_entries.catalog_number AS UNSIGNED))
+                                FROM stamps AS series_stamps
+                                INNER JOIN stamp_catalog_entries AS series_entries
+                                    ON series_entries.stamp_id = series_stamps.id
+                                WHERE series_stamps.stamp_series_id = (
+                                    SELECT current_stamp.stamp_series_id
+                                    FROM stamps AS current_stamp
+                                    WHERE current_stamp.id = stamp_copies.stamp_id
+                                )
+                                AND series_stamps.stamp_series_id IS NOT NULL
+                                AND series_stamps.parent_stamp_id IS NULL
+                                AND series_entries.catalog_edition_id = ?
+                                AND SUBSTR(series_entries.catalog_number, 1, 1) BETWEEN \'0\' AND \'9\'
+                            ),
+                            CAST((
+                                SELECT own_entry.catalog_number
+                                FROM stamp_catalog_entries AS own_entry
+                                WHERE own_entry.stamp_id = stamp_copies.stamp_id
+                                AND own_entry.catalog_edition_id = ?
+                                LIMIT 1
+                            ) AS UNSIGNED)
+                        )
+                    ';
                     $query
+                        ->orderByRaw($seriesPosition.' ASC', [$activeCatalogEditionId, $activeCatalogEditionId])
+                        ->orderByRaw(
+                            '(SELECT parent_stamp_id
+                            FROM stamps
+                            WHERE stamps.id = stamp_copies.stamp_id
+                            LIMIT 1) IS NOT NULL ASC'
+                        )
                         ->orderByRaw(
                             '(SELECT catalog_number FROM stamp_catalog_entries
-                  WHERE stamp_catalog_entries.stamp_id = stamp_copies.stamp_id
-                  AND catalog_edition_id = ?
-                  LIMIT 1) IS NULL ASC',
+                            WHERE stamp_catalog_entries.stamp_id = stamp_copies.stamp_id
+                            AND catalog_edition_id = ?
+                            LIMIT 1) IS NULL ASC',
+                            [$activeCatalogEditionId]
+                        )
+                        ->orderByRaw(
+                            "CASE
+                                WHEN SUBSTR((
+                                    SELECT catalog_number
+                                    FROM stamp_catalog_entries
+                                    WHERE stamp_catalog_entries.stamp_id = stamp_copies.stamp_id
+                                    AND catalog_edition_id = ?
+                                    LIMIT 1
+                                ), 1, 1) BETWEEN '0' AND '9'
+                                THEN 0
+                                ELSE 1
+                            END ASC",
                             [$activeCatalogEditionId]
                         )
                         ->orderByRaw(
                             'CAST((SELECT catalog_number FROM stamp_catalog_entries
-                  WHERE stamp_catalog_entries.stamp_id = stamp_copies.stamp_id
-                  AND catalog_edition_id = ?
-                  LIMIT 1) AS UNSIGNED) ASC',
+                            WHERE stamp_catalog_entries.stamp_id = stamp_copies.stamp_id
+                            AND catalog_edition_id = ?
+                            LIMIT 1) AS UNSIGNED) ASC',
                             [$activeCatalogEditionId]
                         )
                         ->orderBy($catalogNumber, 'asc');

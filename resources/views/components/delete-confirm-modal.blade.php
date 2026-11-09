@@ -1,10 +1,10 @@
 <dialog id="delete-confirm-modal" class="w-full max-w-md rounded-xl p-0 shadow-xl backdrop:bg-black/50">
-    <div class="p-6">
+    <div class="p-6 bg-brown-3!">
         <h2 class="text-lg font-semibold">
             {{ __('Verwijderen bevestigen') }}
         </h2>
 
-        <p class="mt-3 text-sm text-gray-600">
+        <p class="mt-3 text-sm text-brown-2">
             {{ __('Weet je zeker dat je dit item wilt verwijderen?') }}
         </p>
 
