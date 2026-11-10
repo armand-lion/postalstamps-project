@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class CollectibleCopy extends Model
 {
@@ -63,5 +64,16 @@ class CollectibleCopy extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * De vertalingen van de beschrijving van
+     * bijzondere varianten en afwijkingen.
+     *
+     * @return HasMany<CollectibleCopyTranslation, $this>
+     */
+    public function translations(): HasMany
+    {
+        return $this->hasMany(CollectibleCopyTranslation::class);
     }
 }

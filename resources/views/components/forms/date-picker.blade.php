@@ -279,8 +279,15 @@
         </div>
 
         {{-- Kalenderacties --}}
-        <div class="mt-4 flex justify-end border-t border-theme-accent-1 pt-3">
+        <div class="mt-4 flex justify-end gap-2 border-t border-theme-accent-1 pt-3">
 
+            {{-- Datum wissen --}}
+            <button type="button" x-on:click="selectedDate = ''; open = false"
+                class="rounded-lg bg-brown-5 px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-brown-4">
+                {{ __('Wissen') }}
+            </button>
+
+            {{-- Kalender sluiten --}}
             <button type="button" x-on:click="open = false"
                 class="rounded-lg bg-brown-5 px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-brown-4">
                 {{ __('Sluiten') }}

@@ -132,11 +132,11 @@
 
                         <div x-data="{
                             quantity: @js((int) old('quantity', $stampCopy->quantity)),
-                        
+
                             increase() {
                                 this.quantity = (parseInt(this.quantity) || 0) + 1;
                             },
-                        
+
                             decrease() {
                                 this.quantity = Math.max(1, (parseInt(this.quantity) || 1) - 1);
                             }
@@ -155,7 +155,6 @@
                                     <flux:icon.chevron-up class="size-3" />
                                 </button>
 
-                                {{-- Aantal verlagen --}}
                                 {{-- Aantal verlagen --}}
                                 <button type="button" x-on:click="decrease()" :disabled="quantity <= 1"
                                     class="flex h-4 w-7 items-center justify-center rounded-b border border-theme-accent-3 bg-brown-6 text-zinc-900 hover:bg-brown-5 disabled:cursor-not-allowed disabled:opacity-40"
@@ -183,10 +182,10 @@
 
                         <div x-data="{
                             price: @js(old('purchase_price', $stampCopy->purchase_price) !== null && old('purchase_price', $stampCopy->purchase_price) !== '' ? number_format((float) old('purchase_price', $stampCopy->purchase_price), 2, '.', '') : ''),
-                        
+
                             adjust(amount) {
                                 const current = parseFloat(this.price) || 0;
-                        
+
                                 this.price = Math.max(
                                     0,
                                     Math.round((current + amount) * 100) / 100
@@ -577,7 +576,7 @@
                         const input = this.$refs.perforationInput;
                         const start = input.selectionStart;
                         const end = input.selectionEnd;
-                
+
                         input.setRangeText(text, start, end, 'end');
                         input.focus();
                     }
@@ -836,10 +835,10 @@
 
                                                         <div x-data="{
                                                             value: @js($valuation->value),
-                                                        
+
                                                             adjust(amount) {
                                                                 const current = parseFloat(this.value) || 0;
-                                                        
+
                                                                 this.value = Math.max(
                                                                     0,
                                                                     Math.round((current + amount) * 100) / 100
@@ -1023,10 +1022,10 @@
 
                         <div x-data="{
                             value: @js(old('value', '')),
-                        
+
                             adjust(amount) {
                                 const current = parseFloat(this.value) || 0;
-                        
+
                                 this.value = Math.max(
                                     0,
                                     Math.round((current + amount) * 100) / 100
@@ -1152,12 +1151,12 @@
                     preview: null,
                     updatePreview(event) {
                         const file = event.target.files[0];
-                
+
                         if (this.preview) {
                             URL.revokeObjectURL(this.preview);
                             this.preview = null;
                         }
-                
+
                         if (file && file.type.startsWith('image/')) {
                             this.preview = URL.createObjectURL(file);
                         }
@@ -1288,12 +1287,12 @@
                                     preview: null,
                                     updatePreview(event) {
                                         const file = event.target.files[0];
-                                
+
                                         if (this.preview) {
                                             URL.revokeObjectURL(this.preview);
                                             this.preview = null;
                                         }
-                                
+
                                         if (file && file.type.startsWith('image/')) {
                                             this.preview = URL.createObjectURL(file);
                                         }

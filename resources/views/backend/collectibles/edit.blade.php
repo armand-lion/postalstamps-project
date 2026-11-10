@@ -338,7 +338,6 @@
                     </flux:field>
 
                     {{-- Uitgiftedatum --}}
-                    {{-- Uitgiftedatum --}}
                     <x-forms.date-picker name="issue_date" :label="__('Uitgiftedatum')" :value="old(
                         'issue_date',
                         $collectible->issue_date
