@@ -78,10 +78,30 @@
 
                                 {{-- Acties --}}
                                 <td class="px-4 py-3 text-right">
-                                    <flux:button :href="route('backend.collectible-copies.edit', $collectibleCopy)"
-                                        variant="ghost" icon="pencil" class="text-zinc-900!">
-                                        {{ __('Bewerken') }}
-                                    </flux:button>
+
+                                    <div class="flex items-center justify-end gap-2">
+
+                                        <flux:button :href="route('backend.collectible-copies.edit', $collectibleCopy)"
+                                            variant="ghost" icon="pencil" class="text-zinc-900!">
+                                            {{ __('Bewerken') }}
+                                        </flux:button>
+
+                                        <form method="POST"
+                                            action="{{ route('backend.collectible-copies.destroy', $collectibleCopy) }}"
+                                            onsubmit="event.preventDefault(); openDeleteModal(this);">
+
+                                            @csrf
+                                            @method('DELETE')
+
+                                            <flux:button type="submit" variant="ghost" icon="trash"
+                                                class="text-red-600!">
+                                                {{ __('Verwijderen') }}
+                                            </flux:button>
+
+                                        </form>
+
+                                    </div>
+
                                 </td>
 
                             </tr>
@@ -114,5 +134,5 @@
         </div>
 
     </div>
-
+    @include('components.delete-confirm-modal')
 </x-layouts::app>

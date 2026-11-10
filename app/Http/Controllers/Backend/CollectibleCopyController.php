@@ -389,8 +389,17 @@ class CollectibleCopyController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(CollectibleCopy $collectibleCopy): void
+    public function destroy(CollectibleCopy $collectibleCopy): RedirectResponse
     {
-        //
+        abort_unless(
+            $collectibleCopy->user_id === auth()->id(),
+            404
+        );
+
+        $collectibleCopy->delete();
+
+        return redirect()
+            ->route('backend.collectible-copies.index')
+            ->with('success', __('Verzamelexemplaar succesvol uit je verzameling verwijderd.'));
     }
 }

@@ -679,3 +679,171 @@ test('een lege variantbeschrijving verwijdert alleen de betreffende vertaling', 
 
     $this->assertDatabaseCount('collectible_copy_translations', 1);
 });
+
+test('een gebruiker kan een eigen verzamelexemplaar verwijderen', function () {
+    $user = User::factory()->create();
+
+    $country = Country::factory()->create();
+
+    $collectibleType = CollectibleType::create([
+        'slug' => 'fdc',
+        'sort_order' => 1,
+        'is_active' => true,
+    ]);
+
+    $collectible = Collectible::create([
+        'collectible_type_id' => $collectibleType->id,
+        'country_id' => $country->id,
+        'name' => 'Test FDC',
+        'issue_year' => 2026,
+    ]);
+
+    $condition = Condition::create([
+        'slug' => 'postfris',
+        'sort_order' => 1,
+        'is_active' => true,
+    ]);
+
+    $collectibleCopy = $user->collectibleCopies()->create([
+        'collectible_id' => $collectible->id,
+        'condition_id' => $condition->id,
+        'quantity' => 1,
+    ]);
+
+    $response = $this
+        ->actingAs($user)
+        ->delete(route('backend.collectible-copies.destroy', $collectibleCopy));
+
+    $response->assertRedirect(route('backend.collectible-copies.index'));
+
+    $response->assertSessionHas(
+        'success',
+        __('Verzamelexemplaar succesvol uit je verzameling verwijderd.')
+    );
+
+    $this->assertDatabaseMissing('collectible_copies', [
+        'id' => $collectibleCopy->id,
+    ]);
+
+    $this->assertDatabaseHas('collectibles', [
+        'id' => $collectible->id,
+        'name' => 'Test FDC',
+    ]);
+});
+
+test('een gebruiker kan het verzamelexemplaar van een andere gebruiker niet verwijderen', function () {
+    $owner = User::factory()->create();
+    $otherUser = User::factory()->create();
+
+    $country = Country::factory()->create();
+
+    $collectibleType = CollectibleType::create([
+        'slug' => 'fdc',
+        'sort_order' => 1,
+        'is_active' => true,
+    ]);
+
+    $collectible = Collectible::create([
+        'collectible_type_id' => $collectibleType->id,
+        'country_id' => $country->id,
+        'name' => 'Test FDC',
+        'issue_year' => 2026,
+    ]);
+
+    $condition = Condition::create([
+        'slug' => 'postfris',
+        'sort_order' => 1,
+        'is_active' => true,
+    ]);
+
+    $collectibleCopy = $owner->collectibleCopies()->create([
+        'collectible_id' => $collectible->id,
+        'condition_id' => $condition->id,
+        'quantity' => 1,
+    ]);
+
+    $response = $this
+        ->actingAs($otherUser)
+        ->delete(route('backend.collectible-copies.destroy', $collectibleCopy));
+
+    $response->assertNotFound();
+
+    $this->assertDatabaseHas('collectible_copies', [
+        'id' => $collectibleCopy->id,
+        'user_id' => $owner->id,
+        'collectible_id' => $collectible->id,
+        'condition_id' => $condition->id,
+        'quantity' => 1,
+    ]);
+});
+
+test('variantvertalingen worden verwijderd wanneer een verzamelexemplaar wordt verwijderd', function () {
+    $user = User::factory()->create();
+
+    $country = Country::factory()->create();
+
+    $collectibleType = CollectibleType::create([
+        'slug' => 'fdc',
+        'sort_order' => 1,
+        'is_active' => true,
+    ]);
+
+    $collectible = Collectible::create([
+        'collectible_type_id' => $collectibleType->id,
+        'country_id' => $country->id,
+        'name' => 'Test FDC',
+        'issue_year' => 2026,
+    ]);
+
+    $condition = Condition::create([
+        'slug' => 'postfris',
+        'sort_order' => 1,
+        'is_active' => true,
+    ]);
+
+    $collectibleCopy = $user->collectibleCopies()->create([
+        'collectible_id' => $collectible->id,
+        'condition_id' => $condition->id,
+        'quantity' => 1,
+        'is_variant' => true,
+    ]);
+
+    $collectibleCopy->translations()->create([
+        'locale' => 'nl',
+        'variant_description' => 'Bijzondere kleurafwijking',
+    ]);
+
+    $collectibleCopy->translations()->create([
+        'locale' => 'en',
+        'variant_description' => 'Special colour variation',
+    ]);
+
+    $this->assertDatabaseCount('collectible_copy_translations', 2);
+
+    $response = $this
+        ->actingAs($user)
+        ->delete(route('backend.collectible-copies.destroy', $collectibleCopy));
+
+    $response->assertRedirect(route('backend.collectible-copies.index'));
+
+    $this->assertDatabaseMissing('collectible_copies', [
+        'id' => $collectibleCopy->id,
+    ]);
+
+    $this->assertDatabaseMissing('collectible_copy_translations', [
+        'collectible_copy_id' => $collectibleCopy->id,
+        'locale' => 'nl',
+    ]);
+
+    $this->assertDatabaseMissing('collectible_copy_translations', [
+        'collectible_copy_id' => $collectibleCopy->id,
+        'locale' => 'en',
+    ]);
+
+    $this->assertDatabaseCount('collectible_copy_translations', 0);
+
+    $this->assertDatabaseHas('collectibles', [
+        'id' => $collectible->id,
+        'name' => 'Test FDC',
+    ]);
+});

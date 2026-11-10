@@ -60,9 +60,8 @@ Route::middleware(['auth'])->group(function () { //
             Route::resource('collectibles', CollectibleController::class);
 
             Route::resource('collectible-copies', CollectibleCopyController::class)
-                ->only(['index', 'create', 'store', 'edit', 'update'])
+                ->only(['index', 'create', 'store', 'edit', 'update', 'destroy'])
                 ->parameters(['collectible-copies' => 'collectibleCopy']);
-
             // Overzicht van verzamelobjecttypen.
             Route::resource('collectible-types', CollectibleTypeController::class)
                 ->except(['show'])
