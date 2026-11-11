@@ -5,8 +5,7 @@ use App\Models\CatalogEdition;
 use Illuminate\Validation\Rule;
 use Livewire\Component;
 
-new class extends Component
-{
+new class extends Component {
     public Catalog $catalog;
 
     public CatalogEdition $edition;
@@ -43,57 +42,31 @@ new class extends Component
      */
     public function save()
     {
-        abort_unless(
-            $this->edition->catalog_id === $this->catalog->id,
-            404
-        );
+        abort_unless($this->edition->catalog_id === $this->catalog->id, 404);
+
+        // Verwijder ongewenste witruimte vóór de validatie.
+        $this->edition_name = trim($this->edition_name);
+        $this->notes = trim($this->notes);
 
         $validated = $this->validate([
-            'edition_name' => [
-                'required',
-                'string',
-                'max:150',
-                Rule::unique('catalog_editions', 'edition_name')
-                    ->where('catalog_id', $this->catalog->id)
-                    ->where('edition_year', $this->edition_year)
-                    ->ignore($this->edition->id),
-            ],
-            'edition_year' => [
-                'required',
-                'integer',
-                'between:1,65535',
-            ],
-            'publication_date' => [
-                'nullable',
-                'date',
-            ],
-            'currency' => [
-                'nullable',
-                'string',
-                'size:3',
-            ],
-            'notes' => [
-                'nullable',
-                'string',
-            ],
+            'edition_name' => ['required', 'string', 'max:150', Rule::unique('catalog_editions', 'edition_name')->where('catalog_id', $this->catalog->id)->where('edition_year', $this->edition_year)->ignore($this->edition->id)],
+            'edition_year' => ['required', 'integer', 'between:1,65535'],
+            'publication_date' => ['nullable', 'date'],
+            'currency' => ['nullable', 'string', 'size:3'],
+            'notes' => ['nullable', 'string'],
         ]);
+
+        // Verwijder ongewenste witruimte uit de gevalideerde gegevens.
+        $validated['edition_name'] = trim($validated['edition_name']);
+        $validated['notes'] = trim($validated['notes'] ?? '');
 
         // Werk de bestaande cataloguseditie bij.
         $this->edition->update($validated);
 
-        session()->flash(
-            'success',
-            __('De cataloguseditie is succesvol bijgewerkt.')
-        );
+        session()->flash('success', __('De cataloguseditie is succesvol bijgewerkt.'));
 
         // Ga terug naar de detailpagina.
-        return $this->redirect(
-            route('backend.catalogs.editions.show', [
-                $this->catalog,
-                $this->edition,
-            ]),
-            navigate: true
-        );
+        return $this->redirect(route('backend.catalogs.editions.show', [$this->catalog, $this->edition]), navigate: true);
     }
 };
 
@@ -111,13 +84,8 @@ new class extends Component
                 </span>
             </flux:label>
 
-            <flux:input
-                wire:model="edition_name"
-                type="text"
-                maxlength="150"
-                :placeholder="__('Bijvoorbeeld: NVPH 2026')"
-                required
-            />
+            <flux:input wire:model="edition_name" type="text" maxlength="150"
+                :placeholder="__('Bijvoorbeeld: NVPH 2026')" required />
 
             <flux:error name="edition_name" />
         </flux:field>
@@ -131,14 +99,8 @@ new class extends Component
                 </span>
             </flux:label>
 
-            <flux:input
-                wire:model="edition_year"
-                type="number"
-                min="1"
-                max="65535"
-                :placeholder="__('Bijvoorbeeld: 2026')"
-                required
-            />
+            <flux:input wire:model="edition_year" type="number" min="1" max="65535"
+                :placeholder="__('Bijvoorbeeld: 2026')" required />
 
             <flux:error name="edition_year" />
         </flux:field>
@@ -149,10 +111,7 @@ new class extends Component
                 {{ __('Publicatiedatum') }}
             </flux:label>
 
-            <flux:input
-                wire:model="publication_date"
-                type="date"
-            />
+            <flux:input wire:model="publication_date" type="date" />
 
             <flux:error name="publication_date" />
         </flux:field>
@@ -194,11 +153,8 @@ new class extends Component
                 {{ __('Opmerkingen') }}
             </flux:label>
 
-            <flux:textarea
-                wire:model="notes"
-                rows="4"
-                :placeholder="__('Eventuele opmerkingen over deze cataloguseditie')"
-            />
+            <flux:textarea wire:model="notes" rows="4"
+                :placeholder="__('Eventuele opmerkingen over deze cataloguseditie')" />
 
             <flux:error name="notes" />
         </flux:field>
@@ -207,22 +163,14 @@ new class extends Component
         <div class="flex flex-wrap items-center justify-end gap-3">
 
             {{-- Annuleren --}}
-            <flux:button
-                :href="route('backend.catalogs.editions.show', [$catalog, $edition])"
-                variant="ghost"
-                icon="x-mark"
-            >
+            <flux:button :href="route('backend.catalogs.editions.show', [$catalog, $edition])" variant="ghost"
+                icon="x-mark">
                 {{ __('Annuleren') }}
             </flux:button>
 
             {{-- Wijzigingen opslaan --}}
-            <flux:button
-                type="submit"
-                variant="primary"
-                icon="check"
-                wire:loading.attr="disabled"
-                wire:target="save"
-            >
+            <flux:button type="submit" variant="primary" icon="check" wire:loading.attr="disabled"
+                wire:target="save">
                 {{ __('Wijzigingen opslaan') }}
             </flux:button>
 

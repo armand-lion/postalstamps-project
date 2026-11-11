@@ -767,6 +767,12 @@ new class extends Component {
         {{-- Formulieracties --}}
         <div class="flex flex-col-reverse justify-end gap-3 border border-theme-accent-1 bg-brown-6 p-5 sm:flex-row">
 
+            {{-- Cataloguseditie toevoegen --}}
+            <flux:button type="button" :href="route('backend.catalogs.editions.create', $catalog)" variant="primary"
+                icon="plus" class="bg-brown-2!">
+                {{ __('Cataloguseditie toevoegen') }}
+            </flux:button>
+
             <flux:button :href="route('backend.catalogs.show', $catalog)" variant="ghost" icon="x-mark"
                 class="border-theme-accent-3! bg-brown-5! text-zinc-900! hover:bg-brown-6!">
                 {{ __('Annuleren') }}

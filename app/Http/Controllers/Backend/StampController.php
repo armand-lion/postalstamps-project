@@ -348,7 +348,7 @@ class StampController extends Controller
             ],
             'catalog_id' => [
                 'nullable',
-                'required_with:catalog_edition_id',
+                'required_with:catalog_edition_id,catalog_values.postfris,catalog_values.ongebruikt-met-plakker,catalog_values.gestempeld',
                 'integer',
                 'exists:catalogs,id',
             ],
@@ -579,7 +579,7 @@ class StampController extends Controller
                             $catalogEntry->values()->create([
                                 'condition_id' => $condition->id,
                                 'catalog_value' => $amount,
-                                'currency' => 'EUR',
+                                'currency' => $catalogEntry->catalogEdition->currency ?? 'EUR',
                             ]);
                         }
                     }
@@ -1076,7 +1076,7 @@ class StampController extends Controller
                             ],
                             [
                                 'catalog_value' => $amount,
-                                'currency' => 'EUR',
+                                'currency' => $catalogEntry->catalogEdition->currency ?? 'EUR',
                             ]
                         );
                     }
@@ -1121,14 +1121,12 @@ class StampController extends Controller
                         continue;
                     }
 
-                    // Voeg een ontbrekende waarde toe of werk de bestaande bij.
+                    // Voeg een ontbrekende cataloguswaarde toe of werk de bestaande bij.
                     $catalogEntry->values()->updateOrCreate(
-                        [
-                            'condition_id' => $condition->id,
-                        ],
+                        ['condition_id' => $condition->id],
                         [
                             'catalog_value' => $amount,
-                            'currency' => 'EUR',
+                            'currency' => $catalogEntry->catalogEdition->currency ?? 'EUR',
                         ]
                     );
                 }
@@ -1250,7 +1248,7 @@ class StampController extends Controller
                         ['condition_id' => $condition->id],
                         [
                             'catalog_value' => $amount,
-                            'currency' => 'EUR',
+                            'currency' => $catalogEntry->catalogEdition->currency ?? 'EUR',
                         ]
                     );
                 }

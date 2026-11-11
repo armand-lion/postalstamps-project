@@ -3,7 +3,7 @@
     <div class="flex flex-col gap-6 p-4 md:p-6">
 
         {{-- Paginakop --}}
-        <div class="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+        <div class="flex flex-col justify-between gap-4 rounded-lg border border-theme-accent-1 bg-brown-6 p-5 sm:flex-row sm:items-center">
 
             <div>
                 <flux:heading size="xl">

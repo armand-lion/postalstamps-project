@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Catalog;
+use App\Models\CatalogConditionRule;
 use App\Models\CatalogEdition;
 use App\Models\Condition;
 use App\Models\Country;
@@ -1652,4 +1653,126 @@ test('de backend kan een bestaande variant zelfstandig maken', function () {
     ]);
 
     expect($parentStamp->variants()->count())->toBe(0);
+});
+
+test('de backend slaat cataloguswaarden op bij een nieuwe postzegel', function () {
+    app()->setLocale('nl');
+
+    $user = User::factory()->create();
+    $country = Country::factory()->create();
+
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus nieuwe postzegel',
+        'abbreviation' => 'TEST',
+    ]);
+
+    $catalog->countries()->attach($country->id);
+
+    $edition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2026',
+        'edition_year' => 2026,
+    ]);
+
+    $postfris = Condition::create([
+        'slug' => 'postfris',
+        'sort_order' => 1,
+        'is_active' => true,
+    ]);
+
+    $gestempeld = Condition::create([
+        'slug' => 'gestempeld',
+        'sort_order' => 2,
+        'is_active' => true,
+    ]);
+
+    foreach ([$postfris, $gestempeld] as $index => $condition) {
+        CatalogConditionRule::create([
+            'catalog_id' => $catalog->id,
+            'country_id' => null,
+            'condition_id' => $condition->id,
+            'issue_year_from' => null,
+            'issue_year_to' => null,
+            'sort_order' => $index + 1,
+        ]);
+    }
+
+    $response = $this
+        ->actingAs($user)
+        ->post(route('backend.stamps.store'), [
+            'country_id' => $country->id,
+            'issue_year' => 2026,
+            'translations' => [
+                'nl' => [
+                    'name' => 'Testzegel cataloguswaarden',
+                    'description' => null,
+                ],
+            ],
+            'catalog_id' => $catalog->id,
+            'catalog_edition_id' => $edition->id,
+            'catalog_number' => '100',
+            'catalog_values' => [
+                'postfris' => '12.50',
+                'gestempeld' => '5.75',
+            ],
+        ]);
+
+    $response->assertRedirect(route('backend.stamps.index'));
+    $response->assertSessionHasNoErrors();
+
+    $stamp = Stamp::query()
+        ->where('country_id', $country->id)
+        ->where('name', 'Testzegel cataloguswaarden')
+        ->firstOrFail();
+
+    $entry = $stamp->catalogEntries()
+        ->where('catalog_edition_id', $edition->id)
+        ->firstOrFail();
+
+    expect($entry->catalog_number)->toBe('100')
+        ->and($entry->values()->count())->toBe(2);
+
+    $this->assertDatabaseHas('stamp_catalog_values', [
+        'stamp_catalog_entry_id' => $entry->id,
+        'condition_id' => $postfris->id,
+        'catalog_value' => 12.50,
+        'currency' => 'EUR',
+    ]);
+
+    $this->assertDatabaseHas('stamp_catalog_values', [
+        'stamp_catalog_entry_id' => $entry->id,
+        'condition_id' => $gestempeld->id,
+        'catalog_value' => 5.75,
+        'currency' => 'EUR',
+    ]);
+});
+
+test('de backend weigert cataloguswaarden zonder geselecteerde catalogus', function () {
+    app()->setLocale('nl');
+
+    $user = User::factory()->create();
+    $country = Country::factory()->create();
+
+    $response = $this
+        ->actingAs($user)
+        ->post(route('backend.stamps.store'), [
+            'country_id' => $country->id,
+            'issue_year' => 2026,
+            'translations' => [
+                'nl' => [
+                    'name' => 'Testzegel zonder catalogus',
+                    'description' => null,
+                ],
+            ],
+            'catalog_values' => [
+                'postfris' => '12.50',
+            ],
+        ]);
+
+    $response->assertSessionHasErrors('catalog_id');
+
+    $this->assertDatabaseMissing('stamps', [
+        'country_id' => $country->id,
+        'name' => 'Testzegel zonder catalogus',
+    ]);
 });

@@ -528,20 +528,20 @@
 
                         @php
                             $currencies = [
-                                'EUR' => 'Euro (€)',
-                                'USD' => 'Amerikaanse dollar ($)',
-                                'GBP' => 'Britse pond (£)',
-                                'CHF' => 'Zwitserse frank (CHF)',
-                                'CAD' => 'Canadese dollar (CAD)',
-                                'AUD' => 'Australische dollar (AUD)',
-                                'JPY' => 'Japanse yen (¥)',
-                                'NLG' => 'Nederlandse gulden (ƒ)',
-                                'DEM' => 'Duitse mark (DM)',
-                                'BEF' => 'Belgische frank (BEF)',
-                                'FRF' => 'Franse frank (FRF)',
-                                'ITL' => 'Italiaanse lire (ITL)',
-                                'ESP' => 'Spaanse peseta (ESP)',
-                                'ATS' => 'Oostenrijkse schilling (ATS)',
+                                'EUR' => __('Euro (€)'),
+                                'USD' => __('Amerikaanse dollar ($)'),
+                                'GBP' => __('Britse pond (£)'),
+                                'CHF' => __('Zwitserse frank (CHF)'),
+                                'CAD' => __('Canadese dollar (CAD)'),
+                                'AUD' => __('Australische dollar (AUD)'),
+                                'JPY' => __('Japanse yen (¥)'),
+                                'NLG' => __('Nederlandse gulden (ƒ)'),
+                                'DEM' => __('Duitse mark (DM)'),
+                                'BEF' => __('Belgische frank (BEF)'),
+                                'FRF' => __('Franse frank (FRF)'),
+                                'ITL' => __('Italiaanse lire (ITL)'),
+                                'ESP' => __('Spaanse peseta (ESP)'),
+                                'ATS' => __('Oostenrijkse schilling (ATS)'),
                             ];
 
                             $selectedCurrency = old('purchase_currency', $collectibleCopy->purchase_currency ?? '');
@@ -572,13 +572,13 @@
                                     </flux:menu.item>
 
                                     @foreach ([
-        'EUR' => 'Euro (€)',
-        'USD' => 'Amerikaanse dollar ($)',
-        'GBP' => 'Britse pond (£)',
-        'CHF' => 'Zwitserse frank (CHF)',
-        'CAD' => 'Canadese dollar (CAD)',
-        'AUD' => 'Australische dollar (AUD)',
-        'JPY' => 'Japanse yen (¥)',
+        'EUR' => __('Euro (€)'),
+        'USD' => __('Amerikaanse dollar ($)'),
+        'GBP' => __('Britse pond (£)'),
+        'CHF' => __('Zwitserse frank (CHF)'),
+        'CAD' => __('Canadese dollar (CAD)'),
+        'AUD' => __('Australische dollar (AUD)'),
+        'JPY' => __('Japanse yen (¥)'),
     ] as $code => $name)
                                         <flux:menu.item as="button" type="button"
                                             x-on:click="

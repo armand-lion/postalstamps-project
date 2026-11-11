@@ -1,4 +1,4 @@
-@props(['name', 'label' => null, 'value' => null])
+@props(['name', 'label' => null, 'value' => null, 'livewireModel' => null])
 
 @php
     $selectedDate = old($name, $value);
@@ -6,7 +6,7 @@
 
 <div x-data="{
     open: false,
-    selectedDate: @js($selectedDate),
+    selectedDate: @if ($livewireModel) $wire.entangle(@js($livewireModel)) @else @js($selectedDate) @endif,
     currentMonth: new Date().getMonth(),
     currentYear: new Date().getFullYear(),
 
