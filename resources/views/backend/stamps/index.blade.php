@@ -14,7 +14,8 @@
                 </flux:text>
             </div>
 
-            <flux:button :href="route('backend.stamps.create')" variant="primary" icon="plus" class="bg-brown-2 hover:bg-brown-1">
+            <flux:button :href="route('backend.stamps.create')" variant="primary" icon="plus"
+                class="bg-brown-2 hover:bg-brown-1">
                 {{ __('Postzegel toevoegen') }}
             </flux:button>
         </div>
@@ -45,108 +46,298 @@
                     {{ __('Zoeken') }}
                 </flux:label>
 
-                <flux:input type="search" name="search" value="{{ request('search') }}"
-                    placeholder="{{ __('Zoek op naam of catalogusnummer') }}" icon="magnifying-glass" />
+                <div class="relative w-full">
+                    <flux:icon.magnifying-glass
+                        class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-zinc-500" />
+
+                    <input type="search" name="search" value="{{ request('search') }}"
+                        placeholder="{{ __('Zoek op naam of catalogusnummer') }}"
+                        class="w-full rounded-lg border border-theme-accent-3 bg-brown-5 py-2 pr-3 pl-10 text-sm text-zinc-900
+               placeholder:text-zinc-500
+               focus:border-theme-accent-3
+               focus:outline-none
+               focus:ring-2
+               focus:ring-theme-accent-3
+               focus:ring-offset-2
+               focus:ring-offset-brown-6" />
+                </div>
             </flux:field>
 
             {{-- Land --}}
-            <flux:field class="flex-1">
+            <flux:field class="min-w-0 flex-1">
                 <flux:label>
                     {{ __('Land') }}
                 </flux:label>
 
-                <flux:select name="country_id">
-                    <option value="">
-                        {{ __('Alle landen') }}
-                    </option>
+                @php
+                    $selectedCountryId = request('country_id');
+                    $selectedCountry = $countries->firstWhere('id', $selectedCountryId);
+                @endphp
 
-                    @foreach ($countries as $country)
-                        <option value="{{ $country->id }}" @selected((string) request('country_id') === (string) $country->id)>
-                            {{ $country->translationWithFallback()?->name ?? $country->name }}
-                        </option>
-                    @endforeach
-                </flux:select>
+                <div x-data="{
+                    selectedId: @js((string) ($selectedCountryId ?? '')),
+                    selectedName: @js($selectedCountry?->translationWithFallback()?->name ?? __('Alle landen'))
+                }">
+
+                    <input type="hidden" name="country_id" x-model="selectedId">
+
+                    <flux:dropdown position="bottom" align="start" class="block w-full">
+
+                        <flux:button type="button" icon-trailing="chevron-down"
+                            class="w-full min-w-0 justify-between! border-theme-accent-3! bg-brown-5! text-zinc-900! hover:bg-brown-5!">
+                            <span x-text="selectedName" class="min-w-0 truncate text-left"></span>
+                        </flux:button>
+
+                        <flux:menu class="max-h-80 min-w-64 overflow-y-auto border-theme-accent-3! bg-brown-6!">
+
+                            <flux:menu.item as="button" type="button"
+                                x-on:click="selectedId = ''; selectedName = @js(__('Alle landen'))"
+                                class="w-full cursor-pointer text-zinc-900! hover:bg-brown-5!">
+                                {{ __('Alle landen') }}
+                            </flux:menu.item>
+
+                            @foreach ($countries as $country)
+                                <flux:menu.item as="button" type="button"
+                                    x-on:click="selectedId = @js((string) $country->id); selectedName = @js($country->translationWithFallback()?->name)"
+                                    class="w-full cursor-pointer text-zinc-900! hover:bg-brown-5!">
+                                    {{ $country->translationWithFallback()?->name }}
+                                </flux:menu.item>
+                            @endforeach
+
+                        </flux:menu>
+
+                    </flux:dropdown>
+                </div>
             </flux:field>
 
             {{-- Catalogus --}}
-            <flux:field class="flex-1">
+            <flux:field class="min-w-0 flex-1">
                 <flux:label>
                     {{ __('Catalogus') }}
                 </flux:label>
 
-                <flux:select name="catalog_id">
-                    <option value="">
-                        {{ __('Alle catalogi') }}
-                    </option>
+                @php
+                    $selectedCatalogId = request('catalog_id');
+                    $selectedCatalog = $catalogs->firstWhere('id', $selectedCatalogId);
+                @endphp
 
-                    @foreach ($catalogs as $catalog)
-                        <option value="{{ $catalog->id }}" @selected((string) request('catalog_id') === (string) $catalog->id)>
-                            {{ $catalog->name }}
-                        </option>
-                    @endforeach
-                </flux:select>
+                <div x-data="{
+                    selectedId: @js((string) ($selectedCatalogId ?? '')),
+                    selectedName: @js($selectedCatalog?->name ?? __('Alle catalogi'))
+                }">
+
+                    <input type="hidden" name="catalog_id" x-model="selectedId">
+
+                    <flux:dropdown position="bottom" align="start" class="block w-full">
+
+                        <flux:button type="button" icon-trailing="chevron-down"
+                            class="w-full min-w-0 justify-between! border-theme-accent-3! bg-brown-5! text-zinc-900! hover:bg-brown-5!">
+                            <span x-text="selectedName" class="min-w-0 truncate text-left"></span>
+                        </flux:button>
+
+                        <flux:menu class="max-h-80 min-w-64 overflow-y-auto border-theme-accent-3! bg-brown-6!">
+
+                            {{-- Alle catalogi --}}
+                            <flux:menu.item as="button" type="button"
+                                x-on:click="selectedId = ''; selectedName = @js(__('Alle catalogi'))"
+                                class="w-full cursor-pointer text-zinc-900! hover:bg-brown-5!">
+                                {{ __('Alle catalogi') }}
+                            </flux:menu.item>
+
+                            {{-- Beschikbare catalogi --}}
+                            @foreach ($catalogs as $catalog)
+                                <flux:menu.item as="button" type="button"
+                                    x-on:click="selectedId = @js((string) $catalog->id); selectedName = @js($catalog->name)"
+                                    class="w-full cursor-pointer text-zinc-900! hover:bg-brown-5!">
+                                    {{ $catalog->name }}
+                                </flux:menu.item>
+                            @endforeach
+
+                        </flux:menu>
+
+                    </flux:dropdown>
+                </div>
             </flux:field>
 
             {{-- Cataloguseditie --}}
-            <flux:field class="flex-1">
+            <flux:field class="min-w-0 flex-1">
                 <flux:label>
                     {{ __('Cataloguseditie') }}
                 </flux:label>
 
-                <flux:select name="catalog_edition_id" id="catalog-edition-filter">
-                    <option value="">
-                        {{ __('Alle edities') }}
-                    </option>
+                @php
+                    $selectedEditionId = request('catalog_edition_id');
+                    $selectedEdition = $catalogEditions->firstWhere('id', $selectedEditionId);
 
-                    @foreach ($catalogEditions as $edition)
-                        <option value="{{ $edition->id }}" data-catalog-id="{{ $edition->catalog_id }}"
-                            @selected((string) request('catalog_edition_id') === (string) $edition->id)>
+                    $selectedEditionName = $selectedEdition
+                        ? $selectedEdition->catalog?->name .
+                            ' — ' .
+                            $selectedEdition->edition_name .
+                            ' (' .
+                            $selectedEdition->edition_year .
+                            ')'
+                        : __('Alle edities');
+                @endphp
 
-                            {{ $edition->catalog?->name }}
-                            — {{ $edition->edition_name }}
-                            ({{ $edition->edition_year }})
-                        </option>
-                    @endforeach
-                </flux:select>
+                <div x-data="{
+                    selectedId: @js((string) ($selectedEditionId ?? '')),
+                    selectedName: @js($selectedEditionName)
+                }">
+
+                    <input type="hidden" name="catalog_edition_id" x-model="selectedId">
+
+                    <flux:dropdown position="bottom" align="start" class="block w-full">
+
+                        <flux:button type="button" icon-trailing="chevron-down"
+                            class="w-full min-w-0 justify-between! border-theme-accent-3! bg-brown-5! text-zinc-900! hover:bg-brown-5!">
+                            <span x-text="selectedName" class="min-w-0 truncate text-left"></span>
+                        </flux:button>
+
+                        <flux:menu class="max-h-80 min-w-64 overflow-y-auto border-theme-accent-3! bg-brown-6!">
+
+                            {{-- Alle edities --}}
+                            <flux:menu.item as="button" type="button"
+                                x-on:click="selectedId = ''; selectedName = @js(__('Alle edities'))"
+                                class="w-full cursor-pointer text-zinc-900! hover:bg-brown-5!">
+                                {{ __('Alle edities') }}
+                            </flux:menu.item>
+
+                            {{-- Beschikbare catalogusedities --}}
+                            @foreach ($catalogEditions as $edition)
+                                @php
+                                    $editionLabel =
+                                        $edition->catalog?->name .
+                                        ' — ' .
+                                        $edition->edition_name .
+                                        ' (' .
+                                        $edition->edition_year .
+                                        ')';
+                                @endphp
+
+                                <flux:menu.item as="button" type="button"
+                                    x-on:click="selectedId = @js((string) $edition->id); selectedName = @js($editionLabel)"
+                                    class="w-full cursor-pointer text-zinc-900! hover:bg-brown-5!">
+                                    {{ $editionLabel }}
+                                </flux:menu.item>
+                            @endforeach
+
+                        </flux:menu>
+
+                    </flux:dropdown>
+                </div>
             </flux:field>
 
             {{-- Uitgiftejaar --}}
-            <flux:field class="flex-1">
+            <flux:field class="min-w-0 flex-1">
                 <flux:label>
                     {{ __('Uitgiftejaar') }}
                 </flux:label>
 
-                <flux:input type="number" name="issue_year" min="1840" max="2200"
-                    value="{{ request('issue_year') }}" placeholder="{{ __('Bijvoorbeeld 2026') }}" />
+                <div x-data="{
+                    year: @js(request('issue_year', '')),
+                    minYear: 1840,
+                    maxYear: 2200,
+                
+                    increase() {
+                        if (this.year === '') {
+                            this.year = this.maxYear;
+                        } else {
+                            this.year = Math.min(this.maxYear, Number(this.year) + 1);
+                        }
+                    },
+                
+                    decrease() {
+                        if (this.year === '') {
+                            this.year = this.maxYear;
+                        } else {
+                            this.year = Math.max(this.minYear, Number(this.year) - 1);
+                        }
+                    }
+                }" class="relative w-full">
+
+                    <input type="number" name="issue_year" min="1840" max="2200" x-model="year"
+                        placeholder="{{ __('Bijvoorbeeld 2026') }}"
+                        class="w-full appearance-none rounded-lg border border-theme-accent-3 bg-brown-5
+                   px-3 py-2 pr-10 text-sm text-zinc-900
+                   placeholder:text-zinc-500
+                   focus:border-theme-accent-3
+                   focus:outline-none
+                   focus:ring-2
+                   focus:ring-theme-accent-3
+                   focus:ring-offset-2
+                   focus:ring-offset-brown-6
+                   [&::-webkit-inner-spin-button]:appearance-none
+                   [&::-webkit-outer-spin-button]:appearance-none
+                   [-moz-appearance:textfield]" />
+
+                    {{-- Pijltjes omhoog en omlaag --}}
+                    <div class="absolute inset-y-0 right-1 flex flex-col justify-center">
+
+                        <button type="button" x-on:click="increase()" aria-label="{{ __('Jaar verhogen') }}"
+                            class="flex h-4 w-7 items-center justify-center rounded-t
+                       border border-theme-accent-3 bg-brown-6 text-zinc-900
+                       hover:bg-brown-5">
+                            <flux:icon.chevron-up class="size-3" />
+                        </button>
+
+                        <button type="button" x-on:click="decrease()" aria-label="{{ __('Jaar verlagen') }}"
+                            class="flex h-4 w-7 items-center justify-center rounded-b
+                       border border-theme-accent-3 bg-brown-6 text-zinc-900
+                       hover:bg-brown-5">
+                            <flux:icon.chevron-down class="size-3" />
+                        </button>
+
+                    </div>
+                </div>
             </flux:field>
 
             {{-- Sorteren --}}
-            <flux:field class="flex-1">
+            <flux:field class="min-w-0 flex-1">
                 <flux:label>
                     {{ __('Sorteren op') }}
                 </flux:label>
 
-                <flux:select name="sort">
-                    <option value="year_desc" @selected(request('sort', 'year_desc') === 'year_desc')>
-                        {{ __('Uitgiftejaar (nieuwste eerst)') }}
-                    </option>
+                @php
+                    $sortOptions = [
+                        'year_desc' => __('Uitgiftejaar (nieuwste eerst)'),
+                        'year_asc' => __('Uitgiftejaar (oudste eerst)'),
+                        'name_asc' => __('Naam (A-Z)'),
+                        'name_desc' => __('Naam (Z-A)'),
+                        'catalog_number_asc' => __('Catalogusnummer (oplopend)'),
+                    ];
 
-                    <option value="year_asc" @selected(request('sort') === 'year_asc')>
-                        {{ __('Uitgiftejaar (oudste eerst)') }}
-                    </option>
+                    $selectedSort = request('sort', 'year_desc');
+                    $selectedSortName = $sortOptions[$selectedSort] ?? $sortOptions['year_desc'];
+                @endphp
 
-                    <option value="name_asc" @selected(request('sort') === 'name_asc')>
-                        {{ __('Naam (A-Z)') }}
-                    </option>
+                <div x-data="{
+                    selectedId: @js($selectedSort),
+                    selectedName: @js($selectedSortName)
+                }">
 
-                    <option value="name_desc" @selected(request('sort') === 'name_desc')>
-                        {{ __('Naam (Z-A)') }}
-                    </option>
+                    <input type="hidden" name="sort" x-model="selectedId">
 
-                    <option value="catalog_number_asc" @selected(request('sort') === 'catalog_number_asc')>
-                        {{ __('Catalogusnummer (oplopend)') }}
-                    </option>
-                </flux:select>
+                    <flux:dropdown position="bottom" align="start" class="block w-full">
+
+                        <flux:button type="button" icon-trailing="chevron-down"
+                            class="w-full min-w-0 justify-between! border-theme-accent-3! bg-brown-5! text-zinc-900! hover:bg-brown-5!">
+                            <span x-text="selectedName" class="min-w-0 truncate text-left"></span>
+                        </flux:button>
+
+                        <flux:menu class="max-h-80 min-w-64 overflow-y-auto border-theme-accent-3! bg-brown-6!">
+
+                            @foreach ($sortOptions as $value => $label)
+                                <flux:menu.item as="button" type="button"
+                                    x-on:click="selectedId = @js($value); selectedName = @js($label)"
+                                    class="w-full cursor-pointer text-zinc-900! hover:bg-brown-5!">
+                                    {{ $label }}
+                                </flux:menu.item>
+                            @endforeach
+
+                        </flux:menu>
+
+                    </flux:dropdown>
+                </div>
             </flux:field>
 
             {{-- Acties --}}
@@ -155,7 +346,8 @@
                     {{ __('Filteren') }}
                 </flux:button>
 
-                <flux:button :href="route('backend.stamps.index')" variant="ghost" class="hover:text-brown-2! hover:bg-transparent!">
+                <flux:button :href="route('backend.stamps.index')" variant="ghost"
+                    class="hover:text-brown-2! hover:bg-transparent!">
                     {{ __('Wissen') }}
                 </flux:button>
             </div>

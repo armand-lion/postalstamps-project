@@ -190,12 +190,12 @@
                     <div class="md:col-span-2" x-data="{
                         countryId: @js((int) old('country_id', $stamp->country_id)),
                         existingCatalogCountryIds: @js($existingCatalogCountryIds),
-
+                    
                         get willRemoveCatalogEntries() {
                             if (!this.countryId) {
                                 return false;
                             }
-
+                    
                             return this.existingCatalogCountryIds.some(
                                 countryIds => !countryIds.includes(this.countryId)
                             );
@@ -271,30 +271,30 @@
                             year: @js(old('issue_year', $stamp->issue_year)),
                             minYear: 1840,
                             maxYear: 2200,
-
+                        
                             updateYear() {
                                 $dispatch('stamp-issue-year-changed', {
                                     year: this.year
                                 });
                             },
-
+                        
                             increase() {
                                 if (this.year === '') {
                                     this.year = this.minYear;
                                 } else {
                                     this.year = Math.min(this.maxYear, Number(this.year) + 1);
                                 }
-
+                        
                                 this.updateYear();
                             },
-
+                        
                             decrease() {
                                 if (this.year === '') {
                                     this.year = this.minYear;
                                 } else {
                                     this.year = Math.max(this.minYear, Number(this.year) - 1);
                                 }
-
+                        
                                 this.updateYear();
                             }
                         }" class="relative">
@@ -334,10 +334,10 @@
 
                         <div x-data="{
                             value: @js(old('face_value', $stamp->face_value) ?? ''),
-
+                        
                             adjust(amount) {
                                 const current = parseFloat(this.value) || 0;
-
+                        
                                 this.value = Math.max(
                                     0,
                                     Math.round((current + amount) * 100) / 100
@@ -537,16 +537,21 @@
                                                 x-cloak x-data="{
                                                     issueYear: @js((int) old('issue_year', $stamp->issue_year)),
                                                     countryId: @js((int) old('country_id', $stamp->country_id)),
-
+                                                
                                                     catalogId: @js((int) $edition->catalog_id),
-
+                                                
                                                     catalogCountryIds: @js($edition->catalog->countries->pluck('id')->map(fn($id) => (int) $id)->values()->all()),
-
+                                                
                                                     get isCatalogVisible() {
                                                         return this.catalogCountryIds.includes(this.countryId);
                                                     },
-
+                                                
                                                     hasEntry: @js($entry !== null),
+                                                    catalogNumber: @js(old("catalog_editions.{$edition->id}.catalog_number", $entry?->catalog_number) ?? ''),
+                                                
+                                                    get isLinked() {
+                                                        return this.hasEntry || this.catalogNumber.trim() !== '';
+                                                    },
                                                     rules: @js(
     $catalogConditionRules->where('catalog_id', $edition->catalog_id)->values()->map(
         fn($rule) => [
@@ -557,14 +562,14 @@
         ],
     ),
 ),
-
+                                                
                                                     get applicableConditionIds() {
                                                         if (!Number.isInteger(this.issueYear) ||
                                                             this.issueYear < 1840 ||
                                                             this.issueYear > 2200) {
                                                             return [];
                                                         }
-
+                                                
                                                         return [...new Set(
                                                             this.rules
                                                             .filter(rule =>
@@ -578,32 +583,32 @@
                                                             .map(rule => Number(rule.condition_id))
                                                         )];
                                                     },
-
+                                                
                                                     get requiredCount() {
                                                         return this.applicableConditionIds.length;
                                                     },
-
+                                                
                                                     catalogValues: @js($entry?->values->mapWithKeys(fn($value) => [$value->condition_id => $value->catalog_value])->all() ?? []),
-
+                                                
                                                     get filledCount() {
                                                         return this.applicableConditionIds.filter(conditionId => {
                                                             const value = this.catalogValues[conditionId];
-
+                                                
                                                             return value !== null &&
                                                                 value !== undefined &&
                                                                 value !== '';
                                                         }).length;
                                                     },
-
+                                                
                                                     get catalogStatus() {
-                                                        if (!this.hasEntry) {
+                                                        if (!this.isLinked) {
                                                             return 'not_linked';
                                                         }
-
+                                                
                                                         if (this.requiredCount === 0) {
                                                             return 'no_rules';
                                                         }
-
+                                                
                                                         return this.filledCount === this.requiredCount ?
                                                             'complete' :
                                                             'incomplete';
@@ -622,8 +627,7 @@
                                                 <td class="px-3 py-2">
                                                     <input type="text"
                                                         name="catalog_editions[{{ $edition->id }}][catalog_number]"
-                                                        value="{{ old("catalog_editions.{$edition->id}.catalog_number", $entry?->catalog_number) }}"
-                                                        x-bind:disabled="!isCatalogVisible"
+                                                        x-model="catalogNumber" x-bind:disabled="!isCatalogVisible"
                                                         class="block h-10 w-32 rounded-lg border border-theme-accent-3 bg-brown-5 px-3 text-sm text-zinc-900 focus:border-theme-accent-3 focus:outline-none focus:ring-1 focus:ring-theme-accent-3"
                                                         aria-label="{{ __('Catalogusnummer') }}">
                                                 </td>
@@ -648,7 +652,7 @@
 
                                                     <td class="px-3 py-2" x-data="{
                                                         issueYear: @js((int) old('issue_year', $stamp->issue_year)),
-
+                                                    
                                                         rules: @js(
     $catalogConditionRules->where('catalog_id', $edition->catalog_id)->where('condition_id', $condition->id)->values()->map(
         fn($rule) => [
@@ -658,14 +662,14 @@
         ],
     ),
 ),
-
+                                                    
                                                         countryId: @js((int) old('country_id', $stamp->country_id)),
-
+                                                    
                                                         get isApplicable() {
                                                             if (!Number.isInteger(this.issueYear) || this.issueYear < 1840 || this.issueYear > 2200) {
                                                                 return false;
                                                             }
-
+                                                    
                                                             return this.rules.some(rule =>
                                                                 (rule.country_id === null || Number(rule.country_id) === this.countryId) &&
                                                                 (rule.issue_year_from === null || this.issueYear >= Number(rule.issue_year_from)) &&
@@ -679,23 +683,23 @@
                                                             <div x-data="{
                                                                 value: (() => {
                                                                     const initial = @js(old("catalog_editions.{$edition->id}.values.{$conditionSlug}", $existingValue));
-
+                                                            
                                                                     return initial === null || initial === '' ?
                                                                         '' :
                                                                         Number(initial).toFixed(2);
                                                                 })(),
-
+                                                            
                                                                 increase() {
                                                                     const cents = Math.round(Number(this.value || 0) * 100);
                                                                     this.value = ((cents + 1) / 100).toFixed(2);
-
+                                                            
                                                                     catalogValues[{{ $condition->id }}] = this.value;
                                                                 },
-
+                                                            
                                                                 decrease() {
                                                                     const cents = Math.round(Number(this.value || 0) * 100);
                                                                     this.value = (Math.max(0, cents - 1) / 100).toFixed(2);
-
+                                                            
                                                                     catalogValues[{{ $condition->id }}] = this.value;
                                                                 }
                                                             }" class="relative w-32">
