@@ -397,7 +397,7 @@ class StampCopyController extends Controller
                     + ((float) $catalogValue->catalog_value * $copy->quantity);
 
                 // Bereken ook de cataloguswaarde per postzegelserie.
-                $series = $copy->stamp?->series;
+                $series = $copy->stamp->series;
 
                 if ($series !== null) {
                     $seriesId = $series->id;
@@ -415,7 +415,7 @@ class StampCopyController extends Controller
                 }
 
                 // Bereken ook de cataloguswaarde per land.
-                $country = $copy->stamp?->country;
+                $country = $copy->stamp->country;
 
                 if ($country !== null) {
                     $countryId = $country->id;
