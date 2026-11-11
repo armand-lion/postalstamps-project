@@ -92,6 +92,7 @@ class StampCopyController extends Controller
 
         $stampCopies = auth()->user()->stampCopies()->with([
             'stamp.country',
+            'stamp.series',
             'stamp.translations',
             'stamp.images',
             'stamp.catalogEntries.catalogEdition.catalog',
@@ -363,6 +364,12 @@ class StampCopyController extends Controller
         // Bereken de totale cataloguswaarde van alle gefilterde exemplaren.
         $totalCatalogValues = [];
 
+        // Cataloguswaarden per postzegelserie en valuta.
+        $seriesCatalogValues = [];
+
+        // Cataloguswaarden per land en valuta.
+        $countryCatalogValues = [];
+
         if ($activeCatalogEditionId !== null) {
             $copiesForTotal = (clone $stampCopiesQuery)
                 ->reorder()
@@ -388,6 +395,42 @@ class StampCopyController extends Controller
 
                 $totalCatalogValues[$currency] = ($totalCatalogValues[$currency] ?? 0)
                     + ((float) $catalogValue->catalog_value * $copy->quantity);
+
+                // Bereken ook de cataloguswaarde per postzegelserie.
+                $series = $copy->stamp?->series;
+
+                if ($series !== null) {
+                    $seriesId = $series->id;
+
+                    if (! isset($seriesCatalogValues[$seriesId])) {
+                        $seriesCatalogValues[$seriesId] = [
+                            'name' => $series->name,
+                            'currencies' => [],
+                        ];
+                    }
+
+                    $seriesCatalogValues[$seriesId]['currencies'][$currency] =
+                        ($seriesCatalogValues[$seriesId]['currencies'][$currency] ?? 0)
+                        + ((float) $catalogValue->catalog_value * $copy->quantity);
+                }
+
+                // Bereken ook de cataloguswaarde per land.
+                $country = $copy->stamp?->country;
+
+                if ($country !== null) {
+                    $countryId = $country->id;
+
+                    if (! isset($countryCatalogValues[$countryId])) {
+                        $countryCatalogValues[$countryId] = [
+                            'name' => $country->name,
+                            'currencies' => [],
+                        ];
+                    }
+
+                    $countryCatalogValues[$countryId]['currencies'][$currency] =
+                        ($countryCatalogValues[$countryId]['currencies'][$currency] ?? 0)
+                        + ((float) $catalogValue->catalog_value * $copy->quantity);
+                }
             }
         }
 
@@ -403,7 +446,9 @@ class StampCopyController extends Controller
             'conditions',
             'catalogEditions',
             'activeCatalogEditionId',
-            'totalCatalogValues'
+            'totalCatalogValues',
+            'seriesCatalogValues',
+            'countryCatalogValues'
         ));
     }
 

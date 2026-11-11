@@ -439,6 +439,86 @@
 
         </div>
 
+        {{-- Cataloguswaarde per postzegelserie --}}
+        <div class="rounded-xl border border-theme-accent-1 bg-brown-6 p-4 dark:border-neutral-700">
+
+            <flux:heading size="lg">
+                {{ __('Cataloguswaarde per postzegelserie') }}
+            </flux:heading>
+
+            <flux:text class="mt-1">
+                {{ __('Gebaseerd op de aanwezige postzegels, aantallen en geselecteerde cataloguseditie.') }}
+            </flux:text>
+
+            <div class="mt-4">
+                @if ($activeCatalogEditionId !== null && count($seriesCatalogValues) > 0)
+
+                    <div class="space-y-4">
+                        @foreach ($seriesCatalogValues as $series)
+                            <div class="border-b border-theme-accent-1 pb-3 last:border-b-0 last:pb-0">
+
+                                <div class="font-semibold text-zinc-900 dark:text-white">
+                                    {{ $series['name'] }}
+                                </div>
+
+                                @foreach ($series['currencies'] as $currency => $total)
+                                    <div class="mt-1 text-lg font-semibold text-zinc-900 dark:text-white">
+                                        {{ number_format($total, 2, ',', '.') }} {{ $currency }}
+                                    </div>
+                                @endforeach
+
+                            </div>
+                        @endforeach
+                    </div>
+                @else
+                    <flux:text>
+                        {{ __('Geen cataloguswaardering per postzegelserie beschikbaar voor deze selectie.') }}
+                    </flux:text>
+                @endif
+            </div>
+
+        </div>
+
+        {{-- Cataloguswaarde per land --}}
+        <div class="rounded-xl border border-theme-accent-1 bg-brown-6 p-4 dark:border-neutral-700">
+
+            <flux:heading size="lg">
+                {{ __('Cataloguswaarde per land') }}
+            </flux:heading>
+
+            <flux:text class="mt-1">
+                {{ __('Gebaseerd op de aanwezige postzegels, aantallen en geselecteerde cataloguseditie.') }}
+            </flux:text>
+
+            <div class="mt-4">
+                @if ($activeCatalogEditionId !== null && count($countryCatalogValues) > 0)
+
+                    <div class="space-y-4">
+                        @foreach ($countryCatalogValues as $country)
+                            <div class="border-b border-theme-accent-1 pb-3 last:border-b-0 last:pb-0">
+
+                                <div class="font-semibold text-zinc-900 dark:text-white">
+                                    {{ $country['name'] }}
+                                </div>
+
+                                @foreach ($country['currencies'] as $currency => $total)
+                                    <div class="mt-1 text-lg font-semibold text-zinc-900 dark:text-white">
+                                        {{ number_format($total, 2, ',', '.') }} {{ $currency }}
+                                    </div>
+                                @endforeach
+
+                            </div>
+                        @endforeach
+                    </div>
+                @else
+                    <flux:text>
+                        {{ __('Geen cataloguswaardering per land beschikbaar voor deze selectie.') }}
+                    </flux:text>
+                @endif
+            </div>
+
+        </div>
+
         {{-- Overzicht persoonlijke postzegels --}}
         <div class="overflow-hidden rounded-xl border border-theme-accent-1 bg-brown-6 dark:border-neutral-700">
 

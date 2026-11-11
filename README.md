@@ -544,23 +544,40 @@ Planned tasks:
 
 ### Part C — Personal Collection Valuation
 
-**Status:** ⏳ Planned
+**Status:** ✅ Completed — Implemented and Tested
 
 **Objective:** Calculate the catalog value of personally owned stamps.
 
-Planned tasks:
+Implemented and verified features:
 
-1. Connect owned stamp copies to the appropriate catalog values.
-2. Determine the applicable value based on stamp condition.
-3. Include owned quantities in value calculations.
-4. Calculate values for individual stamps.
-5. Calculate totals for stamp series.
-6. Calculate totals by country.
-7. Calculate the total value of the personal collection.
-8. Handle missing catalog values.
-9. Add automated tests.
+- Connect owned stamp copies to catalog values from a selected catalog edition.
+- Determine the applicable catalog value based on stamp condition.
+- Include owned quantities in value calculations.
+- Calculate the total catalog value of the personal collection.
+- Apply country and condition filters to valuation totals.
+- Include only stamp copies belonging to the authenticated user.
+- Keep catalog values in different currencies separate.
+- Handle missing catalog values without interrupting calculations.
+- Correctly distinguish catalog values of zero from missing values.
+- Display catalog values for individual owned stamp copies.
+- Calculate and display grouped catalog values per stamp series.
+- Calculate and display grouped catalog values per country.
+- Provide automated feature tests for catalog value calculations and grouped valuation displays.
+- Complete final verification of Part C.
 
-**Expected result:** Users can view the calculated catalog value of their personal stamp collection.
+Automated valuation tests: 12 passed (28 assertions).
+
+Full test suite: 188 passed (779 assertions).
+
+Laravel Pint: PASS — 212 files.
+
+**Final result:** The application calculates the catalog value of the authenticated user's personal stamp collection using the selected catalog edition, stamp conditions, owned quantities, and currencies.
+
+In addition to the total collection value, the application provides grouped catalog valuations per stamp series and per country.
+
+Valuation totals respect the selected filters, and catalog values in different currencies remain separate.
+
+All automated tests and Laravel Pint checks passed successfully.
 
 ### Part D — Preferred Catalog and Edition
 
@@ -645,7 +662,7 @@ Implemented features:
 - Add, edit, and delete personal valuations.
 - Provide a confirmation modal before deleting valuations.
 - Implement appropriate validation and success messages.
-  
+
 **Result**: Users can maintain a history of manually recorded personal valuations for individual stamp copies.
 
 These valuations are independent of automatic catalog value calculations.
@@ -697,6 +714,7 @@ Phase 14 will be considered complete when:
 - Documentation is updated.
 
 ---
+
 fase 15
 Toekomstige uitbreiding: catalogusgegevens in bulk bewerken
 Stel dat je 1.000 Nederlandse postzegels hebt en een nieuwe NVPH-cataloguseditie voor 2027 toevoegt.
