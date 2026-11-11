@@ -336,22 +336,22 @@ Watermarks can be associated with countries and include images, alternative text
 
 ### Implemented Features
 
-| Feature | Description | Status |
-| --- | --- | --- |
-| Watermark overview | Display registered watermarks | ✅ |
-| Country association | Associate watermarks with countries | ✅ |
-| Create | Add new watermarks | ✅ |
-| View | Display watermark details | ✅ |
-| Edit | Update existing watermarks | ✅ |
-| Delete | Remove watermarks | ✅ |
-| Image upload | Upload JPG, PNG, and WebP images | ✅ |
-| Image replacement | Replace existing watermark images | ✅ |
-| Image removal | Remove an existing image without deleting the watermark | ✅ |
-| Image preview | Preview selected images before uploading | ✅ |
-| Alternative text | Store and update descriptive image text | ✅ |
-| File management | Remove unused image files from storage | ✅ |
-| Multilingual support | Dutch, English, German, French, and Spanish | ✅ |
-| Sidebar navigation | Watermarks integrated into Catalog Management | ✅ |
+| Feature              | Description                                             | Status |
+| -------------------- | ------------------------------------------------------- | ------ |
+| Watermark overview   | Display registered watermarks                           | ✅     |
+| Country association  | Associate watermarks with countries                     | ✅     |
+| Create               | Add new watermarks                                      | ✅     |
+| View                 | Display watermark details                               | ✅     |
+| Edit                 | Update existing watermarks                              | ✅     |
+| Delete               | Remove watermarks                                       | ✅     |
+| Image upload         | Upload JPG, PNG, and WebP images                        | ✅     |
+| Image replacement    | Replace existing watermark images                       | ✅     |
+| Image removal        | Remove an existing image without deleting the watermark | ✅     |
+| Image preview        | Preview selected images before uploading                | ✅     |
+| Alternative text     | Store and update descriptive image text                 | ✅     |
+| File management      | Remove unused image files from storage                  | ✅     |
+| Multilingual support | Dutch, English, German, French, and Spanish             | ✅     |
+| Sidebar navigation   | Watermarks integrated into Catalog Management           | ✅     |
 
 #### Technical Implementation
 
@@ -438,15 +438,15 @@ The **Catalog Management** section provides access to the shared catalog data us
 
 The following modules are available:
 
-| Module | Description |
-| --- | --- |
-| Countries | Manage countries associated with stamps and collectibles. |
-| Catalogs | Manage stamp catalogs and their editions. |
-| Stamp Series | Organize stamps into series. |
-| Stamps | Manage stamp information, catalog references, and associated images. |
-| Themes | Manage thematic classifications for stamps. |
-| Collectibles | Manage collectible types and related information. |
-| Watermarks | Manage watermark information, translations, and images. |
+| Module       | Description                                                          |
+| ------------ | -------------------------------------------------------------------- |
+| Countries    | Manage countries associated with stamps and collectibles.            |
+| Catalogs     | Manage stamp catalogs and their editions.                            |
+| Stamp Series | Organize stamps into series.                                         |
+| Stamps       | Manage stamp information, catalog references, and associated images. |
+| Themes       | Manage thematic classifications for stamps.                          |
+| Collectibles | Manage collectible types and related information.                    |
+| Watermarks   | Manage watermark information, translations, and images.              |
 
 #### Personal Collection
 
@@ -507,7 +507,7 @@ These existing components will be reviewed and reused wherever possible.
 
 ### Part A — Catalog Value Management
 
-**Status:** ⏳ Planned
+**Status:** ✅ Completed
 
 **Objective:** Complete and improve the management of catalog values for individual stamps.
 
@@ -526,7 +526,7 @@ Planned tasks:
 
 ### Part B — Historical Catalog Values
 
-**Status:** ⏳ Planned
+**Status:** ✅ Completed
 
 **Objective:** Compare catalog values across different editions of the same catalog.
 
@@ -631,32 +631,43 @@ Planned checks include:
 9. PHPStan static analysis, where configured.
 10. Full Laravel test suite execution.
 
-Extra onderdeel H — Personal Stamp Copy Valuation History
-Dit onderdeel zou ik officieel toevoegen aan fase 14.
+### Part H — Personal Stamp Copy Valuation History
 
-Status: ✅ Functioneel afgerond en handmatig getest.
+**Status**: ✅ Functionally Completed
 
-Het omvat:
+**Objective**: Allow users to record and manage historical personal valuations of individual stamp copies.
 
-- Meerdere persoonlijke waarderingen per postzegelexemplaar.
-- Registratie van waarderingsdatum, bedrag, valuta, bron en opmerkingen.
-- Weergave van bestaande waarderingen.
-- Toevoegen, bewerken en verwijderen.
-- Bevestigingsmodal voor verwijderen.
-- Validatie en succesmeldingen.
-Het gaat hier om handmatig vastgelegde persoonlijke waarderingen. Deze staan los van de automatische cataloguswaardeberekeningen.
-Extra onderdeel I — Catalog Condition Rules
-We hebben ook gewerkt aan waarderingscategorieën die aan catalogi zijn gekoppeld.
+Implemented features:
 
-Daarbij zijn onder andere gerealiseerd:
+- Support multiple personal valuations for each stamp copy.
+- Record valuation date, amount, currency, source, and notes.
+- Display existing valuation records.
+- Add, edit, and delete personal valuations.
+- Provide a confirmation modal before deleting valuations.
+- Implement appropriate validation and success messages.
+  
+**Result**: Users can maintain a history of manually recorded personal valuations for individual stamp copies.
 
-- Waarderingscategorieën toevoegen.
-- Waarderingscategorieën verwijderen uit het aanmaakformulier.
-- Beginjaar en eindjaar instellen.
-- Volgorde instellen.
-- Waarderingscategorieën opslaan bij een catalogus.
-- De juiste gegevens opnieuw weergeven in het formulier.
-De werking is handmatig getest.
+These valuations are independent of automatic catalog value calculations.
+
+### Part I — Catalog Condition Rules
+
+**Status**: ✅ Functionally Completed
+
+**Objective**: Allow users to configure valuation conditions and their applicable year ranges for individual catalogs.
+
+Implemented features:
+
+- Add valuation conditions to a catalog.
+- Remove valuation conditions from the catalog creation form.
+- Configure starting and ending years for each condition.
+- Define the display order of valuation conditions.
+- Save valuation conditions associated with a catalog.
+- Restore and display the configured values correctly in the form.
+
+**Result**: Users can configure catalog-specific valuation conditions with applicable year ranges and display order.
+
+The functionality has been manually tested.
 
 ### Development Strategy
 
@@ -684,9 +695,9 @@ Phase 14 will be considered complete when:
 - All new interfaces support five languages.
 - Required tests and quality checks pass.
 - Documentation is updated.
-  
-----------
 
+---
+fase 15
 Toekomstige uitbreiding: catalogusgegevens in bulk bewerken
 Stel dat je 1.000 Nederlandse postzegels hebt en een nieuwe NVPH-cataloguseditie voor 2027 toevoegt.
 
@@ -698,4 +709,4 @@ Dan zou je via een apart beheerscherm:
 - Alle Nederlandse postzegels in één overzicht bekijken.
 - Ontbrekende catalogusnummers en waarden voor Postfris en Gestempeld invullen.
 - Alle wijzigingen in één handeling opslaan.
-Dat zou veel tijd besparen bij het verwerken van nieuwe catalogusjaargangen
+  Dat zou veel tijd besparen bij het verwerken van nieuwe catalogusjaargangen

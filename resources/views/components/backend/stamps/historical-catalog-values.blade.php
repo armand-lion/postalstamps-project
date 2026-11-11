@@ -68,6 +68,10 @@
                             if (
                                 $currentValue !== null &&
                                 $previousValue !== null &&
+                                $currentValue->catalog_value !== null &&
+                                $previousValue->catalog_value !== null &&
+                                $currentValue->currency !== null &&
+                                $previousValue->currency !== null &&
                                 $currentValue->currency === $previousValue->currency
                             ) {
                                 $currentAmount = (float) $currentValue->catalog_value;
@@ -113,149 +117,149 @@
                                 </div>
 
                                 <div class="mt-1 font-medium">
-                                    @if ($postfris !== null)
+                                    @if ($postfris !== null && $postfris->catalog_value !== null)
                                         {{ $postfris->currency }}
                                         {{ number_format((float) $postfris->catalog_value, 2, ',', '.') }}
                                     @else
                                         —
                                     @endif
-                                </div>
-
-                                @php
-                                    $postfrisChange = $valueChanges['postfris'];
-                                @endphp
-
-                                @if ($postfrisChange['absolute'] !== null)
-                                    <div class="mt-1 text-xs font-medium text-zinc-700">
-
-                                        @if ($postfrisChange['absolute'] > 0)
-                                            +
-                                        @elseif ($postfrisChange['absolute'] < 0)
-                                            −
-                                        @endif
-
-                                        {{ $postfris->currency }}
-                                        {{ number_format(abs($postfrisChange['absolute']), 2, ',', '.') }}
-
-                                        @if ($postfrisChange['percentage'] !== null)
-                                            (@if ($postfrisChange['percentage'] > 0)
-                                                +
-                                            @elseif ($postfrisChange['percentage'] < 0)
-                                                −
-                                            @endif
-                                            {{ number_format(abs($postfrisChange['percentage']), 2, ',', '.') }}%)
-                                        @endif
-
-                                    </div>
-                                @endif
                             </div>
 
-                            {{-- Ongebruikt met plakker --}}
-                            <div>
-                                <div class="text-zinc-700">
-                                    {{ __('Ongebruikt met plakker') }}
-                                </div>
+                            @php
+                                $postfrisChange = $valueChanges['postfris'];
+                            @endphp
 
-                                <div class="mt-1 font-medium">
-                                    @if ($ongebruiktMetPlakker !== null)
-                                        {{ $ongebruiktMetPlakker->currency }}
-                                        {{ number_format((float) $ongebruiktMetPlakker->catalog_value, 2, ',', '.') }}
-                                    @else
-                                        —
+                            @if ($postfrisChange['absolute'] !== null)
+                                <div class="mt-1 text-xs font-medium text-zinc-700">
+
+                                    @if ($postfrisChange['absolute'] > 0)
+                                        +
+                                    @elseif ($postfrisChange['absolute'] < 0)
+                                        −
                                     @endif
-                                </div>
 
-                                @php
-                                    $ongebruiktMetPlakkerChange = $valueChanges['ongebruikt-met-plakker'];
-                                @endphp
+                                    {{ $postfris->currency }}
+                                    {{ number_format(abs($postfrisChange['absolute']), 2, ',', '.') }}
 
-                                @if ($ongebruiktMetPlakkerChange['absolute'] !== null)
-                                    <div class="mt-1 text-xs font-medium text-zinc-700">
-
-                                        @if ($ongebruiktMetPlakkerChange['absolute'] > 0)
+                                    @if ($postfrisChange['percentage'] !== null)
+                                        (@if ($postfrisChange['percentage'] > 0)
                                             +
-                                        @elseif ($ongebruiktMetPlakkerChange['absolute'] < 0)
+                                        @elseif ($postfrisChange['percentage'] < 0)
                                             −
                                         @endif
-
-                                        {{ $ongebruiktMetPlakker->currency }}
-                                        {{ number_format(abs($ongebruiktMetPlakkerChange['absolute']), 2, ',', '.') }}
-
-                                        @if ($ongebruiktMetPlakkerChange['percentage'] !== null)
-                                            (
-                                            @if ($ongebruiktMetPlakkerChange['percentage'] > 0)
-                                                +
-                                            @elseif ($ongebruiktMetPlakkerChange['percentage'] < 0)
-                                                −
-                                            @endif
-                                            {{ number_format(abs($ongebruiktMetPlakkerChange['percentage']), 2, ',', '.') }}%
-                                            )
-                                        @endif
-
-                                    </div>
-                                @endif
-                            </div>
-
-                            {{-- Gestempeld --}}
-                            <div>
-                                <div class="text-zinc-700">
-                                    {{ __('Gestempeld') }}
-                                </div>
-
-                                <div class="mt-1 font-medium">
-                                    @if ($gestempeld !== null)
-                                        {{ $gestempeld->currency }}
-                                        {{ number_format((float) $gestempeld->catalog_value, 2, ',', '.') }}
-                                    @else
-                                        —
+                                        {{ number_format(abs($postfrisChange['percentage']), 2, ',', '.') }}%)
                                     @endif
+
                                 </div>
+                            @endif
+                        </div>
 
-                                @php
-                                    $gestempeldChange = $valueChanges['gestempeld'];
-                                @endphp
+                        {{-- Ongebruikt met plakker --}}
+                        <div>
+                            <div class="text-zinc-700">
+                                {{ __('Ongebruikt met plakker') }}
+                            </div>
 
-                                @if ($gestempeldChange['absolute'] !== null)
-                                    <div class="mt-1 text-xs font-medium text-zinc-700">
-
-                                        @if ($gestempeldChange['absolute'] > 0)
-                                            +
-                                        @elseif ($gestempeldChange['absolute'] < 0)
-                                            −
-                                        @endif
-
-                                        {{ $gestempeld->currency }}
-                                        {{ number_format(abs($gestempeldChange['absolute']), 2, ',', '.') }}
-
-                                        @if ($gestempeldChange['percentage'] !== null)
-                                            (
-                                            @if ($gestempeldChange['percentage'] > 0)
-                                                +
-                                            @elseif ($gestempeldChange['percentage'] < 0)
-                                                −
-                                            @endif
-                                            {{ number_format(abs($gestempeldChange['percentage']), 2, ',', '.') }}%
-                                            )
-                                        @endif
-
-                                    </div>
+                            <div class="mt-1 font-medium">
+                                @if ($ongebruiktMetPlakker !== null && $ongebruiktMetPlakker->catalog_value !== null)
+                                    {{ $ongebruiktMetPlakker->currency }}
+                                    {{ number_format((float) $ongebruiktMetPlakker->catalog_value, 2, ',', '.') }}
+                                @else
+                                    —
                                 @endif
                             </div>
 
+                            @php
+                                $ongebruiktMetPlakkerChange = $valueChanges['ongebruikt-met-plakker'];
+                            @endphp
+
+                            @if ($ongebruiktMetPlakkerChange['absolute'] !== null)
+                                <div class="mt-1 text-xs font-medium text-zinc-700">
+
+                                    @if ($ongebruiktMetPlakkerChange['absolute'] > 0)
+                                        +
+                                    @elseif ($ongebruiktMetPlakkerChange['absolute'] < 0)
+                                        −
+                                    @endif
+
+                                    {{ $ongebruiktMetPlakker->currency }}
+                                    {{ number_format(abs($ongebruiktMetPlakkerChange['absolute']), 2, ',', '.') }}
+
+                                    @if ($ongebruiktMetPlakkerChange['percentage'] !== null)
+                                        (
+                                        @if ($ongebruiktMetPlakkerChange['percentage'] > 0)
+                                            +
+                                        @elseif ($ongebruiktMetPlakkerChange['percentage'] < 0)
+                                            −
+                                        @endif
+                                        {{ number_format(abs($ongebruiktMetPlakkerChange['percentage']), 2, ',', '.') }}%
+                                        )
+                                    @endif
+
+                                </div>
+                            @endif
+                        </div>
+
+                        {{-- Gestempeld --}}
+                        <div>
+                            <div class="text-zinc-700">
+                                {{ __('Gestempeld') }}
+                            </div>
+
+                            <div class="mt-1 font-medium">
+                                @if ($gestempeld !== null && $gestempeld->catalog_value !== null)
+                                    {{ $gestempeld->currency }}
+                                    {{ number_format((float) $gestempeld->catalog_value, 2, ',', '.') }}
+                                @else
+                                    —
+                                @endif
+                            </div>
+
+                            @php
+                                $gestempeldChange = $valueChanges['gestempeld'];
+                            @endphp
+
+                            @if ($gestempeldChange['absolute'] !== null)
+                                <div class="mt-1 text-xs font-medium text-zinc-700">
+
+                                    @if ($gestempeldChange['absolute'] > 0)
+                                        +
+                                    @elseif ($gestempeldChange['absolute'] < 0)
+                                        −
+                                    @endif
+
+                                    {{ $gestempeld->currency }}
+                                    {{ number_format(abs($gestempeldChange['absolute']), 2, ',', '.') }}
+
+                                    @if ($gestempeldChange['percentage'] !== null)
+                                        (
+                                        @if ($gestempeldChange['percentage'] > 0)
+                                            +
+                                        @elseif ($gestempeldChange['percentage'] < 0)
+                                            −
+                                        @endif
+                                        {{ number_format(abs($gestempeldChange['percentage']), 2, ',', '.') }}%
+                                        )
+                                    @endif
+
+                                </div>
+                            @endif
                         </div>
 
                     </div>
-                @endforeach
 
             </div>
+    @endforeach
 
-        </div>
+</div>
 
-    @empty
+</div>
 
-        <flux:text class="mt-4 text-zinc-700!">
-            {{ __('Er zijn nog geen historische cataloguswaarden beschikbaar.') }}
-        </flux:text>
-    @endforelse
+@empty
+
+<flux:text class="mt-4 text-zinc-700!">
+    {{ __('Er zijn nog geen historische cataloguswaarden beschikbaar.') }}
+</flux:text>
+@endforelse
 
 </div>
