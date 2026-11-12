@@ -661,9 +661,9 @@ Planned tasks:
 
 ### Part F — Multilingual Support
 
-**Status:** ⏳ Planned
+**Status:** ✅ Completed and Tested
 
-All new interfaces will support the application's five languages:
+All new interfaces support the application's five languages:
 
 - Dutch (`nl`)
 - English (`en`)
@@ -671,7 +671,28 @@ All new interfaces will support the application's five languages:
 - French (`fr`)
 - Spanish (`es`)
 
-Translation keys will be added to the existing JSON translation files.
+Implemented features:
+
+1. Added multilingual support for historical catalog value charts.
+2. Translated chart titles and accessibility labels.
+3. Translated messages displayed when insufficient comparable catalog values are available.
+4. Reused existing translations for stamp condition categories.
+5. Integrated translations into the existing Laravel JSON translation system.
+6. Added `scripts/translations_fase14_part_e.php` for managing the new translations.
+7. Updated all five JSON translation files.
+
+Validation and testing:
+
+- All five JSON translation files validated successfully.
+- All new translation keys verified in every language.
+- Laravel translation functionality tested using Tinker.
+- Chart titles and legends visually verified in all five languages.
+- Historical catalog value interfaces visually verified.
+- Git whitespace checks passed.
+
+**Result:** Historical catalog value charts and their associated interface texts are available in all five supported languages.
+
+**Git commit:** `2936e86` — `feat: add multilingual support for historical catalog value charts`
 
 ### Part G — Testing and Quality Assurance
 
