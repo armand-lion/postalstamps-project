@@ -642,6 +642,11 @@ test('de backend berekent historische cataloguswaarden per waarderingscategorie'
             'currency' => 'EUR',
         ]);
 
+        // Bewaar het ID van de cataloguseditie uit 2026.
+        if ($year === 2026) {
+            $edition2026Id = $edition->id;
+        }
+
         $entry = StampCatalogEntry::create([
             'stamp_id' => $stamp->id,
             'catalog_edition_id' => $edition->id,
@@ -690,11 +695,21 @@ test('de backend berekent historische cataloguswaarden per waarderingscategorie'
     expect(count($twentyFivePercentMatches[0]))->toBe(1);
 
     // Controleer specifiek de waarderingscategorieën van editie 2026.
-    $edition2026Start = strpos($historyHtml, 'Editie 2026');
+    // Zoek de juiste editiekaart via het unieke data-attribuut.
+    $edition2026Start = strpos(
+        $historyHtml,
+        'data-catalog-history-edition="'.$edition2026Id.'"'
+    );
 
     expect($edition2026Start)->not->toBeFalse();
 
     $edition2026Html = substr($historyHtml, $edition2026Start);
+
+    $edition2026NameStart = strpos($edition2026Html, 'Editie 2026');
+
+    expect($edition2026NameStart)->not->toBeFalse();
+
+    $edition2026Html = substr($edition2026Html, $edition2026NameStart);
 
     // Zoek de categorieën binnen editie 2026.
     $postfrisStart = strpos($edition2026Html, 'Postfris');

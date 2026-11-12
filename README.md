@@ -631,9 +631,7 @@ The Catalog Preferences interface supports all five application languages:
 - French (fr)
 - Spanish (es)
 
-**Final Result**
-
-Users can configure their preferred catalog and catalog edition through the application settings.
+**Final Result** Users can configure their preferred catalog and catalog edition through the application settings.
 The personal stamp collection automatically uses the saved edition for filtering and catalog valuation calculations.
 Temporary catalog selections remain possible without changing the user's stored preferences.
 
@@ -641,19 +639,23 @@ Part D is implemented, tested, and ready for version control.
 
 ### Part E — Value History and Charts
 
-**Status:** ⏳ Planned
+**Status:** ✅ Completed
 
 **Objective:** Visualize historical catalog value development.
 
 Planned tasks:
 
-1. Display historical catalog values in tables.
-2. Introduce charts showing value development across catalog editions.
-3. Allow comparisons between stamp conditions.
-4. Display absolute and percentage value changes.
-5. Support filtering by catalog and stamp.
-6. Handle missing historical data.
-7. Ensure charts work with the existing application layout.
+1. Display historical catalog values on the stamp detail page.
+2. Compare catalog values across multiple editions of the same catalog.
+3. Visualize historical catalog values using Chart.js 4.6.1.
+4. Display separate chart lines for different stamp conditions.
+5. Support the valuation conditions Postfris, Ongebruikt met plakker, and Gestempeld.
+6. Display catalog editions in chronological order.
+7. Calculate absolute and percentage value changes between catalog editions.
+8. Handle missing catalog values and incomplete historical data.
+9. Prevent comparisons between different currencies.
+10. Preserve the existing historical catalog value overview alongside the charts.
+11. Integrate charts into the existing Laravel Blade and Tailwind CSS interface.
 
 **Expected result:** Users can visually analyze changes in stamp catalog values over time.
 
