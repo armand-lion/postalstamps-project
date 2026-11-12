@@ -581,21 +581,63 @@ All automated tests and Laravel Pint checks passed successfully.
 
 ### Part D — Preferred Catalog and Edition
 
-**Status:** ⏳ Planned
+Status: ✅ Completed — Implemented and Tested
 
-**Objective:** Allow users to select a preferred catalog and catalog edition for valuation calculations.
+**Objective:** Allow each user to configure a preferred catalog and catalog edition for their personal stamp collection.
 
-Planned tasks:
+Implemented Features
 
-1. Review the existing `UserCatalog` model and relationships.
-2. Implement preferred catalog selection.
-3. Implement preferred catalog edition selection.
-4. Use the selected catalog and edition for collection valuations.
-5. Handle missing catalog entries and values.
-6. Support changing the preferred catalog.
-7. Add automated tests.
+- Users can select a default catalog and catalog edition through the application settings.
+- Catalog preferences are stored individually for each authenticated user.
+- The selected catalog edition is automatically applied when opening the personal stamp collection.
+- Stamp copies are filtered according to the active catalog edition.
+- Catalog valuations are calculated using the selected edition.
+- Users can temporarily select another catalog or edition using the collection filters.
+- Temporary selections do not overwrite the saved user preferences.
+- Returning to the collection without temporary catalog filters restores the default edition.
+- Existing catalog valuation functionality remains compatible with the preferred edition.
 
-**Expected result:** Collection valuations can be calculated using a user-selected catalog and edition.
+Technical Implementation
+
+The functionality uses the existing Laravel application architecture.
+
+Database and models:
+
+- Added default_catalog_edition_id to the users table.
+- Added the defaultCatalogEdition() relationship to the User model.
+- Reused the existing Catalog and CatalogEdition models.
+
+Settings:
+
+- Added a dedicated Catalog Preferences settings page.
+- Implemented catalog and catalog edition selection using Livewire Volt and Flux UI.
+- Added validation to ensure that the selected edition belongs to the selected catalog.
+- Added a navigation link to the application settings.
+- Implemented persistence of the selected default catalog edition.
+
+Personal collection:
+
+- Updated StampCopyController to automatically use the user's preferred catalog edition.
+- Applied the active catalog edition to stamp filtering and catalog valuation calculations.
+- Preserved temporary catalog selections without modifying stored preferences.
+
+Multilingual Support
+
+The Catalog Preferences interface supports all five application languages:
+
+- Dutch (nl)
+- English (en)
+- German (de)
+- French (fr)
+- Spanish (es)
+
+**Final Result**
+
+Users can configure their preferred catalog and catalog edition through the application settings.
+The personal stamp collection automatically uses the saved edition for filtering and catalog valuation calculations.
+Temporary catalog selections remain possible without changing the user's stored preferences.
+
+Part D is implemented, tested, and ready for version control.
 
 ### Part E — Value History and Charts
 

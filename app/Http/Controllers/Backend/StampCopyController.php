@@ -187,7 +187,7 @@ class StampCopyController extends Controller
                 }
             )
             ->when(
-                request()->filled('catalog_edition_id'),
+                $activeCatalogEditionId !== null || request()->filled('catalog_edition_id'),
                 function ($query) use ($activeCatalogEditionId) {
                     if ($activeCatalogEditionId === null) {
                         $query->whereRaw('1 = 0');

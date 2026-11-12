@@ -893,3 +893,204 @@ test('de cataloguswaarden van postzegels binnen hetzelfde land worden opgeteld',
     $response->assertSee('Testland cataloguswaarde');
     $response->assertSee('47,50 EUR');
 });
+
+test('de persoonlijke verzameling gebruikt automatisch de standaardcataloguseditie', function () {
+    $user = User::factory()->create();
+
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus standaardvoorkeur',
+    ]);
+
+    $edition2025 = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Testeditie 2025',
+        'edition_year' => 2025,
+        'currency' => 'EUR',
+    ]);
+
+    $edition2026 = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Testeditie 2026',
+        'edition_year' => 2026,
+        'currency' => 'EUR',
+    ]);
+
+    $condition = Condition::create([
+        'slug' => 'postfris',
+        'sort_order' => 1,
+        'is_active' => true,
+    ]);
+
+    // Stel editie 2026 in als standaardcataloguseditie.
+    $user->default_catalog_edition_id = $edition2026->id;
+    $user->save();
+
+    // Postzegel die voorkomt in de standaardcataloguseditie.
+    $stamp2026 = Stamp::factory()->create([
+        'name' => 'Testzegel standaardeditie 2026',
+    ]);
+
+    $entry2026 = $stamp2026->catalogEntries()->create([
+        'catalog_edition_id' => $edition2026->id,
+        'catalog_number' => '100',
+    ]);
+
+    $entry2026->values()->create([
+        'condition_id' => $condition->id,
+        'catalog_value' => 15.00,
+        'currency' => 'EUR',
+    ]);
+
+    StampCopy::create([
+        'user_id' => $user->id,
+        'stamp_id' => $stamp2026->id,
+        'condition_id' => $condition->id,
+        'quantity' => 2,
+    ]);
+
+    // Postzegel die uitsluitend voorkomt in editie 2025.
+    $stamp2025 = Stamp::factory()->create([
+        'name' => 'Testzegel andere editie 2025',
+    ]);
+
+    $entry2025 = $stamp2025->catalogEntries()->create([
+        'catalog_edition_id' => $edition2025->id,
+        'catalog_number' => '200',
+    ]);
+
+    $entry2025->values()->create([
+        'condition_id' => $condition->id,
+        'catalog_value' => 10.00,
+        'currency' => 'EUR',
+    ]);
+
+    StampCopy::create([
+        'user_id' => $user->id,
+        'stamp_id' => $stamp2025->id,
+        'condition_id' => $condition->id,
+        'quantity' => 1,
+    ]);
+
+    // Open de persoonlijke verzameling zonder catalogusfilters.
+    $response = $this
+        ->actingAs($user)
+        ->get(route('backend.stamp-copies.index'));
+
+    $response->assertOk();
+
+    // Alleen de postzegel uit de standaardeditie mag zichtbaar zijn.
+    $response->assertViewHas('stampCopies', function ($copies) use ($stamp2026) {
+        return $copies->total() === 1
+            && $copies->first()->stamp_id === $stamp2026->id;
+    });
+
+    // De totale cataloguswaarde moet € 30,00 zijn.
+    $response->assertViewHas('totalCatalogValues', function ($totals) {
+        return count($totals) === 1
+            && isset($totals['EUR'])
+            && abs($totals['EUR'] - 30.00) < 0.001;
+    });
+
+    // De standaardcataloguseditie moet ongewijzigd blijven.
+    expect($user->fresh()->default_catalog_edition_id)
+        ->toBe($edition2026->id);
+});
+
+test('een tijdelijke cataloguseditie overschrijft de opgeslagen standaardvoorkeur niet', function () {
+    $user = User::factory()->create();
+
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus tijdelijke selectie',
+    ]);
+
+    $edition2025 = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Testeditie 2025',
+        'edition_year' => 2025,
+        'currency' => 'EUR',
+    ]);
+
+    $edition2026 = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Testeditie 2026',
+        'edition_year' => 2026,
+        'currency' => 'EUR',
+    ]);
+
+    $condition = Condition::create([
+        'slug' => 'postfris',
+        'sort_order' => 1,
+        'is_active' => true,
+    ]);
+
+    // Stel editie 2025 in als standaardvoorkeur.
+    $user->default_catalog_edition_id = $edition2025->id;
+    $user->save();
+
+    // Postzegel die uitsluitend in editie 2025 voorkomt.
+    $stamp2025 = Stamp::factory()->create([
+        'name' => 'Testzegel standaardeditie 2025',
+    ]);
+
+    $stamp2025->catalogEntries()->create([
+        'catalog_edition_id' => $edition2025->id,
+        'catalog_number' => '100',
+    ]);
+
+    StampCopy::create([
+        'user_id' => $user->id,
+        'stamp_id' => $stamp2025->id,
+        'condition_id' => $condition->id,
+        'quantity' => 1,
+    ]);
+
+    // Postzegel die uitsluitend in editie 2026 voorkomt.
+    $stamp2026 = Stamp::factory()->create([
+        'name' => 'Testzegel tijdelijke editie 2026',
+    ]);
+
+    $stamp2026->catalogEntries()->create([
+        'catalog_edition_id' => $edition2026->id,
+        'catalog_number' => '200',
+    ]);
+
+    StampCopy::create([
+        'user_id' => $user->id,
+        'stamp_id' => $stamp2026->id,
+        'condition_id' => $condition->id,
+        'quantity' => 1,
+    ]);
+
+    // Selecteer tijdelijk editie 2026.
+    $response = $this
+        ->actingAs($user)
+        ->get(route('backend.stamp-copies.index', [
+            'catalog_id' => $catalog->id,
+            'catalog_edition_id' => $edition2026->id,
+        ]));
+
+    $response->assertOk();
+
+    // Alleen de postzegel uit editie 2026 mag zichtbaar zijn.
+    $response->assertViewHas('stampCopies', function ($copies) use ($stamp2026) {
+        return $copies->total() === 1
+            && $copies->first()->stamp_id === $stamp2026->id;
+    });
+
+    // De opgeslagen standaardvoorkeur blijft editie 2025.
+    expect($user->fresh()->default_catalog_edition_id)
+        ->toBe($edition2025->id);
+
+    // Open de verzameling opnieuw zonder tijdelijke filters.
+    $response = $this
+        ->actingAs($user)
+        ->get(route('backend.stamp-copies.index'));
+
+    $response->assertOk();
+
+    // De standaardeditie 2025 wordt opnieuw gebruikt.
+    $response->assertViewHas('stampCopies', function ($copies) use ($stamp2025) {
+        return $copies->total() === 1
+            && $copies->first()->stamp_id === $stamp2025->id;
+    });
+});
