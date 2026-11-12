@@ -478,7 +478,7 @@ The navigation includes:
 
 ## Phase 14 — Catalog Values and Value History
 
-**Status:** ⏳ Planned
+*Status:** ✅ Completed
 
 Objective
 
@@ -696,22 +696,49 @@ Validation and testing:
 
 ### Part G — Testing and Quality Assurance
 
-**Status:** ⏳ Planned
+**Status:** ✅ Completed and Tested
 
-Quality assurance will be performed throughout Phase 14.
+**Objective:** Verify the reliability, correctness, and code quality of the catalog valuation functionality implemented throughout Phase 14.
 
-Planned checks include:
+Completed quality assurance checks:
 
-1. Database relationship verification.
-2. Form validation testing.
-3. Feature tests for catalog value management.
-4. Tests for historical value comparisons.
-5. Tests for personal collection value calculations.
-6. Tests for preferred catalog selection.
-7. Multilingual interface verification.
-8. Laravel Pint formatting checks.
-9. PHPStan static analysis, where configured.
-10. Full Laravel test suite execution.
+- Database relationships verified through automated model and feature tests.
+- Form validation tested for catalog values, conditions, and personal valuations.
+- Catalog value management verified through automated feature tests.
+- Historical catalog value comparisons tested across editions, conditions, and currencies.
+- Personal collection value calculations verified, including quantities, conditions, filters, and currencies.
+- Preferred catalog edition selection tested, including temporary selections.
+- Multilingual support verified for Dutch, English, German, French, and Spanish.
+- Laravel Pint formatting checks completed successfully.
+- PHPStan static analysis completed successfully at level 7.
+- Full Laravel test suite executed successfully.
+
+Automated test results:
+
+- Full Laravel test suite: 191 tests passed (849 assertions).
+- Historical catalog value tests: 8 passed (78 assertions).
+- Catalog value management tests: 22 passed (104 assertions).
+- Personal collection catalog valuation tests: 14 passed (37 assertions).
+- Personal stamp copy valuation tests: 13 passed (39 assertions).
+- Stamp translation and related feature tests: 33 passed (190 assertions).
+- Historical catalog chart translation test: 1 passed (60 assertions).
+
+Code quality results:
+
+- Laravel Pint: 216 PHP files passed.
+- PHPStan / Larastan: 155 files analyzed at level 7, with no errors.
+
+Additional test coverage:
+
+Added tests/Feature/Backend/StampCatalogChartTranslationTest.php.
+
+This test verifies that the three historical catalog chart translation keys:
+
+- Exist in all five supported language files
+- Contain non-empty translations.
+- Are correctly resolved through Laravel's translation helper.
+
+**Result:** All executed automated tests and code quality checks passed successfully. No errors were detected during the final quality assurance checks.
 
 ### Part H — Personal Stamp Copy Valuation History
 
@@ -751,45 +778,290 @@ Implemented features:
 
 The functionality has been manually tested.
 
+### Phase 14 — ✅ Completed
+
+## Phase 15 — Advanced Catalog Management & Bulk Operations
+
+**Status:** ⏳ Planned
+
+**Objective:** Improve the efficiency, reliability, and scalability of managing large stamp catalogs, catalog editions, catalog values, and personal collections.
+
+Phase 15 focuses on bulk operations, catalog edition management, data import and export, data completeness, and change tracking.
+
+The functionality introduced in this phase will build upon the catalog management, valuation, historical comparison, and multilingual features implemented in previous phases.
+
+### Part A — Bulk Catalog Value Editing
+
+**Status:** ⏳ Planned
+
+**Objective:** Allow administrators to manage catalog numbers and catalog values for multiple stamps simultaneously.
+
+Planned features:
+
+- Select a country or territory.
+- Select a catalog and catalog edition.
+- Display all relevant stamps in a searchable and paginated overview.
+- Add or update catalog numbers.
+- Add or update catalog values for supported valuation conditions.
+- Apply existing catalog condition rules and year restrictions.
+- Filter stamps with missing catalog numbers or values.
+- Highlight modified fields and unsaved changes.
+- Validate changes before saving.
+- Detect duplicate catalog numbers where applicable.
+- Save multiple changes in a single operation.
+- Display validation errors for individual records.
+- Preserve existing data unless explicitly modified.-
+
+**Example:** Update catalog numbers and mint/used values for 1,000 Dutch stamps when introducing the NVPH 2027 catalog edition.
+
+**Result:** Administrators can efficiently maintain catalog information without editing each stamp individually.
+
+### Part B — Catalog Edition Duplication
+
+**Status:** ⏳ Planned
+
+**Objective:** Simplify the creation of new catalog editions by copying information from an existing edition.
+
+Planned features:
+
+- Select an existing catalog edition as the source.
+- Select or create a destination catalog edition.
+- Copy existing catalog numbers.
+- Optionally copy catalog valuations.
+- Copy only missing information when requested.
+- Prevent unintended overwriting of existing data.
+- Mark copied valuations for review.
+- Validate copied data against applicable catalog condition rules.
+- Display a summary before confirming the operation.
+- Report successfully copied and skipped records.
+
+**Example:** Create the NVPH 2027 catalog edition using catalog numbers and optionally valuations from NVPH 2026.
+
+**Result:** New catalog editions can be prepared quickly while preserving existing catalog information.
+
+### Part C — Catalog Data Completeness Dashboard
+
+**Status:** ⏳ Planned
+
+**Objective:** Provide an overview of missing and incomplete catalog information.
+
+Planned features:
+
+- Display the total number of relevant stamps.
+- Count stamps with and without catalog numbers.
+- Identify missing catalog valuations.
+- Display completeness percentages.
+- Filter results by country, catalog, and edition.
+- Filter by valuation condition.
+- Display incomplete records in a dedicated overview.
+- Navigate directly to records requiring attention.
+- Integrate with the bulk catalog editing interface.
+
+**Result:** Administrators can monitor catalog completeness and efficiently identify missing information.
+
+### Part D — Excel and CSV Import
+
+**Status:** ⏳ Planned
+
+**Objective:** Allow catalog information to be imported from external spreadsheet files.
+
+Planned features:
+
+- Support CSV and Excel file imports.
+- Select the destination catalog and edition.
+- Map spreadsheet columns to application fields.
+- Preview imported records before processing.
+- Validate catalog numbers and valuations.
+- Detect duplicate or conflicting records.
+- Identify missing or invalid references.
+- Allow administrators to choose how existing records are handled.
+- Prevent unintended overwriting of existing data.
+- Process large imports efficiently.
+- Display import results, including successful, skipped, and failed records.
+
+**Result:** Large amounts of catalog information can be imported efficiently and safely.
+
+### Part E — Excel and CSV Export
+
+**Status:** ⏳ Planned
+
+**Objective:** Allow administrators to export catalog information for external processing, reporting, and backup purposes.
+
+Planned features:
+
+- Export catalog data to CSV or Excel.
+- Filter exports by country or territory.
+- Filter by catalog and edition.
+- Export catalog numbers and valuations.
+- Export selected stamps or entire filtered datasets.
+- Export incomplete catalog records.
+- Preserve a consistent column structure.
+- Support files that can be edited and imported again.
+
+**Result:** Catalog information can be reviewed, processed, and exchanged outside the application.
+
+### Part F — Catalog Edition Comparison
+
+**Status:** ⏳ Planned
+
+**Objective:** Compare catalog valuations between different editions of the same catalog.
+
+Planned features:
+
+- Select two catalog editions for comparison.
+- Compare catalog values for individual stamps.
+- Calculate absolute and percentage differences.
+- Highlight increases and decreases.
+- Identify unchanged catalog values.
+- Filter comparisons by valuation condition.
+- Sort results by valuation changes.
+- Handle missing values appropriately.
+- Avoid invalid comparisons between different currencies.
+- Export comparison results.
+- Reuse existing historical catalog valuation functionality where appropriate.
+
+**Result:** Administrators can identify valuation changes between catalog editions and analyze catalog trends.
+
+### Part G — Catalog Change History
+
+**Status:** ⏳ Planned
+
+**Objective:** Track changes to catalog numbers and catalog valuations.
+
+Planned features:
+
+- Record changes to catalog numbers.
+- Record changes to catalog values.
+- Store previous and updated values.
+- Record the date and time of each change.
+- Identify the user responsible for a change.
+- Group related changes performed during bulk operations.
+- Display change history for individual stamps.
+- Display change history for catalog editions.
+- Allow administrators to review previous changes.
+- Investigate the feasibility of safely reversing bulk operations.
+
+**Result:** Catalog changes become traceable, improving transparency and data reliability.
+
+### Part H — Bulk Stamp Management
+
+**Status:** ⏳ Planned
+
+**Objective:** Allow administrators to update general stamp information for multiple stamps simultaneously.
+
+Planned features:
+
+- Select multiple stamps from a filtered overview.
+- Update countries or territories where appropriate.
+- Update issue years.
+- Assign or change stamp series.
+- Add or remove themes.
+- Update printing methods.
+- Fill missing stamp information.
+- Validate relationships and existing restrictions.
+- Preview changes before saving.
+- Prevent unintended modifications.
+
+**Result:** General stamp information can be maintained efficiently across large datasets.
+
+### Part I — Bulk Personal Collection Management
+
+**Status:** ⏳ Planned
+
+**Objective:** Allow users to manage multiple personal collection items in a single operation.
+
+Planned features:
+
+- Select multiple stamps.
+- Add multiple stamps to a personal collection.
+- Specify quantities.
+- Select valuation conditions.
+- Record acquisition dates where supported.
+- Investigate support for purchase prices.
+- Update multiple collection items.
+- Remove selected collection items with confirmation.
+- Respect existing ownership and authorization rules.
+- Preserve support for special variants and deviations.
+
+**Result:** Users can manage larger personal collections without processing each stamp individually.
+
+### Part J — Catalog Data Integrity Checks
+
+**Status:** ⏳ Planned
+
+**Objective:** Detect inconsistencies and incomplete relationships within catalog information.
+
+Planned features:
+
+- Identify duplicate catalog numbers where applicable.
+- Detect catalog entries with missing required information.
+- Identify missing valuation conditions.
+- Validate catalog condition year restrictions.
+- Verify country and catalog edition relationships.
+- Identify incomplete catalog valuations.
+- Display detected issues in a dedicated overview.
+- Provide direct navigation to affected records.
+- Reuse existing validation rules wherever possible.
+
+**Result:** Administrators can proactively identify potential catalog data problems and maintain reliable records.
+
+### Part K — Testing and Quality Assurance
+
+**Status:** ⏳ Planned
+
+**Objective:** Ensure that all new bulk management functionality is reliable, secure, and maintainable.
+
+Planned checks include:
+
+- Database relationship verification.
+- Bulk operation validation tests.
+- Catalog edition duplication tests.
+- Import and export tests.
+- Catalog completeness calculation tests.
+- Catalog edition comparison tests.
+- Change history verification.
+- User authorization and data isolation tests.
+- Large dataset and performance testing.
+- Multilingual interface verification.
+- Laravel Pint formatting checks.
+- PHPStan static analysis.
+- Full Laravel test suite execution.
+
+**Result:** All new functionality will be tested before Phase 15 is marked as completed.
+
 ### Development Strategy
 
-Phase 14 will be implemented incrementally.
+The implementation will follow a structured, incremental approach.
 
-Each part will follow the same development process:
+**Initial development order:**
 
-1. Review existing functionality and database structures.
-2. Identify the smallest required changes.
-3. Implement one feature at a time.
-4. Test the feature before proceeding.
-5. Preserve existing functionality and data.
-6. Update documentation when a part is completed.
-7. Commit tested changes to Git.
+1. Part B — Catalog Edition Duplication.
+2. Part A — Bulk Catalog Value Editing.
+3. Part C — Catalog Data Completeness Dashboard.
 
-### Completion Criteria
+**Subsequent development:**
 
-Phase 14 will be considered complete when:
+- Part D — Excel and CSV Import.
+- Part E — Excel and CSV Export.
+- Part F — Catalog Edition Comparison.
+- Part G — Catalog Change History.
+- Part H — Bulk Stamp Management.
+- Part I — Bulk Personal Collection Management.
+- Part J — Catalog Data Integrity Checks.
+- Part K — Testing and Quality Assurance will be performed throughout the development process and finalized after all planned functionality has been implemented.
 
-- Catalog values can be managed across multiple editions and conditions.
-- Historical catalog values can be compared.
-- Personal collection values can be calculated.
-- Preferred catalogs and editions can be selected.
-- Historical value development can be visualized.
-- All new interfaces support five languages.
-- Required tests and quality checks pass.
-- Documentation is updated.
+### Technical Considerations
 
----
+- Use Laravel 13, Eloquent, Livewire, and Flux UI components.
+- Maintain the existing application design and styling conventions.
+- Support the five existing application languages.
+- Reuse existing models, relationships, and validation rules.
+- Avoid loading large datasets into a single Livewire component.
+- Use pagination, filtering, and efficient database queries.
+- Consider database transactions for multi-record operations.
+- Consider queued jobs for large imports and bulk processing.
+- Prevent unauthorized access to other users' collection data.
+- Preserve existing catalog information unless changes are explicitly confirmed.
+- Keep new functionality compatible with existing catalog editions, valuation conditions, and historical valuation features.
 
-fase 15
-Toekomstige uitbreiding: catalogusgegevens in bulk bewerken
-Stel dat je 1.000 Nederlandse postzegels hebt en een nieuwe NVPH-cataloguseditie voor 2027 toevoegt.
-
-Dan zou je via een apart beheerscherm:
-
-- Land: Nederland selecteren.
-- Catalogus: NVPH selecteren.
-- Editie: 2027 selecteren.
-- Alle Nederlandse postzegels in één overzicht bekijken.
-- Ontbrekende catalogusnummers en waarden voor Postfris en Gestempeld invullen.
-- Alle wijzigingen in één handeling opslaan.
-  Dat zou veel tijd besparen bij het verwerken van nieuwe catalogusjaargangen
+**Overall Goal:** Provide a scalable and user-friendly catalog management system capable of efficiently handling thousands of stamps and multiple catalog editions.
