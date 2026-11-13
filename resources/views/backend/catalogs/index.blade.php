@@ -3,7 +3,8 @@
     <div class="flex flex-col gap-6 p-4 md:p-6">
 
         {{-- Paginatitel --}}
-        <div class="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+        <div
+            class="rounded-xl flex flex-col justify-between gap-4 sm:flex-row sm:items-center bg-brown-6 rounded-lg border border-theme-accent-1 p-5">
             <div>
                 <flux:heading size="xl">
                     {{ __('Catalogi beheren') }}
@@ -14,7 +15,8 @@
                 </flux:text>
             </div>
 
-            <flux:button :href="route('backend.catalogs.create')" variant="primary" icon="plus">
+            <flux:button :href="route('backend.catalogs.create')" variant="primary" icon="plus"
+                class="bg-brown-2 hover:bg-brown-1">
                 {{ __('Catalogus toevoegen') }}
             </flux:button>
         </div>
@@ -37,33 +39,52 @@
 
         {{-- Zoekfunctie --}}
         <form method="GET" action="{{ route('backend.catalogs.index') }}"
-            class="flex flex-col gap-4 rounded-xl border border-neutral-200 p-4 dark:border-neutral-700 sm:flex-row sm:items-end">
+            class="flex flex-col gap-4 rounded-xl border border-theme-accent-1 bg-brown-6 p-4 dark:border-neutral-700 sm:flex-row sm:items-end">
 
+            {{-- Zoeken --}}
             <flux:field class="flex-1">
-                <flux:label>{{ __('Zoeken') }}</flux:label>
+                <flux:label>
+                    {{ __('Zoeken') }}
+                </flux:label>
 
-                <flux:input
-                    name="search"
-                    value="{{ request('search') }}"
-                    placeholder="{{ __('Naam, afkorting of uitgever') }}"
-                />
+                <div class="relative w-full">
+
+                    <flux:icon.magnifying-glass
+                        class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-zinc-500" />
+
+                    <input type="search" name="search" value="{{ request('search') }}"
+                        placeholder="{{ __('Naam, afkorting of uitgever') }}"
+                        class="w-full rounded-lg border border-theme-accent-3 bg-brown-5 py-2 pr-3 pl-10 text-sm text-zinc-900
+                placeholder:text-zinc-500
+                focus:border-theme-accent-3
+                focus:outline-none
+                focus:ring-2
+                focus:ring-theme-accent-3
+                focus:ring-offset-2
+                focus:ring-offset-brown-6" />
+
+                </div>
             </flux:field>
 
+            {{-- Acties --}}
             <div class="flex gap-2">
-                <flux:button type="submit" variant="primary">
+
+                <flux:button type="submit" variant="primary" class="bg-brown-2 hover:bg-brown-1">
                     {{ __('Filteren') }}
                 </flux:button>
 
-                <flux:button :href="route('backend.catalogs.index')" variant="ghost">
+                <flux:button :href="route('backend.catalogs.index')" variant="ghost"
+                    class="hover:text-brown-2! hover:bg-transparent!">
                     {{ __('Wissen') }}
                 </flux:button>
+
             </div>
         </form>
 
         {{-- Catalogusoverzicht --}}
-        <div class="overflow-hidden rounded-xl border border-neutral-200 dark:border-neutral-700">
+        <div class="overflow-hidden rounded-xl border border-theme-accent-1 bg-brown-6 dark:border-neutral-700">
 
-            <div class="border-b border-neutral-200 px-4 py-3 dark:border-neutral-700">
+            <div class="border-b border-brown-2 px-4 py-3 dark:border-neutral-700">
                 <flux:heading size="lg">
                     {{ __('Catalogi') }}
                 </flux:heading>
@@ -90,13 +111,11 @@
                         </flux:button>
                     </div>
                 </div>
-
             @else
-
                 <div class="overflow-x-auto">
                     <table class="w-full text-left text-sm">
 
-                        <thead class="bg-neutral-50 text-neutral-600 dark:bg-neutral-900 dark:text-neutral-300">
+                        <thead class="bg-brown-5 text-brown-2 dark:bg-neutral-900 dark:text-neutral-300">
                             <tr>
                                 <th class="px-4 py-3 font-medium">{{ __('Naam') }}</th>
                                 <th class="px-4 py-3 font-medium">{{ __('Afkorting') }}</th>
@@ -107,10 +126,10 @@
                             </tr>
                         </thead>
 
-                        <tbody class="divide-y divide-neutral-200 dark:divide-neutral-700">
+                        <tbody class="divide-y divide-brown-4 dark:divide-neutral-700">
 
                             @foreach ($catalogs as $catalog)
-                                <tr class="hover:bg-neutral-50 dark:hover:bg-neutral-900/50">
+                                <tr class="transition-colors hover:bg-brown-4!">
 
                                     {{-- Naam --}}
                                     <td class="px-4 py-3 font-medium">
@@ -145,42 +164,27 @@
                                         <div class="flex flex-wrap justify-end gap-2">
 
                                             {{-- Bekijken --}}
-                                            <flux:button
-                                                :href="route('backend.catalogs.show', $catalog)"
-                                                size="sm"
-                                                variant="ghost"
-                                                icon="eye"
-                                            >
+                                            <flux:button :href="route('backend.catalogs.show', $catalog)" size="sm"
+                                                variant="ghost" icon="eye">
                                                 {{ __('Bekijken') }}
                                             </flux:button>
 
                                             {{-- Bewerken --}}
-                                            <flux:button
-                                                :href="route('backend.catalogs.edit', $catalog)"
-                                                size="sm"
-                                                variant="ghost"
-                                                icon="pencil"
-                                            >
+                                            <flux:button :href="route('backend.catalogs.edit', $catalog)" size="sm"
+                                                variant="ghost" icon="pencil">
                                                 {{ __('Bewerken') }}
                                             </flux:button>
 
                                             {{-- Verwijderen --}}
-                                            <form
-                                                method="POST"
+                                            <form method="POST"
                                                 action="{{ route('backend.catalogs.destroy', $catalog) }}"
-                                                class="delete-confirm-form"
-                                            >
+                                                class="delete-confirm-form">
                                                 @csrf
                                                 @method('DELETE')
 
-                                                <flux:button
-                                                    type="button"
-                                                    size="sm"
-                                                    variant="ghost"
-                                                    icon="trash"
-                                                    class="text-red-600 dark:text-red-400"
-                                                    onclick="openDeleteModal(this.closest('form'))"
-                                                >
+                                                <flux:button type="button" size="sm" variant="ghost"
+                                                    icon="trash" class="text-red-600 dark:text-red-400"
+                                                    onclick="openDeleteModal(this.closest('form'))">
                                                     {{ __('Verwijderen') }}
                                                 </flux:button>
 
@@ -196,7 +200,7 @@
                 </div>
 
                 {{-- Paginering --}}
-                <div class="border-t border-neutral-200 p-4 dark:border-neutral-700">
+                <div class="border-t border-brown-4 p-4 dark:border-neutral-700">
                     {{ $catalogs->links() }}
                 </div>
 

@@ -1,6 +1,8 @@
 <?php
 
 use App\Models\Catalog;
+use App\Services\CatalogEditionDuplicationService;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Livewire\Component;
 
@@ -17,9 +19,18 @@ new class extends Component {
 
     public string $notes = '';
 
+    public ?int $source_edition_id = null;
+
+    public bool $copy_catalog_values = false;
+
     public function mount(Catalog $catalog): void
     {
         $this->catalog = $catalog;
+    }
+
+    public function getSourceEditionsProperty()
+    {
+        return $this->catalog->editions()->orderByDesc('edition_year')->orderBy('edition_name')->get();
     }
 
     public function save()
@@ -34,12 +45,25 @@ new class extends Component {
             'publication_date' => ['nullable', 'date'],
             'currency' => ['nullable', 'string', 'size:3'],
             'notes' => ['nullable', 'string'],
+            'source_edition_id' => ['nullable', 'integer', Rule::exists('catalog_editions', 'id')->where('catalog_id', $this->catalog->id)],
+            'copy_catalog_values' => ['boolean'],
         ]);
 
         $validated['edition_name'] = trim($validated['edition_name']);
         $validated['notes'] = trim($validated['notes'] ?? '');
 
-        $this->catalog->editions()->create($validated);
+        unset($validated['source_edition_id']);
+        unset($validated['copy_catalog_values']);
+
+        DB::transaction(function () use ($validated) {
+            $targetEdition = $this->catalog->editions()->create($validated);
+
+            if ($this->source_edition_id !== null) {
+                $sourceEdition = $this->catalog->editions()->findOrFail($this->source_edition_id);
+
+                app(CatalogEditionDuplicationService::class)->copyStampEntries($sourceEdition, $targetEdition, $this->copy_catalog_values);
+            }
+        });
 
         session()->flash('success', __('De cataloguseditie is succesvol toegevoegd.'));
 
@@ -79,14 +103,14 @@ new class extends Component {
                 year: $wire.entangle('edition_year'),
                 minYear: 1,
                 maxYear: 65535,
-
+            
                 increase() {
                     this.year = Math.min(
                         this.maxYear,
                         Number(this.year || 0) + 1
                     );
                 },
-
+            
                 decrease() {
                     this.year = Math.max(
                         this.minYear,
@@ -157,7 +181,7 @@ new class extends Component {
                 selectedId: $wire.entangle('currency'),
                 currencies: @js($currencies),
                 placeholder: @js(__('Selecteer een valuta')),
-
+            
                 get selectedName() {
                     return this.currencies[this.selectedId] ?? this.placeholder;
                 }
@@ -244,6 +268,90 @@ new class extends Component {
 
             <flux:error name="notes" />
         </flux:field>
+
+        {{-- Gegevens overnemen uit bestaande cataloguseditie --}}
+        <div class="space-y-4">
+
+            <flux:heading size="lg">
+                {{ __('Gegevens overnemen uit bestaande cataloguseditie') }}
+            </flux:heading>
+
+            <flux:text>
+                {{ __('Selecteer eventueel een bestaande cataloguseditie waarvan je de postzegelvermeldingen wilt overnemen.') }}
+            </flux:text>
+
+            <flux:field>
+                <flux:label>
+                    {{ __('Broneditie') }}
+                </flux:label>
+
+                <div x-data="{
+                    selectedId: $wire.entangle('source_edition_id'),
+                    editions: @js(
+    $this->sourceEditions
+        ->map(
+            fn($edition) => [
+                'id' => $edition->id,
+                'name' => $edition->edition_name . ' (' . $edition->edition_year . ')',
+            ],
+        )
+        ->values(),
+),
+                    placeholder: @js(__('Geen broneditie geselecteerd')),
+                
+                    get selectedName() {
+                        return this.editions.find(
+                            edition => edition.id == this.selectedId
+                        )?.name ?? this.placeholder;
+                    }
+                }">
+
+                    <flux:dropdown position="bottom" align="start">
+
+                        <flux:button type="button" icon-trailing="chevron-down"
+                            class="w-[320px]! max-w-full justify-between! border-theme-accent-3! bg-brown-5! text-zinc-900! hover:bg-brown-5!">
+                            <span x-text="selectedName" class="truncate"></span>
+                        </flux:button>
+
+                        <flux:menu class="max-h-80 min-w-64 overflow-y-auto border-theme-accent-3! bg-brown-6!">
+
+                            <flux:menu.item as="button" type="button" x-on:click="selectedId = null"
+                                class="w-full cursor-pointer text-zinc-900! hover:bg-brown-5!">
+                                {{ __('Geen broneditie geselecteerd') }}
+                            </flux:menu.item>
+
+                            <flux:menu.separator />
+
+                            @foreach ($this->sourceEditions as $edition)
+                                <flux:menu.item as="button" type="button"
+                                    x-on:click="selectedId = {{ $edition->id }}"
+                                    class="w-full cursor-pointer text-zinc-900! hover:bg-brown-5!">
+                                    {{ $edition->edition_name }} ({{ $edition->edition_year }})
+                                </flux:menu.item>
+                            @endforeach
+
+                        </flux:menu>
+
+                    </flux:dropdown>
+
+                </div>
+
+                <flux:error name="source_edition_id" />
+            </flux:field>
+
+            {{-- Cataloguswaarden optioneel overnemen --}}
+            <flux:field>
+                <flux:checkbox wire:model="copy_catalog_values" :label="__('Cataloguswaarden ook overnemen')"
+                    class="[&_[data-flux-checkbox-indicator]]:bg-brown-5! [&_[data-flux-checkbox-indicator]]:border-theme-accent-3!" />
+
+                <flux:description>
+                    {{ __('Wanneer deze optie is geselecteerd, worden ook de toegestane cataloguswaarden uit de broneditie overgenomen.') }}
+                </flux:description>
+
+                <flux:error name="copy_catalog_values" />
+            </flux:field>
+
+        </div>
 
         {{-- Actieknoppen --}}
         <div class="flex flex-wrap items-center justify-end gap-3">
