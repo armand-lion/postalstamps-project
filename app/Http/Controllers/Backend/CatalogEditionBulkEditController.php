@@ -46,7 +46,7 @@ class CatalogEditionBulkEditController extends Controller
             ->get();
 
         foreach ($stamps as $stamp) {
-            $stamp->applicableConditionRules = $conditionRules
+            $applicableConditionRules = $conditionRules
                 ->filter(function ($rule) use ($stamp) {
                     return
                         ($rule->country_id === null || $rule->country_id === $stamp->country_id)
@@ -54,6 +54,8 @@ class CatalogEditionBulkEditController extends Controller
                         && ($rule->issue_year_to === null || $rule->issue_year_to >= $stamp->issue_year);
                 })
                 ->values();
+
+            $stamp->setRelation('applicableConditionRules', $applicableConditionRules);
         }
 
         return view('backend.catalog-editions.bulk-edit', [
@@ -94,7 +96,7 @@ class CatalogEditionBulkEditController extends Controller
                 __('Catalogusnummer').' - '.$stamp->name;
 
             foreach ($conditionsForValidation as $condition) {
-                $conditionName = $condition->translationWithFallback()?->name
+                $conditionName = $condition->translationWithFallback()->name
                     ?? $condition->slug;
 
                 $attributeNames["stamps.{$stamp->id}.values.{$condition->id}"] =
@@ -124,8 +126,15 @@ class CatalogEditionBulkEditController extends Controller
         foreach ($validated['stamps'] as $stampId => $stampData) {
             $catalogNumber = trim($stampData['catalog_number'] ?? '');
 
-            $hasCatalogValues = collect($stampData['values'] ?? [])
-                ->contains(fn ($value) => $value !== null && $value !== '');
+            $hasCatalogValues = false;
+
+            foreach ($stampData['values'] ?? [] as $value) {
+                if ($value !== null && $value !== '') {
+                    $hasCatalogValues = true;
+
+                    break;
+                }
+            }
 
             if ($catalogNumber === '' && $hasCatalogValues) {
                 throw ValidationException::withMessages([
@@ -212,8 +221,15 @@ class CatalogEditionBulkEditController extends Controller
                 $catalogNumber = trim($stampData['catalog_number'] ?? '');
 
                 // Controleer of er cataloguswaarden zijn ingevuld.
-                $hasCatalogValues = collect($stampData['values'] ?? [])
-                    ->contains(fn ($value) => $value !== null && $value !== '');
+                $hasCatalogValues = false;
+
+                foreach ($stampData['values'] ?? [] as $value) {
+                    if ($value !== null && $value !== '') {
+                        $hasCatalogValues = true;
+
+                        break;
+                    }
+                }
 
                 // Verwijder de cataloguskoppeling als alle velden leeg zijn.
                 if ($catalogEntry && $catalogNumber === '' && ! $hasCatalogValues) {
