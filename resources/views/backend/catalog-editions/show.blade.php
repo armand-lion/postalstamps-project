@@ -3,7 +3,8 @@
     <div class="flex flex-col gap-6 p-4 md:p-6">
 
         {{-- Paginakop --}}
-        <div class="flex flex-col justify-between gap-4 rounded-xl border border-theme-accent-3 bg-brown-6 p-5 sm:flex-row sm:items-center">
+        <div
+            class="flex flex-col justify-between gap-4 rounded-xl border border-theme-accent-3 bg-brown-6 p-5 sm:flex-row sm:items-center">
 
             <div>
                 <flux:heading size="xl" class="text-zinc-900!">
@@ -25,6 +26,12 @@
                 <flux:button :href="route('backend.catalogs.editions.index', $catalog)" variant="ghost" icon="arrow-left"
                     class="text-zinc-900!">
                     {{ __('Terug naar catalogusedities') }}
+                </flux:button>
+
+                {{-- Catalogusvolledigheid --}}
+                <flux:button :href="route('backend.catalogs.editions.completeness', [$catalog, $edition])"
+                    icon="chart-bar" class="border border-theme-accent-3! bg-brown-5! text-zinc-900! hover:bg-brown-6!">
+                    {{ __('Volledigheid bekijken') }}
                 </flux:button>
 
                 <flux:button :href="route('backend.catalogs.editions.edit', [$catalog, $edition])" variant="primary"
@@ -141,6 +148,12 @@
             <flux:button :href="route('backend.catalogs.editions.index', $catalog)" variant="ghost" icon="arrow-left"
                 class="text-zinc-900!">
                 {{ __('Terug naar catalogusedities') }}
+            </flux:button>
+
+            {{-- Catalogusvolledigheid --}}
+            <flux:button :href="route('backend.catalogs.editions.completeness', [$catalog, $edition])" icon="chart-bar"
+                class="border border-theme-accent-3! bg-brown-5! text-zinc-900! hover:bg-brown-6!">
+                {{ __('Volledigheid bekijken') }}
             </flux:button>
 
             <flux:button :href="route('backend.catalogs.editions.edit', [$catalog, $edition])" variant="primary"

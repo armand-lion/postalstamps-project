@@ -4,9 +4,22 @@
 
         <div class="space-y-6">
 
-            <flux:heading size="xl" class="text-white!">
-                {{ __('Catalogus volledigheid') }}
-            </flux:heading>
+            {{-- Paginatitel en bulkbewerking --}}
+            <div class="flex flex-wrap items-center justify-between gap-4">
+
+                <flux:heading size="xl" class="text-white!">
+                    {{ __('Catalogus volledigheid') }}
+                </flux:heading>
+
+                <flux:button :href="route('backend.catalogs.editions.bulk-edit', [$catalog, $edition])"
+                    icon="pencil-square"
+                    class="border border-theme-accent-3! bg-brown-5! text-zinc-900! hover:bg-brown-6!">
+
+                    {{ __('Catalogusgegevens in bulk bewerken') }}
+
+                </flux:button>
+
+            </div>
 
             <section class="rounded-xl border border-theme-accent-3 bg-brown-5 p-6">
 
@@ -209,8 +222,8 @@
                 </div>
                 {{-- Einde filters --}}
 
-                
-                {{-- Statistieken catalogusvolledigheid --}}
+
+                {{-- Statistieken catalogus volledigheid --}}
                 <div class="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                     {{-- Totaal aantal relevante postzegels --}}
                     <div class="rounded-xl border border-theme-accent-3 bg-brown-6 p-5">
