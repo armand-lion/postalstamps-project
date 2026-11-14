@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Backend\CatalogController;
+use App\Http\Controllers\Backend\CatalogEditionBulkEditController;
 use App\Http\Controllers\Backend\CatalogEditionController;
 use App\Http\Controllers\Backend\CollectibleController;
 use App\Http\Controllers\Backend\CollectibleCopyController;
@@ -78,6 +79,17 @@ Route::middleware(['auth'])->group(function () { //
                 ->only(['store', 'update', 'destroy']);
 
             // Catalogusedities
+
+            // Bulkbewerking van catalogusnummers en cataloguswaarden.
+            Route::get(
+                'catalogs/{catalog}/editions/{edition}/bulk-edit',
+                [CatalogEditionBulkEditController::class, 'edit']
+            )->name('catalogs.editions.bulk-edit');
+            Route::patch(
+                'catalogs/{catalog}/editions/{edition}/bulk-edit',
+                [CatalogEditionBulkEditController::class, 'update']
+            )->name('catalogs.editions.bulk-update');
+
             Route::resource('catalogs.editions', CatalogEditionController::class);
         });
 });

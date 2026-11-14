@@ -3,18 +3,19 @@
     <div class="flex flex-col gap-6 p-4 md:p-6">
 
         {{-- Paginakop --}}
-        <div class="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+        <div class="flex flex-col justify-between gap-4 sm:flex-row sm:items-center rounded-xl border border-theme-accent-3 bg-brown-6 p-5">
 
             <div>
+                <flux:text class="mt-1 text-zinc-900!">
                 <flux:heading size="xl">
                     {{ __('Cataloguseditie bewerken') }}
                 </flux:heading>
 
-                <flux:text class="mt-2">
+                <flux:text class="mt-2 text-zinc-600!">
                     {{ __('Wijzig de gegevens van de geselecteerde cataloguseditie.') }}
                 </flux:text>
 
-                <flux:text class="mt-1 font-medium">
+                <flux:text class="mt-1 font-medium text-zinc-900!">
                     {{ $catalog->name }}
                 </flux:text>
             </div>

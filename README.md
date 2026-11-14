@@ -818,7 +818,7 @@ Planned features:
 
 ### Part B — Catalog Edition Duplication
 
-**Status:** ⏳ Planned
+**Status:** ✅ Completed
 
 **Objective:** Simplify the creation of new catalog editions by copying information from an existing edition.
 
@@ -1065,3 +1065,29 @@ The implementation will follow a structured, incremental approach.
 - Keep new functionality compatible with existing catalog editions, valuation conditions, and historical valuation features.
 
 **Overall Goal:** Provide a scalable and user-friendly catalog management system capable of efficiently handling thousands of stamps and multiple catalog editions.
+
+### Centralized Currency Management
+
+Status: ⏳ Planned
+
+**Objective:** Centralize currency management across the application, including support for historical currencies and multilingual currency names.
+
+Existing implementation:
+
+- Currency and CurrencyTranslation models are already available.
+- Database migrations for currencies and currency translations exist.
+- Several forms already contain currency dropdowns.
+- Some dropdowns already support historical currencies, including the Dutch guilder (NLG).
+
+Planned improvements:
+
+- Reuse and extend the existing currencies table.
+- Support both current and historical currencies.
+- Use currency translations for multilingual display names.
+- Develop a reusable currency dropdown component.
+- Allow catalog editions to use their original currency, such as NLG or EUR.
+- Reuse the centralized currency selection for catalog values, purchases and personal valuations.
+- Investigate user-specific preferred currencies and optional currency conversion.
+- Preserve existing currency data during future database changes.
+
+**Priority:** Future development phase. No implementation changes required at this stage.
