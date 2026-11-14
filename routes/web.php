@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Backend\CatalogController;
 use App\Http\Controllers\Backend\CatalogEditionBulkEditController;
+use App\Http\Controllers\Backend\CatalogEditionCompletenessController;
 use App\Http\Controllers\Backend\CatalogEditionController;
 use App\Http\Controllers\Backend\CollectibleController;
 use App\Http\Controllers\Backend\CollectibleCopyController;
@@ -79,6 +80,12 @@ Route::middleware(['auth'])->group(function () { //
                 ->only(['store', 'update', 'destroy']);
 
             // Catalogusedities
+
+            // Dashboard voor de volledigheid van catalogusgegevens.
+            Route::get(
+                'catalogs/{catalog}/editions/{edition}/completeness',
+                [CatalogEditionCompletenessController::class, 'index']
+            )->name('catalogs.editions.completeness');
 
             // Bulkbewerking van catalogusnummers en cataloguswaarden.
             Route::get(
