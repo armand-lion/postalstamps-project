@@ -28,7 +28,7 @@
                     {{ __('Terug naar catalogusedities') }}
                 </flux:button>
 
-                {{-- Catalogusvolledigheid --}}
+                {{-- Catalogus volledigheid --}}
                 <flux:button :href="route('backend.catalogs.editions.completeness', [$catalog, $edition])"
                     icon="chart-bar" class="border border-theme-accent-3! bg-brown-5! text-zinc-900! hover:bg-brown-6!">
                     {{ __('Volledigheid bekijken') }}
@@ -38,9 +38,14 @@
                 <flux:button :href="route('backend.catalogs.editions.export', [$catalog, $edition])"
                     icon="arrow-down-tray"
                     class="border border-theme-accent-3! bg-brown-5! text-zinc-900! hover:bg-brown-6!">
-
                     {{ __('CSV exporteren') }}
+                </flux:button>
 
+                {{-- Excel-export cataloguseditie --}}
+                <flux:button :href="route('backend.catalogs.editions.export.excel', [$catalog, $edition])"
+                    icon="arrow-down-tray"
+                    class="border border-theme-accent-3! bg-brown-5! text-zinc-900! hover:bg-brown-6!">
+                    {{ __('Excel exporteren') }}
                 </flux:button>
 
                 {{-- Cataloguswaarden controleren --}}

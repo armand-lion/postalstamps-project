@@ -2,9 +2,12 @@
 
 namespace App\Http\Controllers\Backend;
 
+use App\Exports\CatalogEditionExcelExport;
 use App\Http\Controllers\Controller;
 use App\Models\Catalog;
 use App\Models\CatalogEdition;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class CatalogEditionExportController extends Controller
@@ -115,6 +118,24 @@ class CatalogEditionExportController extends Controller
             [
                 'Content-Type' => 'text/csv; charset=UTF-8',
             ]
+        );
+    }
+
+    /**
+     * Exporteer de catalogusgegevens van een cataloguseditie naar Excel.
+     */
+    public function exportExcel(Catalog $catalog, CatalogEdition $edition): BinaryFileResponse
+    {
+        // Controleer of de editie bij deze catalogus hoort.
+        abort_unless(
+            $edition->catalog_id === $catalog->id,
+            404
+        );
+
+        // Genereer het Excel-bestand.
+        return Excel::download(
+            new CatalogEditionExcelExport($catalog, $edition),
+            'catalogus-'.$catalog->id.'-editie-'.$edition->id.'.xlsx'
         );
     }
 }

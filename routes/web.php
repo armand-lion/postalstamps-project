@@ -75,6 +75,7 @@ Route::middleware(['auth'])->group(function () { //
             Route::resource('collectible-copies', CollectibleCopyController::class)
                 ->only(['index', 'create', 'store', 'edit', 'update', 'destroy'])
                 ->parameters(['collectible-copies' => 'collectibleCopy']);
+
             // Overzicht van verzamelobjecttypen.
             Route::resource('collectible-types', CollectibleTypeController::class)
                 ->except(['show'])
@@ -121,6 +122,12 @@ Route::middleware(['auth'])->group(function () { //
                 'catalogs/{catalog}/editions/{edition}/export',
                 [CatalogEditionExportController::class, 'export']
             )->name('catalogs.editions.export');
+
+            // Excel-export van een cataloguseditie.
+            Route::get(
+                'catalogs/{catalog}/editions/{edition}/export/excel',
+                [CatalogEditionExportController::class, 'exportExcel']
+            )->name('catalogs.editions.export.excel');
 
             Route::resource('catalogs.editions', CatalogEditionController::class);
         });
