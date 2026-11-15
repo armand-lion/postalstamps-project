@@ -223,9 +223,18 @@ test('cataloguswaarden worden inclusief nulwaarden gekopieerd', function () {
         ->and($values[$postfris->id]->catalog_value)->toBe('15.75')
         ->and($values[$postfris->id]->currency)->toBe('EUR')
         ->and($values[$postfris->id]->notes)->toBe('Waarde postfris')
+        ->and($values[$postfris->id]->needs_review)->toBeTrue()
         ->and($values[$gestempeld->id]->catalog_value)->toBe('0.00')
         ->and($values[$gestempeld->id]->currency)->toBe('EUR')
-        ->and($values[$gestempeld->id]->notes)->toBe('Waarde gestempeld');
+        ->and($values[$gestempeld->id]->notes)->toBe('Waarde gestempeld')
+        ->and($values[$gestempeld->id]->needs_review)->toBeTrue();
+
+    $sourceValues = $sourceEntry->values()
+        ->get()
+        ->keyBy('condition_id');
+
+    expect($sourceValues[$postfris->id]->needs_review)->toBeFalse()
+        ->and($sourceValues[$gestempeld->id]->needs_review)->toBeFalse();
 });
 
 test('cataloguswaarden worden niet gekopieerd wanneer deze optie is uitgeschakeld', function () {

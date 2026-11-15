@@ -8,6 +8,7 @@ use App\Http\Controllers\Backend\CollectibleController;
 use App\Http\Controllers\Backend\CollectibleCopyController;
 use App\Http\Controllers\Backend\CollectibleTypeController;
 use App\Http\Controllers\Backend\CountryController;
+use App\Http\Controllers\Backend\StampCatalogValueReviewController;
 use App\Http\Controllers\Backend\StampController;
 use App\Http\Controllers\Backend\StampCopyController;
 use App\Http\Controllers\Backend\StampCopyImageController;
@@ -45,6 +46,14 @@ Route::middleware(['auth'])->group(function () { //
             Route::resource('themes', ThemeController::class);
             Route::resource('watermarks', WatermarkController::class);
             Route::resource('stamps', StampController::class);
+
+            Route::patch(
+                'stamp-catalog-values/{stampCatalogValue}/review',
+                [StampCatalogValueReviewController::class, 'update']
+            )
+                ->middleware('admin')
+                ->name('stamp-catalog-values.review');
+
             Route::resource('stamp-copies', StampCopyController::class)
                 ->parameters(['stamp-copies' => 'stampCopy']);
 

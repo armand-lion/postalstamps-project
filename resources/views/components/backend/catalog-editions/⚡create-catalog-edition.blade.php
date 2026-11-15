@@ -23,6 +23,8 @@ new class extends Component {
 
     public bool $copy_catalog_values = false;
 
+    public bool $duplication_confirmed = false;
+
     public function mount(Catalog $catalog): void
     {
         $this->catalog = $catalog;
@@ -33,8 +35,94 @@ new class extends Component {
         return $this->catalog->editions()->orderByDesc('edition_year')->orderBy('edition_name')->get();
     }
 
+    public function getDuplicationPreviewProperty(): ?array
+    {
+        if ($this->source_edition_id === null) {
+            return null;
+        }
+
+        $sourceEdition = $this->catalog->editions()->find($this->source_edition_id);
+
+        if ($sourceEdition === null) {
+            return null;
+        }
+
+        return [
+            'edition_name' => $sourceEdition->edition_name,
+            'edition_year' => $sourceEdition->edition_year,
+            'stamp_entries' => $sourceEdition->stampEntries()->count(),
+            'catalog_values' => $sourceEdition->stampValues()->count(),
+        ];
+    }
+
+    private function duplicationConfirmationHash(): string
+    {
+        return hash(
+            'sha256',
+            json_encode(
+                [
+                    'catalog_id' => $this->catalog->id,
+                    'edition_name' => $this->edition_name,
+                    'edition_year' => $this->edition_year,
+                    'publication_date' => $this->publication_date,
+                    'currency' => $this->currency,
+                    'notes' => $this->notes,
+                    'source_edition_id' => $this->source_edition_id,
+                    'copy_catalog_values' => $this->copy_catalog_values,
+                ],
+                JSON_THROW_ON_ERROR,
+            ),
+        );
+    }
+
+    private function duplicationConfirmationSessionKey(): string
+    {
+        return 'catalog_edition_duplication_pending.' . $this->getId();
+    }
+
+    public function cancelDuplication(): void
+    {
+        session()->forget($this->duplicationConfirmationSessionKey());
+
+        $this->modal('confirm-catalog-edition-duplication')->close();
+    }
+
     public function save()
     {
+        // Zonder broneditie blijft de bestaande opslagprocedure behouden.
+        if ($this->source_edition_id === null) {
+            return $this->confirmSave();
+        }
+
+        // Controleer eerst de formuliergegevens.
+        $this->edition_name = trim($this->edition_name);
+        $this->notes = trim($this->notes);
+
+        $this->validate([
+            'edition_name' => ['required', 'string', 'max:150', Rule::unique('catalog_editions', 'edition_name')->where('catalog_id', $this->catalog->id)->where('edition_year', $this->edition_year)],
+            'edition_year' => ['required', 'integer', 'between:1,65535'],
+            'publication_date' => ['nullable', 'date'],
+            'currency' => ['nullable', 'string', 'size:3'],
+            'notes' => ['nullable', 'string'],
+            'source_edition_id' => ['required', 'integer', Rule::exists('catalog_editions', 'id')->where('catalog_id', $this->catalog->id)],
+            'copy_catalog_values' => ['boolean'],
+        ]);
+
+        // Registreer server-side dat de gegevens zijn gevalideerd.
+        session()->put($this->duplicationConfirmationSessionKey(), $this->duplicationConfirmationHash());
+
+        // Open de bevestigingsmodal na succesvolle validatie.
+        $this->modal('confirm-catalog-edition-duplication')->show();
+    }
+
+    public function confirmSave()
+    {
+        if ($this->source_edition_id !== null) {
+            $expectedHash = session()->pull($this->duplicationConfirmationSessionKey());
+
+            abort_unless(is_string($expectedHash) && hash_equals($expectedHash, $this->duplicationConfirmationHash()), 403);
+        }
+
         // Verwijder ongewenste witruimte vóór de validatie.
         $this->edition_name = trim($this->edition_name);
         $this->notes = trim($this->notes);
@@ -286,7 +374,7 @@ new class extends Component {
                 </flux:label>
 
                 <div x-data="{
-                    selectedId: $wire.entangle('source_edition_id'),
+                    selectedId: $wire.entangle('source_edition_id').live,
                     editions: @js(
     $this->sourceEditions
         ->map(
@@ -309,7 +397,7 @@ new class extends Component {
                     <flux:dropdown position="bottom" align="start">
 
                         <flux:button type="button" icon-trailing="chevron-down"
-                            class="w-[320px]! max-w-full justify-between! border-theme-accent-3! bg-brown-5! text-zinc-900! hover:bg-brown-5!">
+                            class="w-[340px]! max-w-full justify-between! border-theme-accent-3! bg-brown-5! text-zinc-900! hover:bg-brown-5!">
                             <span x-text="selectedName" class="truncate"></span>
                         </flux:button>
 
@@ -339,9 +427,73 @@ new class extends Component {
                 <flux:error name="source_edition_id" />
             </flux:field>
 
+            {{-- Voorbeeldweergave duplicatie --}}
+            @if ($this->duplicationPreview)
+                <div class="rounded-lg border border-theme-accent-3 bg-brown-5 p-4">
+
+                    <flux:heading size="md" class="mb-3">
+                        {{ __('Voorbeeldweergave over te nemen gegevens') }}
+                    </flux:heading>
+
+                    <div class="grid gap-4 sm:grid-cols-2">
+
+                        {{-- Broneditie --}}
+                        <div>
+                            <flux:text class="font-medium">
+                                {{ __('Broneditie') }}
+                            </flux:text>
+
+                            <flux:text>
+                                {{ $this->duplicationPreview['edition_name'] }}
+                                ({{ $this->duplicationPreview['edition_year'] }})
+                            </flux:text>
+                        </div>
+
+                        {{-- Postzegelvermeldingen --}}
+                        <div>
+                            <flux:text class="font-medium">
+                                {{ __('Postzegelvermeldingen') }}
+                            </flux:text>
+
+                            <flux:text>
+                                {{ $this->duplicationPreview['stamp_entries'] }}
+                            </flux:text>
+                        </div>
+
+                        {{-- Cataloguswaarden --}}
+                        <div>
+                            <flux:text class="font-medium">
+                                {{ __('Beschikbare cataloguswaarden') }}
+                            </flux:text>
+
+                            <flux:text>
+                                {{ $this->duplicationPreview['catalog_values'] }}
+                            </flux:text>
+                        </div>
+
+                        {{-- Cataloguswaarden overnemen --}}
+                        <div>
+                            <flux:text class="font-medium">
+                                {{ __('Cataloguswaarden overnemen') }}
+                            </flux:text>
+
+                            <flux:text>
+                                {{ $copy_catalog_values ? __('Ja') : __('Nee') }}
+                            </flux:text>
+                        </div>
+
+                    </div>
+
+                    <flux:text class="mt-4 text-sm">
+                        {{ __('Dit overzicht toont de beschikbare gegevens uit de broneditie. Alleen toegestane cataloguswaarden worden daadwerkelijk gekopieerd.') }}
+                    </flux:text>
+
+                </div>
+            @endif
+
             {{-- Cataloguswaarden optioneel overnemen --}}
             <flux:field>
-                <flux:checkbox wire:model="copy_catalog_values" :label="__('Cataloguswaarden ook overnemen')"
+                <flux:checkbox wire:model.live="copy_catalog_values" :label="__('Cataloguswaarden ook overnemen')"
                     class="[&_[data-flux-checkbox-indicator]]:bg-brown-5! [&_[data-flux-checkbox-indicator]]:border-theme-accent-3!" />
 
                 <flux:description>
@@ -363,12 +515,103 @@ new class extends Component {
             </flux:button>
 
             {{-- Cataloguseditie opslaan --}}
-            <flux:button type="submit" variant="primary" icon="check" wire:loading.attr="disabled" wire:target="save"
-                class="bg-brown-2!">
+            <flux:button type="submit" variant="primary" icon="check" wire:loading.attr="disabled"
+                wire:target="save" class="bg-brown-2!">
                 {{ __('Cataloguseditie opslaan') }}
             </flux:button>
 
         </div>
 
     </form>
+
+
+    {{-- Bevestiging cataloguseditie dupliceren --}}
+    <flux:modal name="confirm-catalog-edition-duplication" class="md:w-[480px] bg-brown-3!" :dismissible="false"
+        :escapable="false" :closable="false">
+
+        <div class="space-y-6">
+
+            <div>
+                <flux:heading size="lg">
+                    {{ __('Cataloguseditie dupliceren') }}
+                </flux:heading>
+
+                <flux:text class="mt-2 text-white">
+                    {{ __('Controleer onderstaande gegevens voordat je de nieuwe cataloguseditie aanmaakt.') }}
+                </flux:text>
+            </div>
+
+            @if ($this->duplicationPreview)
+                <div class="space-y-3 rounded-lg border border-theme-accent-3 bg-brown-5 p-4">
+
+                    {{-- Broneditie --}}
+                    <div>
+                        <flux:text class="font-medium">
+                            {{ __('Broneditie') }}
+                        </flux:text>
+
+                        <flux:text>
+                            {{ $this->duplicationPreview['edition_name'] }}
+                            ({{ $this->duplicationPreview['edition_year'] }})
+                        </flux:text>
+                    </div>
+
+                    {{-- Nieuwe editie --}}
+                    <div>
+                        <flux:text class="font-medium">
+                            {{ __('Nieuwe editie') }}
+                        </flux:text>
+
+                        <flux:text>
+                            {{ $edition_name }} ({{ $edition_year }})
+                        </flux:text>
+                    </div>
+
+                    {{-- Postzegelvermeldingen --}}
+                    <div>
+                        <flux:text class="font-medium">
+                            {{ __('Over te nemen postzegelvermeldingen') }}
+                        </flux:text>
+
+                        <flux:text>
+                            {{ $this->duplicationPreview['stamp_entries'] }}
+                        </flux:text>
+                    </div>
+
+                    {{-- Cataloguswaarden --}}
+                    <div>
+                        <flux:text class="font-medium">
+                            {{ __('Cataloguswaarden overnemen') }}
+                        </flux:text>
+
+                        <flux:text>
+                            {{ $copy_catalog_values ? __('Ja') : __('Nee') }}
+                        </flux:text>
+                    </div>
+
+                </div>
+            @endif
+
+            <flux:text class="text-sm text-white">
+                {{ __('Alleen toegestane cataloguswaarden worden gekopieerd. Bestaande catalogusgegevens worden niet overschreven.') }}
+            </flux:text>
+
+            {{-- Actieknoppen --}}
+            <div class="flex justify-end gap-3">
+
+                {{-- Annuleren --}}
+                <flux:button type="button" variant="ghost" wire:click="cancelDuplication">
+                    {{ __('Annuleren') }}
+                </flux:button>
+
+                {{-- Duplicatie bevestigen --}}
+                <flux:button type="button" variant="primary" icon="check" wire:click="confirmSave"
+                    wire:loading.attr="disabled" wire:target="confirmSave" class="bg-brown-2!">
+                    {{ __('Dupliceren en opslaan') }}
+                </flux:button>
+
+            </div>
+
+        </div>
+    </flux:modal>
 </div>

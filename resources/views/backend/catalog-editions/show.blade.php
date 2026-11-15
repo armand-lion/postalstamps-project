@@ -142,6 +142,66 @@
 
         </section>
 
+        {{-- Controleoverzicht cataloguswaarden --}}
+        <section class="overflow-hidden rounded-xl border border-theme-accent-3 bg-brown-5">
+
+            <div class="border-b border-theme-accent-3 bg-brown-6 px-4 py-3">
+
+                <flux:heading size="lg" class="text-zinc-900!">
+                    {{ __('Controleoverzicht cataloguswaarden') }}
+                </flux:heading>
+
+                <flux:text class="mt-1 text-zinc-900!">
+                    {{ __('Overzicht van cataloguswaarden die nog gecontroleerd moeten worden.') }}
+                </flux:text>
+
+            </div>
+
+            <div class="grid gap-4 p-4 md:grid-cols-3">
+
+                {{-- Nog controleren --}}
+                <div class="rounded-lg border border-amber-300 bg-amber-50 p-4">
+
+                    <flux:text class="font-medium text-amber-900!">
+                        {{ __('Nog controleren') }}
+                    </flux:text>
+
+                    <flux:heading size="xl" class="mt-2 text-amber-900!">
+                        {{ $valuesNeedingReview }}
+                    </flux:heading>
+
+                </div>
+
+                {{-- Geen controlemarkering --}}
+                <div class="rounded-lg border border-green-300 bg-green-50 p-4">
+
+                    <flux:text class="font-medium text-green-900!">
+                        {{ __('Geen controlemarkering') }}
+                    </flux:text>
+
+                    <flux:heading size="xl" class="mt-2 text-green-900!">
+                        {{ $reviewedCatalogValues }}
+                    </flux:heading>
+
+                </div>
+
+                {{-- Totaal --}}
+                <div class="rounded-lg border border-theme-accent-3 bg-brown-6 p-4">
+
+                    <flux:text class="font-medium text-zinc-900!">
+                        {{ __('Totaal cataloguswaarden') }}
+                    </flux:text>
+
+                    <flux:heading size="xl" class="mt-2 text-zinc-900!">
+                        {{ $totalCatalogValues }}
+                    </flux:heading>
+
+                </div>
+
+            </div>
+
+        </section>
+
         {{-- Navigatieknoppen onderaan --}}
         <div class="flex flex-wrap justify-end gap-3 rounded-xl border border-theme-accent-3 bg-brown-6 p-5">
 

@@ -641,8 +641,11 @@
                                                             $condition->translationWithFallback()?->name ??
                                                             $conditionSlug;
 
-                                                        $existingValue = $catalogValuesByCondition->get($conditionSlug)
-                                                            ?->catalog_value;
+                                                        $catalogValue = $catalogValuesByCondition->get($conditionSlug);
+
+                                                        $existingValue = $catalogValue?->catalog_value;
+
+                                                        $needsReview = $catalogValue?->needs_review ?? false;
 
                                                         $isApplicable = $applicableConditionRules->contains(
                                                             'condition_id',
@@ -726,6 +729,32 @@
                                                                     </button>
                                                                 </div>
                                                             </div>
+
+                                                            {{-- Controlemarkering gekopieerde cataloguswaarde --}}
+                                                            @if ($needsReview)
+                                                                <div class="mt-2 space-y-2">
+
+                                                                    <div
+                                                                        class="flex items-center gap-1 text-xs font-medium text-amber-700">
+                                                                        <flux:icon.exclamation-triangle
+                                                                            class="size-4 shrink-0" />
+
+                                                                        <span>
+                                                                            {{ __('Nog controleren') }}
+                                                                        </span>
+                                                                    </div>
+
+                                                                    <button type="submit"
+                                                                        form="review-catalog-value-{{ $catalogValue->id }}"
+                                                                        class="inline-flex items-center gap-1 rounded-lg border border-theme-accent-3! bg-brown-5! px-2 py-1 text-xs font-medium text-zinc-900! hover:bg-brown-6!">
+
+                                                                        <flux:icon.check class="size-4" />
+
+                                                                        {{ __('Als gecontroleerd markeren') }}
+                                                                    </button>
+
+                                                                </div>
+                                                            @endif
                                                         </div>
 
                                                         <span x-show="!isApplicable" x-cloak class="text-zinc-400">
@@ -873,6 +902,17 @@
             </div>
 
         </form>
+
+        {{-- Afzonderlijke formulieren voor controle van gekopieerde cataloguswaarden --}}
+        @foreach ($stamp->catalogEntries as $catalogEntry)
+            @foreach ($catalogEntry->values->where('needs_review', true) as $catalogValue)
+                <form id="review-catalog-value-{{ $catalogValue->id }}" method="POST"
+                    action="{{ route('backend.stamp-catalog-values.review', $catalogValue) }}">
+                    @csrf
+                    @method('PATCH')
+                </form>
+            @endforeach
+        @endforeach
 
         {{-- Postzegelafbeeldingen --}}
         <div class="rounded-lg border border-theme-accent-1 bg-brown-6 p-4 md:p-6">

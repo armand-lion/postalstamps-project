@@ -130,6 +130,7 @@ class CatalogEditionDuplicationService
                                 'catalog_value' => $sourceValue->catalog_value,
                                 'currency' => $sourceValue->currency,
                                 'notes' => $sourceValue->notes,
+                                'needs_review' => true,
                             ]);
                         }
                     }

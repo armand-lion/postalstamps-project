@@ -88,10 +88,24 @@ class CatalogEditionController extends Controller
             404
         );
 
+        // Tel de cataloguswaarden die nog gecontroleerd moeten worden.
+        $valuesNeedingReview = $edition->stampValues()
+            ->where('needs_review', true)
+            ->count();
+
+        // Tel alle cataloguswaarden van deze editie.
+        $totalCatalogValues = $edition->stampValues()->count();
+
+        // Bereken het aantal gecontroleerde cataloguswaarden.
+        $reviewedCatalogValues = $totalCatalogValues - $valuesNeedingReview;
+
         // Toon de detailpagina van de cataloguseditie.
         return view('backend.catalog-editions.show', [
             'catalog' => $catalog,
             'edition' => $edition,
+            'valuesNeedingReview' => $valuesNeedingReview,
+            'reviewedCatalogValues' => $reviewedCatalogValues,
+            'totalCatalogValues' => $totalCatalogValues,
         ]);
     }
 

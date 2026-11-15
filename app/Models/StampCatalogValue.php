@@ -13,12 +13,14 @@ class StampCatalogValue extends Model
         'catalog_value',
         'currency',
         'notes',
+        'needs_review',
     ];
 
     protected function casts(): array
     {
         return [
             'catalog_value' => 'decimal:2',
+            'needs_review' => 'boolean',
         ];
     }
 
