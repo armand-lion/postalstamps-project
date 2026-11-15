@@ -25,6 +25,18 @@ class StampCatalogValue extends Model
     }
 
     /**
+     * Markeer gewijzigde cataloguswaarden opnieuw voor controle.
+     */
+    protected static function booted(): void
+    {
+        static::updating(function (StampCatalogValue $catalogValue): void {
+            if ($catalogValue->isDirty('catalog_value')) {
+                $catalogValue->needs_review = true;
+            }
+        });
+    }
+
+    /**
      * @return BelongsTo<StampCatalogEntry, $this>
      */
     public function catalogEntry(): BelongsTo

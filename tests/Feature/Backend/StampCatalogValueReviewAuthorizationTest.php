@@ -111,3 +111,60 @@ test('een beheerder passeert de autorisatiecontrole', function () {
         )
         ->assertNotFound();
 });
+
+test('een gewijzigde cataloguswaarde moet opnieuw gecontroleerd worden', function () {
+    $stamp = Stamp::factory()->create();
+
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus controlemarkering',
+        'abbreviation' => 'TCC',
+    ]);
+
+    $catalog->countries()->attach($stamp->country_id);
+
+    $edition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2026',
+        'edition_year' => 2026,
+    ]);
+
+    $entry = $stamp->catalogEntries()->create([
+        'catalog_edition_id' => $edition->id,
+        'catalog_number' => '123a',
+    ]);
+
+    $condition = Condition::create([
+        'slug' => 'postfris',
+        'sort_order' => 1,
+        'is_active' => true,
+    ]);
+
+    $catalogValue = StampCatalogValue::create([
+        'stamp_catalog_entry_id' => $entry->id,
+        'condition_id' => $condition->id,
+        'catalog_value' => 10.00,
+        'currency' => 'EUR',
+        'needs_review' => false,
+    ]);
+
+    // Een gewijzigd bedrag moet opnieuw gecontroleerd worden.
+    $catalogValue->update([
+        'catalog_value' => 12.50,
+    ]);
+
+    expect($catalogValue->fresh()->needs_review)->toBeTrue();
+
+    // Markeer de waarde opnieuw als gecontroleerd.
+    $catalogValue->update([
+        'needs_review' => false,
+    ]);
+
+    expect($catalogValue->fresh()->needs_review)->toBeFalse();
+
+    // Hetzelfde bedrag opnieuw opslaan mag de status niet wijzigen.
+    $catalogValue->update([
+        'catalog_value' => 12.50,
+    ]);
+
+    expect($catalogValue->fresh()->needs_review)->toBeFalse();
+});

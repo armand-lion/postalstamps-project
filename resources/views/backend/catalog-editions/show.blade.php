@@ -34,6 +34,21 @@
                     {{ __('Volledigheid bekijken') }}
                 </flux:button>
 
+                {{-- Cataloguswaarden controleren --}}
+                @if (auth()->user()?->is_admin && $valuesNeedingReview > 0)
+                    <flux:button :href="route('backend.catalogs.editions.review', [$catalog, $edition])"
+                        icon="clipboard-document-check"
+                        class="border border-amber-400! bg-amber-50! text-amber-900! hover:bg-amber-100!">
+
+                        {{ __('Te controleren waarden') }}
+
+                        <span class="ml-1 font-semibold">
+                            ({{ $valuesNeedingReview }})
+                        </span>
+
+                    </flux:button>
+                @endif
+
                 <flux:button :href="route('backend.catalogs.editions.edit', [$catalog, $edition])" variant="primary"
                     icon="pencil" class="bg-brown-1 hover:bg-brown-2">
                     {{ __('Bewerken') }}

@@ -4,6 +4,7 @@ use App\Http\Controllers\Backend\CatalogController;
 use App\Http\Controllers\Backend\CatalogEditionBulkEditController;
 use App\Http\Controllers\Backend\CatalogEditionCompletenessController;
 use App\Http\Controllers\Backend\CatalogEditionController;
+use App\Http\Controllers\Backend\CatalogEditionReviewController;
 use App\Http\Controllers\Backend\CollectibleController;
 use App\Http\Controllers\Backend\CollectibleCopyController;
 use App\Http\Controllers\Backend\CollectibleTypeController;
@@ -95,6 +96,14 @@ Route::middleware(['auth'])->group(function () { //
                 'catalogs/{catalog}/editions/{edition}/completeness',
                 [CatalogEditionCompletenessController::class, 'index']
             )->name('catalogs.editions.completeness');
+
+            // Overzicht van cataloguswaarden die nog gecontroleerd moeten worden.
+            Route::get(
+                'catalogs/{catalog}/editions/{edition}/review',
+                [CatalogEditionReviewController::class, 'index']
+            )
+                ->middleware('admin')
+                ->name('catalogs.editions.review');
 
             // Bulkbewerking van catalogusnummers en cataloguswaarden.
             Route::get(
