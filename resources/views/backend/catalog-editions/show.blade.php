@@ -34,6 +34,15 @@
                     {{ __('Volledigheid bekijken') }}
                 </flux:button>
 
+                {{-- CSV-export cataloguseditie --}}
+                <flux:button :href="route('backend.catalogs.editions.export', [$catalog, $edition])"
+                    icon="arrow-down-tray"
+                    class="border border-theme-accent-3! bg-brown-5! text-zinc-900! hover:bg-brown-6!">
+
+                    {{ __('CSV exporteren') }}
+
+                </flux:button>
+
                 {{-- Cataloguswaarden controleren --}}
                 @if (auth()->user()?->is_admin && $valuesNeedingReview > 0)
                     <flux:button :href="route('backend.catalogs.editions.review', [$catalog, $edition])"

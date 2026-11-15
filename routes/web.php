@@ -4,6 +4,7 @@ use App\Http\Controllers\Backend\CatalogController;
 use App\Http\Controllers\Backend\CatalogEditionBulkEditController;
 use App\Http\Controllers\Backend\CatalogEditionCompletenessController;
 use App\Http\Controllers\Backend\CatalogEditionController;
+use App\Http\Controllers\Backend\CatalogEditionExportController;
 use App\Http\Controllers\Backend\CatalogEditionReviewController;
 use App\Http\Controllers\Backend\CollectibleController;
 use App\Http\Controllers\Backend\CollectibleCopyController;
@@ -114,6 +115,12 @@ Route::middleware(['auth'])->group(function () { //
                 'catalogs/{catalog}/editions/{edition}/bulk-edit',
                 [CatalogEditionBulkEditController::class, 'update']
             )->name('catalogs.editions.bulk-update');
+
+            // CSV-export van een cataloguseditie.
+            Route::get(
+                'catalogs/{catalog}/editions/{edition}/export',
+                [CatalogEditionExportController::class, 'export']
+            )->name('catalogs.editions.export');
 
             Route::resource('catalogs.editions', CatalogEditionController::class);
         });
