@@ -100,7 +100,7 @@ class CatalogEditionExportController extends Controller
                         foreach ($entry->values as $value) {
                             fputcsv($handle, [
                                 ...$baseRow,
-                                $value->condition?->slug ?? '',
+                                $value->condition->slug ?? '',
                                 $value->catalog_value,
                                 $value->currency,
                                 (int) $value->needs_review,
