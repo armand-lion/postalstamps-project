@@ -36,6 +36,9 @@ test('een lege cataloguseditie kan naar Excel worden geëxporteerd', function ()
         'edition_year' => 2026,
     ]);
 
+    // Maak de bestaande outputbuffer leeg voordat Laravel Excel wordt aangeroepen.
+    ob_clean();
+
     $response = $this->actingAs($user)->get(
         route('backend.catalogs.editions.export.excel', [
             $catalog,
@@ -46,45 +49,58 @@ test('een lege cataloguseditie kan naar Excel worden geëxporteerd', function ()
     $response->assertOk();
 
     $response->assertDownload(
-        'catalogus-'.$catalog->id.'-editie-'.$edition->id.'.xlsx'
+        'catalogus-'.$catalog->id.'-editie-'.$edition->id.'-uitwisseling-v1.1.xlsx'
     );
 
-    // Lees het gegenereerde Excel-bestand.
     $spreadsheet = IOFactory::load(
         $response->baseResponse->getFile()->getPathname()
     );
 
     try {
-        $worksheet = $spreadsheet->getActiveSheet();
+        // Het uitwisselingsformaat v1.1 bevat 18 werkbladen.
+        expect($spreadsheet->getSheetCount())->toBe(18);
 
-        // Lees de 15 kolomkoppen uit de eerste rij.
+        // Controleer het werkblad met postzegels.
+        $worksheet = $spreadsheet->getSheetByName('Postzegels');
+
+        expect($worksheet)->not->toBeNull();
+
+        // Controleer de 17 kolomkoppen.
         $headers = $worksheet->rangeToArray(
-            'A1:O1',
+            'A1:Q1',
             null,
             true,
             false
         )[0];
 
         expect($headers)->toBe([
-            'stamp_id',
-            'country_id',
-            'stamp_name',
-            'issue_year',
-            'catalog_id',
-            'catalog_name',
-            'catalog_abbreviation',
-            'catalog_edition_id',
-            'edition_name',
-            'edition_year',
+            'exchange_stamp_id',
+            'parent_exchange_stamp_id',
             'catalog_number',
-            'condition_slug',
-            'catalog_value',
+            'exchange_series_id',
+            'country_slug',
+            'country_iso_code',
+            'name',
+            'description',
+            'issue_year',
+            'issue_date',
+            'face_value',
             'currency',
-            'needs_review',
+            'designer',
+            'printing_method',
+            'catalog_reference',
+            'notes',
+            'catalog_entry_notes',
         ]);
 
-        // Een lege cataloguseditie bevat uitsluitend de kopregel.
-        expect($worksheet->getHighestRow())->toBe(1);
+        // Een lege cataloguseditie bevat geen postzegelrijen.
+        expect($worksheet->getHighestDataRow())->toBe(1);
+
+        // Ook het werkblad Cataloguswaarden bevat geen gegevensrijen.
+        $valuesWorksheet = $spreadsheet->getSheetByName('Cataloguswaarden');
+
+        expect($valuesWorksheet)->not->toBeNull();
+        expect($valuesWorksheet->getHighestDataRow())->toBe(1);
     } finally {
         $spreadsheet->disconnectWorksheets();
     }
@@ -129,6 +145,9 @@ test('een cataloguseditie met cataloguswaarden kan naar Excel worden geëxportee
         'needs_review' => false,
     ]);
 
+    // Voorkom dat Laravel Excel een gevulde PHPUnit-outputbuffer sluit.
+    ob_clean();
+
     $response = $this->actingAs($user)->get(
         route('backend.catalogs.editions.export.excel', [
             $catalog,
@@ -139,29 +158,49 @@ test('een cataloguseditie met cataloguswaarden kan naar Excel worden geëxportee
     $response->assertOk();
 
     $response->assertDownload(
-        'catalogus-'.$catalog->id.'-editie-'.$edition->id.'.xlsx'
+        'catalogus-'.$catalog->id.'-editie-'.$edition->id.'-uitwisseling-v1.1.xlsx'
     );
 
-    // Open het daadwerkelijk gegenereerde Excel-bestand.
     $spreadsheet = IOFactory::load(
         $response->baseResponse->getFile()->getPathname()
     );
 
     try {
-        $worksheet = $spreadsheet->getActiveSheet();
+        // Controleer de postzegelgegevens.
+        $stampsWorksheet = $spreadsheet->getSheetByName('Postzegels');
 
-        // Eén kopregel en één gegevensregel.
-        expect($worksheet->getHighestRow())->toBe(2);
+        expect($stampsWorksheet)->not->toBeNull();
+        expect($stampsWorksheet->getHighestDataRow())->toBe(2);
 
-        // Controleer de gegevens van de postzegel.
-        expect($worksheet->getCell('A2')->getValue())->toBe($stamp->id);
-        expect($worksheet->getCell('K2')->getValue())->toBe('123a');
+        expect((int) $stampsWorksheet->getCell('A2')->getValue())
+            ->toBe($entry->id);
 
-        // Controleer de cataloguswaarde.
-        expect($worksheet->getCell('L2')->getValue())->toBe('postfris');
-        expect((float) $worksheet->getCell('M2')->getValue())->toBe(12.50);
-        expect($worksheet->getCell('N2')->getValue())->toBe('EUR');
-        expect((int) $worksheet->getCell('O2')->getValue())->toBe(0);
+        expect($stampsWorksheet->getCell('C2')->getValue())
+            ->toBe('123a');
+
+        // Controleer de cataloguswaarden.
+        $valuesWorksheet = $spreadsheet->getSheetByName('Cataloguswaarden');
+
+        expect($valuesWorksheet)->not->toBeNull();
+        expect($valuesWorksheet->getHighestDataRow())->toBe(2);
+
+        expect((int) $valuesWorksheet->getCell('A2')->getValue())
+            ->toBe($entry->id);
+
+        expect($valuesWorksheet->getCell('B2')->getValue())
+            ->toBe('123a');
+
+        expect($valuesWorksheet->getCell('C2')->getValue())
+            ->toBe('postfris');
+
+        expect((float) $valuesWorksheet->getCell('D2')->getValue())
+            ->toBe(12.50);
+
+        expect($valuesWorksheet->getCell('E2')->getValue())
+            ->toBe('EUR');
+
+        expect((int) $valuesWorksheet->getCell('G2')->getValue())
+            ->toBe(0);
     } finally {
         $spreadsheet->disconnectWorksheets();
     }
@@ -220,6 +259,9 @@ test('meerdere cataloguswaarden worden als afzonderlijke Excel-rijen geëxportee
         'needs_review' => true,
     ]);
 
+    // Voorkom dat Laravel Excel een gevulde PHPUnit-outputbuffer sluit.
+    ob_clean();
+
     $response = $this->actingAs($user)->get(
         route('backend.catalogs.editions.export.excel', [
             $catalog,
@@ -229,35 +271,73 @@ test('meerdere cataloguswaarden worden als afzonderlijke Excel-rijen geëxportee
 
     $response->assertOk();
 
+    $response->assertDownload(
+        'catalogus-'.$catalog->id.'-editie-'.$edition->id.'-uitwisseling-v1.1.xlsx'
+    );
+
     $spreadsheet = IOFactory::load(
         $response->baseResponse->getFile()->getPathname()
     );
 
     try {
-        $worksheet = $spreadsheet->getActiveSheet();
+        // Eén postzegel wordt één keer geëxporteerd.
+        $stampsWorksheet = $spreadsheet->getSheetByName('Postzegels');
 
-        // Eén kopregel en twee gegevensregels.
-        expect($worksheet->getHighestRow())->toBe(3);
+        expect($stampsWorksheet)->not->toBeNull();
+        expect($stampsWorksheet->getHighestDataRow())->toBe(2);
 
-        // Beide regels verwijzen naar dezelfde postzegel.
-        expect($worksheet->getCell('A2')->getValue())->toBe($stamp->id);
-        expect($worksheet->getCell('A3')->getValue())->toBe($stamp->id);
+        expect((int) $stampsWorksheet->getCell('A2')->getValue())
+            ->toBe($entry->id);
 
-        // Beide regels bevatten hetzelfde catalogusnummer.
-        expect($worksheet->getCell('K2')->getValue())->toBe('789c');
-        expect($worksheet->getCell('K3')->getValue())->toBe('789c');
+        expect($stampsWorksheet->getCell('C2')->getValue())
+            ->toBe('789c');
 
-        // Controleer beide waarderingscategorieën.
-        expect($worksheet->getCell('L2')->getValue())->toBe('postfris');
-        expect($worksheet->getCell('L3')->getValue())->toBe('gestempeld');
+        // Twee cataloguswaarden worden afzonderlijk geëxporteerd.
+        $valuesWorksheet = $spreadsheet->getSheetByName('Cataloguswaarden');
 
-        // Controleer de cataloguswaarden.
-        expect((float) $worksheet->getCell('M2')->getValue())->toBe(12.50);
-        expect((float) $worksheet->getCell('M3')->getValue())->toBe(4.75);
+        expect($valuesWorksheet)->not->toBeNull();
+        expect($valuesWorksheet->getHighestDataRow())->toBe(3);
 
-        // Controleer needs_review.
-        expect((int) $worksheet->getCell('O2')->getValue())->toBe(0);
-        expect((int) $worksheet->getCell('O3')->getValue())->toBe(1);
+        // Beide waarderingen verwijzen naar dezelfde catalogusvermelding.
+        expect((int) $valuesWorksheet->getCell('A2')->getValue())
+            ->toBe($entry->id);
+
+        expect((int) $valuesWorksheet->getCell('A3')->getValue())
+            ->toBe($entry->id);
+
+        // Beide waarderingen hebben hetzelfde catalogusnummer.
+        expect($valuesWorksheet->getCell('B2')->getValue())
+            ->toBe('789c');
+
+        expect($valuesWorksheet->getCell('B3')->getValue())
+            ->toBe('789c');
+
+        // Controleer de waarderingen onafhankelijk van hun rijvolgorde.
+        $values = [];
+
+        foreach ([2, 3] as $row) {
+            $conditionSlug = $valuesWorksheet->getCell('C'.$row)->getValue();
+
+            $values[$conditionSlug] = [
+                'catalog_value' => (float) $valuesWorksheet->getCell('D'.$row)->getValue(),
+                'currency' => $valuesWorksheet->getCell('E'.$row)->getValue(),
+                'needs_review' => (int) $valuesWorksheet->getCell('G'.$row)->getValue(),
+            ];
+        }
+
+        expect($values)->toHaveCount(2);
+
+        expect($values['postfris'])->toBe([
+            'catalog_value' => 12.50,
+            'currency' => 'EUR',
+            'needs_review' => 0,
+        ]);
+
+        expect($values['gestempeld'])->toBe([
+            'catalog_value' => 4.75,
+            'currency' => 'EUR',
+            'needs_review' => 1,
+        ]);
     } finally {
         $spreadsheet->disconnectWorksheets();
     }
@@ -283,10 +363,13 @@ test('een postzegel zonder cataloguswaarden wordt naar Excel geëxporteerd', fun
         'edition_year' => 2027,
     ]);
 
-    $stamp->catalogEntries()->create([
+    $entry = $stamp->catalogEntries()->create([
         'catalog_edition_id' => $edition->id,
         'catalog_number' => '456b',
     ]);
+
+    // Voorkom dat Laravel Excel een gevulde PHPUnit-outputbuffer sluit.
+    ob_clean();
 
     $response = $this->actingAs($user)->get(
         route('backend.catalogs.editions.export.excel', [
@@ -298,7 +381,7 @@ test('een postzegel zonder cataloguswaarden wordt naar Excel geëxporteerd', fun
     $response->assertOk();
 
     $response->assertDownload(
-        'catalogus-'.$catalog->id.'-editie-'.$edition->id.'.xlsx'
+        'catalogus-'.$catalog->id.'-editie-'.$edition->id.'-uitwisseling-v1.1.xlsx'
     );
 
     $spreadsheet = IOFactory::load(
@@ -306,19 +389,49 @@ test('een postzegel zonder cataloguswaarden wordt naar Excel geëxporteerd', fun
     );
 
     try {
-        $worksheet = $spreadsheet->getActiveSheet();
+        // Controleer of de postzegel aanwezig is.
+        $stampsWorksheet = $spreadsheet->getSheetByName('Postzegels');
 
-        // Eén kopregel en één gegevensregel.
-        expect($worksheet->getHighestRow())->toBe(2);
+        expect($stampsWorksheet)->not->toBeNull();
+        expect($stampsWorksheet->getHighestDataRow())->toBe(2);
 
-        // Controleer de postzegel en het catalogusnummer.
-        expect($worksheet->getCell('A2')->getValue())->toBe($stamp->id);
-        expect($worksheet->getCell('K2')->getValue())->toBe('456b');
+        // Controleer de identificatie van de catalogusvermelding.
+        expect((int) $stampsWorksheet->getCell('A2')->getValue())
+            ->toBe($entry->id);
 
-        // De vier waarderingsvelden moeten leeg zijn.
-        foreach (['L2', 'M2', 'N2', 'O2'] as $cell) {
-            expect($worksheet->getCell($cell)->getValue())->toBeNull();
-        }
+        // Controleer het catalogusnummer.
+        expect($stampsWorksheet->getCell('C2')->getValue())
+            ->toBe('456b');
+
+        // Controleer of de postzegelnaam correct is geëxporteerd.
+        expect($stampsWorksheet->getCell('G2')->getValue())
+            ->toBe($stamp->name);
+
+        // Controleer het werkblad Cataloguswaarden.
+        $valuesWorksheet = $spreadsheet->getSheetByName('Cataloguswaarden');
+
+        expect($valuesWorksheet)->not->toBeNull();
+
+        // Er mogen geen gegevensrijen met cataloguswaarden aanwezig zijn.
+        expect($valuesWorksheet->getHighestDataRow())->toBe(1);
+
+        // Controleer of de juiste kolomkoppen aanwezig zijn.
+        $headers = $valuesWorksheet->rangeToArray(
+            'A1:G1',
+            null,
+            true,
+            false
+        )[0];
+
+        expect($headers)->toBe([
+            'exchange_stamp_id',
+            'catalog_number',
+            'condition_slug',
+            'catalog_value',
+            'currency',
+            'notes',
+            'needs_review',
+        ]);
     } finally {
         $spreadsheet->disconnectWorksheets();
     }

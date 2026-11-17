@@ -1,0 +1,77 @@
+<?php
+
+namespace App\Exports\Exchange;
+
+use App\Exports\Exchange\Concerns\FormatsExchangeSheet;
+use App\Models\CatalogEdition;
+use App\Models\SeriesCatalogValue;
+use App\Models\StampSeries;
+use Maatwebsite\Excel\Concerns\FromArray;
+use Maatwebsite\Excel\Concerns\WithEvents;
+use Maatwebsite\Excel\Concerns\WithTitle;
+
+class StampSeriesTranslationsSheet implements FromArray, WithEvents, WithTitle
+{
+    use FormatsExchangeSheet;
+
+    public function __construct(
+        private readonly CatalogEdition $edition
+    ) {}
+
+    public function array(): array
+    {
+        $rows = [
+            [
+                'exchange_series_id',
+                'locale',
+                'name',
+                'description',
+            ],
+        ];
+
+        // Series die gekoppeld zijn aan postzegels binnen deze editie.
+        $stampSeriesIds = $this->edition->stampEntries()
+            ->whereHas('stamp', function ($query) {
+                $query->whereNotNull('stamp_series_id');
+            })
+            ->with('stamp')
+            ->get()
+            ->pluck('stamp.stamp_series_id');
+
+        // Series met een eigen cataloguswaarde binnen deze editie.
+        $valueSeriesIds = SeriesCatalogValue::query()
+            ->where('catalog_edition_id', $this->edition->id)
+            ->pluck('stamp_series_id');
+
+        // Beide verzamelingen samenvoegen zonder dubbele series.
+        $seriesIds = $stampSeriesIds
+            ->merge($valueSeriesIds)
+            ->filter()
+            ->unique()
+            ->values();
+
+        $series = StampSeries::query()
+            ->with('translations')
+            ->whereIn('id', $seriesIds)
+            ->orderBy('id')
+            ->get();
+
+        foreach ($series as $item) {
+            foreach ($item->translations->sortBy('locale') as $translation) {
+                $rows[] = [
+                    $item->id,
+                    $translation->locale,
+                    $translation->name,
+                    $translation->description,
+                ];
+            }
+        }
+
+        return $rows;
+    }
+
+    public function title(): string
+    {
+        return 'Serievertalingen';
+    }
+}

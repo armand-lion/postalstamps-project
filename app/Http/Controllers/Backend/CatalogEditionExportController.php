@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\Backend;
 
-use App\Exports\CatalogEditionExcelExport;
+use App\Exports\Exchange\CatalogEditionExchangeExcelExport;
 use App\Http\Controllers\Controller;
 use App\Models\Catalog;
 use App\Models\CatalogEdition;
@@ -132,10 +132,10 @@ class CatalogEditionExportController extends Controller
             404
         );
 
-        // Genereer het Excel-bestand.
+        // Genereer het Excel-uitwisselingsbestand v1.1.
         return Excel::download(
-            new CatalogEditionExcelExport($catalog, $edition),
-            'catalogus-'.$catalog->id.'-editie-'.$edition->id.'.xlsx'
+            new CatalogEditionExchangeExcelExport($catalog, $edition),
+            'catalogus-'.$catalog->id.'-editie-'.$edition->id.'-uitwisseling-v1.1.xlsx'
         );
     }
 }
