@@ -792,9 +792,7 @@ class CatalogEditionExchangeValidator
                 }
 
                 // Registreer het land met de bijbehorende ISO-code.
-                if ($countrySlug !== '') {
-                    $availableCountrySlugs[$countrySlug] = $countryIsoCode;
-                }
+                $availableCountrySlugs[$countrySlug] = $countryIsoCode;
             }
 
             // Controleer de landidentificaties in het tabblad Landvertalingen.
@@ -1125,7 +1123,7 @@ class CatalogEditionExchangeValidator
                 }
 
                 // Controleer of de ISO-code overeenkomt met het geselecteerde land.
-                if ($countrySlug !== '' && isset($availableCountrySlugs[$countrySlug])) {
+                if ($countrySlug !== '') {
 
                     $expectedIsoCode = $availableCountrySlugs[$countrySlug];
 
