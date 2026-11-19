@@ -85,8 +85,8 @@
                         {{ __('Nominale waarde') }}
                     </dt>
                     <dd class="mt-1 font-medium text-zinc-900">
-                        @if ($stamp->face_value !== null)
-                            {{ number_format((float) $stamp->face_value, 2, ',', '.') }}
+                        @if ($stamp->face_value !== null && $stamp->face_value !== '')
+                            {{ $stamp->face_value }}
                             {{ $stamp->currency ?? '' }}
                         @else
                             —

@@ -140,8 +140,8 @@
                                     </td>
 
                                     <td class="px-4 py-3">
-                                        @if ($stamp->face_value !== null)
-                                            {{ number_format((float) $stamp->face_value, 2, ',', '.') }}
+                                        @if ($stamp->face_value !== null && $stamp->face_value !== '')
+                                            {{ $stamp->face_value }}
                                             {{ $stamp->currency }}
                                         @else
                                             —
@@ -152,12 +152,8 @@
                                     <td class="px-4 py-3">
                                         <div class="flex justify-end">
 
-                                            <flux:button
-                                                :href="route('backend.stamps.show', $stamp)"
-                                                size="sm"
-                                                variant="ghost"
-                                                icon="eye"
-                                            >
+                                            <flux:button :href="route('backend.stamps.show', $stamp)" size="sm"
+                                                variant="ghost" icon="eye">
                                                 {{ __('Bekijken') }}
                                             </flux:button>
 
@@ -175,19 +171,11 @@
         {{-- Acties onderaan --}}
         <div class="flex flex-wrap justify-end gap-2">
 
-            <flux:button
-                :href="route('backend.stamp-series.index')"
-                variant="ghost"
-                icon="arrow-left"
-            >
+            <flux:button :href="route('backend.stamp-series.index')" variant="ghost" icon="arrow-left">
                 {{ __('Terug naar overzicht') }}
             </flux:button>
 
-            <flux:button
-                :href="route('backend.stamp-series.edit', $series)"
-                variant="primary"
-                icon="pencil"
-            >
+            <flux:button :href="route('backend.stamp-series.edit', $series)" variant="primary" icon="pencil">
                 {{ __('Bewerken') }}
             </flux:button>
 

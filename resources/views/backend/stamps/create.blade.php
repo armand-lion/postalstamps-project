@@ -91,12 +91,12 @@
                         </flux:label>
                         <flux:select name="country_id" x-model="countryId"
                             x-on:change="
-        catalogId = '';
-        editionId = '';
-        $nextTick(() => {
-            $refs.catalogEditionSelect.value = '';
-        });
-    "
+                                catalogId = '';
+                                editionId = '';
+                                $nextTick(() => {
+                                    $refs.catalogEditionSelect.value = '';
+                                });
+                            "
                             required>
                             <option value="">{{ __('Selecteer een land') }}</option>
 
@@ -192,8 +192,8 @@
                     {{-- Nominale waarde --}}
                     <flux:field>
                         <flux:label>{{ __('Nominale waarde') }}</flux:label>
-                        <flux:input type="number" name="face_value" min="0" step="0.01"
-                            value="{{ old('face_value') }}" />
+                        <flux:input type="text" name="face_value" maxlength="50" value="{{ old('face_value') }}"
+                            placeholder="Bijv. 5, 7½, 12½, 1½ of A" />
                         <div class="min-h-5">
                             <flux:error name="face_value" />
                         </div>

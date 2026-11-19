@@ -40,7 +40,6 @@ class Stamp extends Model
         return [
             'issue_year' => 'integer',
             'issue_date' => 'date',
-            'face_value' => 'decimal:2',
         ];
     }
 

@@ -323,8 +323,8 @@ class StampController extends Controller
             ],
             'face_value' => [
                 'nullable',
-                'numeric',
-                'min:0',
+                'string',
+                'max:50',
             ],
             'currency' => [
                 'nullable',
@@ -755,8 +755,8 @@ class StampController extends Controller
             ],
             'face_value' => [
                 'nullable',
-                'numeric',
-                'min:0',
+                'string',
+                'max:50',
             ],
             'currency' => [
                 'nullable',

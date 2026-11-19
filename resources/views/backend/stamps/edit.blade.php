@@ -80,10 +80,10 @@
 
                                     <flux:menu.item as="button" type="button"
                                         x-on:click="
-                        selectedId = '';
-                        selectedName = @js(__('Selecteer een land'));
-                        $dispatch('stamp-country-changed', { countryId: 0 });
-                    "
+                                            selectedId = '';
+                                            selectedName = @js(__('Selecteer een land'));
+                                            $dispatch('stamp-country-changed', { countryId: 0 });
+                                        "
                                         class="w-full cursor-pointer text-zinc-900! hover:bg-brown-5!">
 
                                         {{ __('Selecteer een land') }}
@@ -93,10 +93,10 @@
                                     @foreach ($countries as $country)
                                         <flux:menu.item as="button" type="button"
                                             x-on:click="
-                            selectedId = @js((string) $country->id);
-                            selectedName = @js($country->name);
-                            $dispatch('stamp-country-changed', { countryId: {{ $country->id }} });
-                        "
+                                                selectedId = @js((string) $country->id);
+                                                selectedName = @js($country->name);
+                                                $dispatch('stamp-country-changed', { countryId: {{ $country->id }} });
+                                            "
                                             class="w-full cursor-pointer text-zinc-900! hover:bg-brown-5!">
 
                                             {{ $country->name }}
@@ -142,9 +142,9 @@
 
                                     <flux:menu.item as="button" type="button"
                                         x-on:click="
-                        selectedId = '';
-                        selectedName = @js(__('Geen serie'));
-                    "
+                                            selectedId = '';
+                                            selectedName = @js(__('Geen serie'));
+                                        "
                                         class="w-full cursor-pointer text-zinc-900! hover:bg-brown-5!">
 
                                         {{ __('Geen serie') }}
@@ -154,9 +154,9 @@
                                     @foreach ($series as $item)
                                         <flux:menu.item as="button" type="button"
                                             x-on:click="
-                            selectedId = @js((string) $item->id);
-                            selectedName = @js($item->name);
-                        "
+                                                selectedId = @js((string) $item->id);
+                                                selectedName = @js($item->name);
+                                            "
                                             class="w-full cursor-pointer text-zinc-900! hover:bg-brown-5!">
 
                                             {{ $item->name }}
@@ -190,12 +190,12 @@
                     <div class="md:col-span-2" x-data="{
                         countryId: @js((int) old('country_id', $stamp->country_id)),
                         existingCatalogCountryIds: @js($existingCatalogCountryIds),
-                    
+
                         get willRemoveCatalogEntries() {
                             if (!this.countryId) {
                                 return false;
                             }
-                    
+
                             return this.existingCatalogCountryIds.some(
                                 countryIds => !countryIds.includes(this.countryId)
                             );
@@ -271,30 +271,30 @@
                             year: @js(old('issue_year', $stamp->issue_year)),
                             minYear: 1840,
                             maxYear: 2200,
-                        
+
                             updateYear() {
                                 $dispatch('stamp-issue-year-changed', {
                                     year: this.year
                                 });
                             },
-                        
+
                             increase() {
                                 if (this.year === '') {
                                     this.year = this.minYear;
                                 } else {
                                     this.year = Math.min(this.maxYear, Number(this.year) + 1);
                                 }
-                        
+
                                 this.updateYear();
                             },
-                        
+
                             decrease() {
                                 if (this.year === '') {
                                     this.year = this.minYear;
                                 } else {
                                     this.year = Math.max(this.minYear, Number(this.year) - 1);
                                 }
-                        
+
                                 this.updateYear();
                             }
                         }" class="relative">
@@ -332,47 +332,12 @@
                     <flux:field>
                         <flux:label>{{ __('Nominale waarde') }}</flux:label>
 
-                        <div x-data="{
-                            value: @js(old('face_value', $stamp->face_value) ?? ''),
-                        
-                            adjust(amount) {
-                                const current = parseFloat(this.value) || 0;
-                        
-                                this.value = Math.max(
-                                    0,
-                                    Math.round((current + amount) * 100) / 100
-                                ).toFixed(2);
-                            }
-                        }" class="relative w-full">
-
-                            <input type="number" name="face_value" min="0" step="0.01" x-model="value"
-                                class="quantity-input block h-10 w-full rounded-lg border border-theme-accent-3! bg-brown-5! px-3 pr-10 text-sm text-zinc-900! shadow-xs outline-none transition-colors hover:bg-brown-5! focus:border-theme-accent-3! focus:ring-2 focus:ring-theme-accent-3/30">
-
-                            {{-- Pijltjes binnen het invoerveld --}}
-                            <div class="absolute inset-y-0 right-1 flex flex-col justify-center">
-
-                                {{-- Nominale waarde verhogen --}}
-                                <button type="button" x-on:click="adjust(0.01)"
-                                    aria-label="{{ __('Nominale waarde verhogen') }}"
-                                    class="flex h-4 w-7 items-center justify-center rounded-t border border-theme-accent-3 bg-brown-6 text-zinc-900 hover:bg-brown-5">
-
-                                    <flux:icon.chevron-up class="size-3" />
-                                </button>
-
-                                {{-- Nominale waarde verlagen --}}
-                                <button type="button" x-on:click="adjust(-0.01)"
-                                    :disabled="value === '' || (parseFloat(value) || 0) <= 0"
-                                    aria-label="{{ __('Nominale waarde verlagen') }}"
-                                    class="flex h-4 w-7 items-center justify-center rounded-b border border-theme-accent-3 bg-brown-6 text-zinc-900 hover:bg-brown-5 disabled:cursor-not-allowed disabled:opacity-40">
-
-                                    <flux:icon.chevron-down class="size-3" />
-                                </button>
-
-                            </div>
-                        </div>
+                        <input type="text" name="face_value" maxlength="50"
+                            value="{{ old('face_value', $stamp->face_value) }}"
+                            placeholder="Bijv. 5, 7½, 12½, 1½ of A"
+                            class="block h-10 w-full rounded-lg border border-theme-accent-3! bg-brown-5! px-3 text-sm text-zinc-900! shadow-xs outline-none transition-colors hover:bg-brown-5! focus:border-theme-accent-3! focus:ring-2 focus:ring-theme-accent-3/30" />
 
                         <flux:error name="face_value" />
-
                     </flux:field>
 
                     {{-- Valuta --}}
@@ -537,18 +502,18 @@
                                                 x-cloak x-data="{
                                                     issueYear: @js((int) old('issue_year', $stamp->issue_year)),
                                                     countryId: @js((int) old('country_id', $stamp->country_id)),
-                                                
+
                                                     catalogId: @js((int) $edition->catalog_id),
-                                                
+
                                                     catalogCountryIds: @js($edition->catalog->countries->pluck('id')->map(fn($id) => (int) $id)->values()->all()),
-                                                
+
                                                     get isCatalogVisible() {
                                                         return this.catalogCountryIds.includes(this.countryId);
                                                     },
-                                                
+
                                                     hasEntry: @js($entry !== null),
                                                     catalogNumber: @js(old("catalog_editions.{$edition->id}.catalog_number", $entry?->catalog_number) ?? ''),
-                                                
+
                                                     get isLinked() {
                                                         return this.hasEntry || this.catalogNumber.trim() !== '';
                                                     },
@@ -562,14 +527,14 @@
         ],
     ),
 ),
-                                                
+
                                                     get applicableConditionIds() {
                                                         if (!Number.isInteger(this.issueYear) ||
                                                             this.issueYear < 1840 ||
                                                             this.issueYear > 2200) {
                                                             return [];
                                                         }
-                                                
+
                                                         return [...new Set(
                                                             this.rules
                                                             .filter(rule =>
@@ -583,32 +548,32 @@
                                                             .map(rule => Number(rule.condition_id))
                                                         )];
                                                     },
-                                                
+
                                                     get requiredCount() {
                                                         return this.applicableConditionIds.length;
                                                     },
-                                                
+
                                                     catalogValues: @js($entry?->values->mapWithKeys(fn($value) => [$value->condition_id => $value->catalog_value])->all() ?? []),
-                                                
+
                                                     get filledCount() {
                                                         return this.applicableConditionIds.filter(conditionId => {
                                                             const value = this.catalogValues[conditionId];
-                                                
+
                                                             return value !== null &&
                                                                 value !== undefined &&
                                                                 value !== '';
                                                         }).length;
                                                     },
-                                                
+
                                                     get catalogStatus() {
                                                         if (!this.isLinked) {
                                                             return 'not_linked';
                                                         }
-                                                
+
                                                         if (this.requiredCount === 0) {
                                                             return 'no_rules';
                                                         }
-                                                
+
                                                         return this.filledCount === this.requiredCount ?
                                                             'complete' :
                                                             'incomplete';
@@ -655,7 +620,7 @@
 
                                                     <td class="px-3 py-2" x-data="{
                                                         issueYear: @js((int) old('issue_year', $stamp->issue_year)),
-                                                    
+
                                                         rules: @js(
     $catalogConditionRules->where('catalog_id', $edition->catalog_id)->where('condition_id', $condition->id)->values()->map(
         fn($rule) => [
@@ -665,14 +630,14 @@
         ],
     ),
 ),
-                                                    
+
                                                         countryId: @js((int) old('country_id', $stamp->country_id)),
-                                                    
+
                                                         get isApplicable() {
                                                             if (!Number.isInteger(this.issueYear) || this.issueYear < 1840 || this.issueYear > 2200) {
                                                                 return false;
                                                             }
-                                                    
+
                                                             return this.rules.some(rule =>
                                                                 (rule.country_id === null || Number(rule.country_id) === this.countryId) &&
                                                                 (rule.issue_year_from === null || this.issueYear >= Number(rule.issue_year_from)) &&
@@ -686,23 +651,23 @@
                                                             <div x-data="{
                                                                 value: (() => {
                                                                     const initial = @js(old("catalog_editions.{$edition->id}.values.{$conditionSlug}", $existingValue));
-                                                            
+
                                                                     return initial === null || initial === '' ?
                                                                         '' :
                                                                         Number(initial).toFixed(2);
                                                                 })(),
-                                                            
+
                                                                 increase() {
                                                                     const cents = Math.round(Number(this.value || 0) * 100);
                                                                     this.value = ((cents + 1) / 100).toFixed(2);
-                                                            
+
                                                                     catalogValues[{{ $condition->id }}] = this.value;
                                                                 },
-                                                            
+
                                                                 decrease() {
                                                                     const cents = Math.round(Number(this.value || 0) * 100);
                                                                     this.value = (Math.max(0, cents - 1) / 100).toFixed(2);
-                                                            
+
                                                                     catalogValues[{{ $condition->id }}] = this.value;
                                                                 }
                                                             }" class="relative w-32">

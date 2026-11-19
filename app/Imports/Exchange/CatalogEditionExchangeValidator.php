@@ -104,6 +104,210 @@ class CatalogEditionExchangeValidator
                 }
             }
 
+            // Controleer de catalogusgegevens.
+            $catalogSheet = $spreadsheet->getSheetByName('Catalogus');
+
+            // Het werkblad Catalogus mag maximaal één gegevensrij bevatten.
+            if ($catalogSheet->getHighestDataRow() > 2) {
+                throw new RuntimeException(
+                    'Meerdere gegevensrijen in tabblad Catalogus zijn niet toegestaan'
+                );
+            }
+
+            // Lees de catalogusnaam uit cel A2.
+            $catalogName = trim(
+                (string) $catalogSheet->getCell('A2')->getValue()
+            );
+
+            // De catalogusnaam is verplicht.
+            if ($catalogName === '') {
+                throw new RuntimeException(
+                    'Ontbrekende name in tabblad Catalogus, rij 2'
+                );
+            }
+
+            // De catalogusnaam mag maximaal 150 tekens bevatten.
+            if (mb_strlen($catalogName) > 150) {
+                throw new RuntimeException(
+                    'name is langer dan 150 tekens in tabblad Catalogus, rij 2'
+                );
+            }
+
+            // Lees de optionele catalogusafkorting uit cel B2.
+            $catalogAbbreviation = trim(
+                (string) $catalogSheet->getCell('B2')->getValue()
+            );
+
+            // De catalogusafkorting mag maximaal 30 tekens bevatten.
+            if (mb_strlen($catalogAbbreviation) > 30) {
+                throw new RuntimeException(
+                    'abbreviation is langer dan 30 tekens in tabblad Catalogus, rij 2'
+                );
+            }
+
+            // Lees de optionele uitgever uit cel C2.
+            $catalogPublisher = trim(
+                (string) $catalogSheet->getCell('C2')->getValue()
+            );
+
+            // De uitgever mag maximaal 150 tekens bevatten.
+            if (mb_strlen($catalogPublisher) > 150) {
+                throw new RuntimeException(
+                    'publisher is langer dan 150 tekens in tabblad Catalogus, rij 2'
+                );
+            }
+
+            // Lees de optionele website uit cel D2.
+            $catalogWebsite = trim(
+                (string) $catalogSheet->getCell('D2')->getValue()
+            );
+
+            // De website mag maximaal 255 tekens bevatten.
+            if (mb_strlen($catalogWebsite) > 255) {
+                throw new RuntimeException(
+                    'website is langer dan 255 tekens in tabblad Catalogus, rij 2'
+                );
+            }
+
+            // Een ingevulde website moet een geldige URL zijn.
+            if (
+                $catalogWebsite !== ''
+                && filter_var($catalogWebsite, FILTER_VALIDATE_URL) === false
+            ) {
+                throw new RuntimeException(
+                    'Ongeldige website in tabblad Catalogus, rij 2'
+                );
+            }
+
+            // Lees de optionele catalogusbeschrijving uit cel E2.
+            $catalogDescription = $catalogSheet->getCell('E2')->getValue();
+
+            // De catalogusbeschrijving moet tekst zijn wanneer deze is ingevuld.
+            if (
+                $catalogDescription !== null
+                && $catalogDescription !== ''
+                && ! is_string($catalogDescription)
+            ) {
+                throw new RuntimeException(
+                    'Ongeldige description in tabblad Catalogus, rij 2'
+                );
+            }
+
+            // Controleer de verplichte naam van de cataloguseditie.
+            $editionSheet = $spreadsheet->getSheetByName('Editie');
+
+            // Het werkblad Editie mag maximaal één gegevensrij bevatten.
+            if ($editionSheet->getHighestDataRow() > 2) {
+                throw new RuntimeException(
+                    'Meerdere gegevensrijen in tabblad Editie zijn niet toegestaan'
+                );
+            }
+
+            // Lees de naam van de cataloguseditie uit rij 2.
+            $editionName = trim(
+                (string) $editionSheet->getCell('A2')->getValue()
+            );
+
+            // De naam van de cataloguseditie is verplicht.
+            if ($editionName === '') {
+                throw new RuntimeException(
+                    'Ontbrekende edition_name in tabblad Editie, rij 2'
+                );
+            }
+
+            // De naam van de cataloguseditie mag maximaal 150 tekens bevatten.
+            if (mb_strlen($editionName) > 150) {
+                throw new RuntimeException(
+                    'edition_name is langer dan 150 tekens in tabblad Editie, rij 2'
+                );
+            }
+
+            // Lees het editiejaar uit cel B2.
+            $editionYear = trim(
+                (string) $editionSheet->getCell('B2')->getValue()
+            );
+
+            // Het editiejaar is verplicht.
+            if ($editionYear === '') {
+                throw new RuntimeException(
+                    'Ontbrekende edition_year in tabblad Editie, rij 2'
+                );
+            }
+
+            // Het editiejaar moet een geheel getal zijn.
+            if (! ctype_digit($editionYear)) {
+                throw new RuntimeException(
+                    'Ongeldige edition_year in tabblad Editie, rij 2'
+                );
+            }
+
+            // Het editiejaar mag maximaal 65535 zijn.
+            if (strlen($editionYear) > 5 || (int) $editionYear > 65535) {
+                throw new RuntimeException(
+                    'edition_year is hoger dan 65535 in tabblad Editie, rij 2'
+                );
+            }
+
+            // Lees de publicatiedatum uit cel C2.
+            $publicationDate = trim(
+                (string) $editionSheet->getCell('C2')->getValue()
+            );
+
+            // De publicatiedatum is optioneel.
+            // Als deze is ingevuld, moet het een geldige datum zijn in YYYY-MM-DD.
+            if ($publicationDate !== '') {
+                $date = \DateTimeImmutable::createFromFormat(
+                    '!Y-m-d',
+                    $publicationDate
+                );
+
+                $dateErrors = \DateTimeImmutable::getLastErrors();
+
+                if (
+                    ! preg_match('/^\d{4}-\d{2}-\d{2}$/', $publicationDate)
+                    || $date === false
+                    || (
+                        $dateErrors !== false
+                        && (
+                            $dateErrors['warning_count'] > 0
+                            || $dateErrors['error_count'] > 0
+                        )
+                    )
+                ) {
+                    throw new RuntimeException(
+                        'Ongeldige publication_date in tabblad Editie, rij 2'
+                    );
+                }
+            }
+
+            // Lees de optionele valutacode uit cel D2.
+            $editionCurrency = trim(
+                (string) $editionSheet->getCell('D2')->getValue()
+            );
+
+            // Een ingevulde valutacode moet uit precies drie hoofdletters bestaan.
+            if (
+                $editionCurrency !== ''
+                && ! preg_match('/^[A-Z]{3}$/', $editionCurrency)
+            ) {
+                throw new RuntimeException(
+                    'Ongeldige currency in tabblad Editie, rij 2'
+                );
+            }
+
+            // Lees de optionele opmerkingen uit cel E2.
+            $editionNotes = $editionSheet->getCell('E2')->getValue();
+
+            // Ingevulde opmerkingen moeten tekst zijn.
+            if (
+                $editionNotes !== null
+                && ! is_string($editionNotes)
+            ) {
+                throw new RuntimeException(
+                    'Ongeldige notes in tabblad Editie, rij 2'
+                );
+            }
+
             // Controleer ontbrekende en dubbele postzegelidentificaties.
             $stampsSheet = $spreadsheet->getSheetByName('Postzegels');
 
@@ -129,6 +333,96 @@ class CatalogEditionExchangeValidator
                 }
 
                 $exchangeStampIds[$exchangeStampId] = true;
+
+                // Controleer de verplichte naam van de postzegel.
+                $stampName = trim(
+                    (string) $stampsSheet->getCell('G'.$row)->getValue()
+                );
+
+                if ($stampName === '') {
+                    throw new RuntimeException(
+                        'Ontbrekende name in tabblad Postzegels, rij '.$row
+                    );
+                }
+
+                // De postzegelnaam mag maximaal 200 tekens bevatten.
+                if (mb_strlen($stampName) > 200) {
+                    throw new RuntimeException(
+                        'name is langer dan 200 tekens in tabblad Postzegels, rij '.$row
+                    );
+                }
+
+                // Controleer het verplichte uitgiftejaar van de postzegel.
+                $stampIssueYear = trim(
+                    (string) $stampsSheet->getCell('I'.$row)->getValue()
+                );
+
+                if ($stampIssueYear === '') {
+                    throw new RuntimeException(
+                        'Ontbrekende issue_year in tabblad Postzegels, rij '.$row
+                    );
+                }
+
+                // Controleer of het uitgiftejaar een geldig geheel getal is.
+                if (! ctype_digit($stampIssueYear)) {
+                    throw new RuntimeException(
+                        'Ongeldige issue_year in tabblad Postzegels, rij '.$row
+                    );
+                }
+
+                // Het uitgiftejaar mag niet hoger zijn dan 65535.
+                if (
+                    strlen($stampIssueYear) > 5 ||
+                    (int) $stampIssueYear > 65535
+                ) {
+                    throw new RuntimeException(
+                        'issue_year is hoger dan 65535 in tabblad Postzegels, rij '.$row
+                    );
+                }
+
+                // Lees de optionele uitgiftedatum van de postzegel.
+                $stampIssueDate = trim(
+                    (string) $stampsSheet->getCell('J'.$row)->getValue()
+                );
+
+                // Een ingevulde uitgiftedatum moet geldig zijn in YYYY-MM-DD.
+                if ($stampIssueDate !== '') {
+                    $date = \DateTimeImmutable::createFromFormat(
+                        '!Y-m-d',
+                        $stampIssueDate
+                    );
+
+                    $dateErrors = \DateTimeImmutable::getLastErrors();
+
+                    if (
+                        ! preg_match('/^\d{4}-\d{2}-\d{2}$/', $stampIssueDate)
+                        || $date === false
+                        || (
+                            $dateErrors !== false
+                            && (
+                                $dateErrors['warning_count'] > 0
+                                || $dateErrors['error_count'] > 0
+                            )
+                        )
+                    ) {
+                        throw new RuntimeException(
+                            'Ongeldige issue_date in tabblad Postzegels, rij '.$row
+                        );
+                    }
+                }
+
+                // Lees de optionele nominale waarde als tekst.
+                // Historische waarden zoals 7½, 12½ en 1½ zijn toegestaan.
+                $stampFaceValue = trim(
+                    (string) $stampsSheet->getCell('K'.$row)->getValue()
+                );
+
+                // De nominale waarde mag maximaal 50 tekens bevatten.
+                if (mb_strlen($stampFaceValue) > 50) {
+                    throw new RuntimeException(
+                        'face_value is langer dan 50 tekens in tabblad Postzegels, rij '.$row
+                    );
+                }
 
                 // Bewaar het catalogusnummer van deze postzegel.
                 $stampCatalogNumbers[$exchangeStampId] = trim(
@@ -203,6 +497,19 @@ class CatalogEditionExchangeValidator
                 if ($parentExchangeId === '') {
                     throw new RuntimeException(
                         'Ontbrekende parent_exchange_id in tabblad BovenliggendePostzegels, rij '.$row
+                    );
+                }
+
+                // Lees de optionele nominale waarde als tekst.
+                // Historische waarden zoals 7½, 12½ en 1½ zijn toegestaan.
+                $parentFaceValue = trim(
+                    (string) $parentStampsSheet->getCell('I'.$row)->getValue()
+                );
+
+                // De nominale waarde mag maximaal 50 tekens bevatten.
+                if (mb_strlen($parentFaceValue) > 50) {
+                    throw new RuntimeException(
+                        'face_value is langer dan 50 tekens in tabblad BovenliggendePostzegels, rij '.$row
                     );
                 }
 
@@ -684,6 +991,13 @@ class CatalogEditionExchangeValidator
                     );
                 }
 
+                // Een landnaam mag maximaal 100 tekens bevatten.
+                if (mb_strlen($countryName) > 100) {
+                    throw new RuntimeException(
+                        'Te lange name in tabblad Landen, rij '.$row
+                    );
+                }
+
                 // Lees het type land of gebied.
                 $entityType = trim(
                     (string) $countriesSheet->getCell('C'.$row)->getValue()
@@ -709,6 +1023,13 @@ class CatalogEditionExchangeValidator
                 if ($countrySlug === '') {
                     throw new RuntimeException(
                         'Ontbrekende country_slug in tabblad Landen, rij '.$row
+                    );
+                }
+
+                // Een landidentificatie mag maximaal 120 tekens bevatten.
+                if (mb_strlen($countrySlug) > 120) {
+                    throw new RuntimeException(
+                        'Te lange country_slug in tabblad Landen, rij '.$row
                     );
                 }
 
@@ -879,6 +1200,13 @@ class CatalogEditionExchangeValidator
                 if ($translatedName === '') {
                     throw new RuntimeException(
                         'Ontbrekende name in tabblad Landvertalingen, rij '.$row
+                    );
+                }
+
+                // Een vertaalde landnaam mag maximaal 100 tekens bevatten.
+                if (mb_strlen($translatedName) > 100) {
+                    throw new RuntimeException(
+                        'Te lange name in tabblad Landvertalingen, rij '.$row
                     );
                 }
 
@@ -1239,6 +1567,23 @@ class CatalogEditionExchangeValidator
                     );
                 }
 
+                // Lees het catalogusnummer van de cataloguswaarde.
+                $catalogValueCatalogNumber = trim(
+                    (string) $catalogValuesSheet->getCell('B'.$row)->getValue()
+                );
+
+                // Het catalogusnummer moet overeenkomen met de oorspronkelijke postzegel.
+                if (
+                    $catalogValueCatalogNumber !==
+                    $stampCatalogNumbers[$exchangeStampId]
+                ) {
+                    throw new RuntimeException(
+                        'Afwijkend catalog_number voor exchange_stamp_id '.
+                        $exchangeStampId.
+                        ' in tabblad Cataloguswaarden, rij '.$row
+                    );
+                }
+
                 // Waarderingscategorie.
                 $conditionSlug = trim(
                     (string) $catalogValuesSheet->getCell('C'.$row)->getValue()
@@ -1246,7 +1591,7 @@ class CatalogEditionExchangeValidator
 
                 if ($conditionSlug === '') {
                     throw new RuntimeException(
-                        'Ontbrekende condition_slug in tabblad Waarderingscategorieen, rij '.$row
+                        'Ontbrekende condition_slug in tabblad Cataloguswaarden, rij '.$row
                     );
                 }
 
@@ -1264,6 +1609,64 @@ class CatalogEditionExchangeValidator
                         'Dubbele cataloguswaarde voor exchange_stamp_id '.$exchangeStampId.
                         ' en condition_slug '.$conditionSlug.
                         ' in tabblad Cataloguswaarden, rij '.$row
+                    );
+                }
+
+                // Lees de optionele cataloguswaarde van de postzegel.
+                $catalogValue = trim(
+                    (string) $catalogValuesSheet->getCell('D'.$row)->getValue()
+                );
+
+                // Een ingevulde cataloguswaarde mag maximaal tien cijfers vóór
+                // de decimale punt en maximaal twee cijfers erachter bevatten.
+                if (
+                    $catalogValue !== '' &&
+                    ! preg_match('/^\d{1,10}(?:\.\d{1,2})?$/', $catalogValue)
+                ) {
+                    throw new RuntimeException(
+                        'Ongeldige catalog_value in tabblad Cataloguswaarden, rij '.$row
+                    );
+                }
+
+                // Lees de optionele valutacode van de cataloguswaarde.
+                $catalogCurrency = $catalogValuesSheet
+                    ->getCell('E'.$row)
+                    ->getValue();
+
+                // Een ingevulde valutacode moet uit drie hoofdletters bestaan.
+                if (
+                    $catalogCurrency !== null &&
+                    ! preg_match('/^[A-Z]{3}$/', (string) $catalogCurrency)
+                ) {
+                    throw new RuntimeException(
+                        'Ongeldige currency in tabblad Cataloguswaarden, rij '.$row
+                    );
+                }
+
+                // Lees de optionele opmerkingen bij de cataloguswaarde.
+                $catalogNotes = $catalogValuesSheet
+                    ->getCell('F'.$row)
+                    ->getValue();
+
+                // Ingevulde opmerkingen moeten tekst zijn.
+                if (
+                    $catalogNotes !== null &&
+                    ! is_string($catalogNotes)
+                ) {
+                    throw new RuntimeException(
+                        'Ongeldige notes in tabblad Cataloguswaarden, rij '.$row
+                    );
+                }
+
+                // Lees de indicator voor handmatige controle.
+                $needsReview = $catalogValuesSheet
+                    ->getCell('G'.$row)
+                    ->getValue();
+
+                // Alleen 0 en 1 zijn toegestaan.
+                if (! in_array($needsReview, [0, 1, '0', '1'], true)) {
+                    throw new RuntimeException(
+                        'Ongeldige needs_review in tabblad Cataloguswaarden, rij '.$row
                     );
                 }
 
