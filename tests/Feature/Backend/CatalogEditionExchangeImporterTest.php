@@ -13098,3 +13098,187 @@ test('waarderingsvertalingen blijven behouden na Excel round trip', function () 
         unlink($filePath);
     }
 });
+
+test('waarderingsregels blijven behouden na Excel round trip', function () {
+    // Maak een testcatalogus aan.
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus waarderingsregels round trip',
+    ]);
+
+    // Maak een cataloguseditie aan.
+    $edition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2026',
+        'edition_year' => 2026,
+    ]);
+
+    // Maak een waarderingscategorie voor de algemene regel aan.
+    $generalCondition = Condition::create([
+        'slug' => 'round-trip-waarderingsregel-algemeen',
+        'sort_order' => 25,
+        'is_active' => true,
+    ]);
+
+    // Maak een waarderingscategorie voor de landgebonden regel aan.
+    $countryCondition = Condition::create([
+        'slug' => 'round-trip-waarderingsregel-landgebonden',
+        'sort_order' => 26,
+        'is_active' => true,
+    ]);
+
+    // Maak een testland aan voor de landgebonden waarderingsregel.
+    $country = Country::create([
+        'name' => 'Testland waarderingsregels round trip',
+        'slug' => 'round-trip-waarderingsregels-land',
+        'iso_code' => 'RWL',
+        'entity_type' => 'country',
+        'is_active' => true,
+    ]);
+
+    // Koppel het testland aan de catalogus.
+    $catalog->countries()->attach($country->id);
+
+    // Maak een algemene waarderingsregel aan.
+    CatalogConditionRule::create([
+        'catalog_id' => $catalog->id,
+        'country_id' => null,
+        'condition_id' => $generalCondition->id,
+        'issue_year_from' => 2020,
+        'issue_year_to' => 2026,
+        'sort_order' => 1,
+    ]);
+
+    // Maak een landgebonden waarderingsregel aan.
+    CatalogConditionRule::create([
+        'catalog_id' => $catalog->id,
+        'country_id' => $country->id,
+        'condition_id' => $countryCondition->id,
+        'issue_year_from' => 1850,
+        'issue_year_to' => 1900,
+        'sort_order' => 2,
+    ]);
+
+    // Controleer of beide waarderingsregels zijn aangemaakt.
+    expect(
+        CatalogConditionRule::query()
+            ->where('catalog_id', $catalog->id)
+            ->count()
+    )->toBe(2);
+
+    // Controleer de algemene waarderingsregel.
+    expect(
+        CatalogConditionRule::query()
+            ->where('catalog_id', $catalog->id)
+            ->whereNull('country_id')
+            ->where('condition_id', $generalCondition->id)
+            ->exists()
+    )->toBeTrue();
+
+    // Controleer de landgebonden waarderingsregel.
+    expect(
+        CatalogConditionRule::query()
+            ->where('catalog_id', $catalog->id)
+            ->where('country_id', $country->id)
+            ->where('condition_id', $countryCondition->id)
+            ->exists()
+    )->toBeTrue();
+
+    // Exporteer de oorspronkelijke gegevens naar Excel.
+    $excelContent = Excel::raw(
+        new CatalogEditionExchangeExcelExport($catalog, $edition),
+        Xlsx::class
+    );
+
+    // Maak een tijdelijk Excel-bestand aan.
+    $filePath = tempnam(sys_get_temp_dir(), 'condition_rules_round_trip_');
+
+    if ($filePath === false) {
+        throw new RuntimeException(
+            'Kan tijdelijk Excel-bestand niet aanmaken.'
+        );
+    }
+
+    try {
+        // Schrijf de Excel-export naar het tijdelijke bestand.
+        file_put_contents($filePath, $excelContent);
+
+        // Verwijder de oorspronkelijke waarderingsregels.
+        CatalogConditionRule::query()
+            ->where('catalog_id', $catalog->id)
+            ->delete();
+
+        // Controleer of beide waarderingsregels verwijderd zijn.
+        expect(
+            CatalogConditionRule::query()
+                ->where('catalog_id', $catalog->id)
+                ->count()
+        )->toBe(0);
+
+        // Verwijder de oorspronkelijke cataloguseditie.
+        $edition->delete();
+
+        // Importeer het ongewijzigde Excel-bestand.
+        $importedEdition = app(CatalogEditionExchangeImporter::class)
+            ->importEdition($filePath, $catalog);
+
+        // Controleer de geïmporteerde cataloguseditie.
+        expect($importedEdition->catalog_id)->toBe($catalog->id);
+
+        expect($importedEdition->edition_name)->toBe('Editie 2026');
+
+        // Controleer of beide waarderingsregels opnieuw zijn aangemaakt.
+        expect(
+            CatalogConditionRule::query()
+                ->where('catalog_id', $catalog->id)
+                ->count()
+        )->toBe(2);
+
+        // Zoek de geïmporteerde algemene waarderingsregel.
+        $importedGeneralRule = CatalogConditionRule::query()
+            ->where('catalog_id', $catalog->id)
+            ->whereNull('country_id')
+            ->where('condition_id', $generalCondition->id)
+            ->first();
+
+        // Controleer de geïmporteerde algemene waarderingsregel.
+        expect($importedGeneralRule)->not->toBeNull();
+
+        expect($importedGeneralRule->catalog_id)->toBe($catalog->id);
+
+        expect($importedGeneralRule->country_id)->toBeNull();
+
+        expect($importedGeneralRule->condition_id)->toBe($generalCondition->id);
+
+        expect($importedGeneralRule->issue_year_from)->toBe(2020);
+
+        expect($importedGeneralRule->issue_year_to)->toBe(2026);
+
+        expect($importedGeneralRule->sort_order)->toBe(1);
+
+        // Zoek de geïmporteerde landgebonden waarderingsregel.
+        $importedCountryRule = CatalogConditionRule::query()
+            ->where('catalog_id', $catalog->id)
+            ->where('country_id', $country->id)
+            ->where('condition_id', $countryCondition->id)
+            ->first();
+
+        // Controleer de geïmporteerde landgebonden waarderingsregel.
+        expect($importedCountryRule)->not->toBeNull();
+
+        expect($importedCountryRule->catalog_id)->toBe($catalog->id);
+
+        expect($importedCountryRule->country_id)->toBe($country->id);
+
+        expect($importedCountryRule->condition_id)->toBe($countryCondition->id);
+
+        expect($importedCountryRule->issue_year_from)->toBe(1850);
+
+        expect($importedCountryRule->issue_year_to)->toBe(1900);
+
+        expect($importedCountryRule->sort_order)->toBe(2);
+
+    } finally {
+        // Verwijder het tijdelijke Excel-bestand.
+        unlink($filePath);
+    }
+});
