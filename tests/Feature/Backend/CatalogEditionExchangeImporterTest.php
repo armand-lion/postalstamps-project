@@ -12242,3 +12242,183 @@ test('postzegelvertalingen blijven behouden na Excel round trip', function () {
         unlink($filePath);
     }
 });
+
+test('postzegelserievertalingen blijven behouden na Excel round trip', function () {
+    // Maak een testcatalogus aan.
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus serievertalingen round trip',
+    ]);
+
+    // Maak een cataloguseditie aan.
+    $edition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2026',
+        'edition_year' => 2026,
+    ]);
+
+    // Maak een land aan.
+    $country = Country::create([
+        'slug' => 'testland-serievertalingen-round-trip',
+        'iso_code' => 'SVR',
+        'name' => 'Testland serievertalingen round trip',
+    ]);
+
+    // Maak een postzegelserie aan.
+    $series = StampSeries::create([
+        'country_id' => $country->id,
+        'name' => 'Testserie vertalingen round trip',
+        'issue_year' => 2026,
+        'description' => 'Serie voor de Excel-round-triptest',
+    ]);
+
+    // Maak een postzegel aan die bij de serie hoort.
+    $stamp = Stamp::create([
+        'country_id' => $country->id,
+        'stamp_series_id' => $series->id,
+        'name' => 'Testpostzegel serievertalingen round trip',
+        'issue_year' => 2026,
+    ]);
+
+    // Koppel de postzegel aan de cataloguseditie.
+    StampCatalogEntry::create([
+        'catalog_edition_id' => $edition->id,
+        'stamp_id' => $stamp->id,
+        'catalog_number' => '100',
+    ]);
+
+    // Maak vijf vertalingen voor de postzegelserie aan.
+    $translations = [
+        [
+            'locale' => 'nl',
+            'name' => 'Nederlandse natuurserie',
+            'description' => 'Een serie over de natuur.',
+        ],
+        [
+            'locale' => 'en',
+            'name' => 'English Nature Series',
+            'description' => 'A series about nature.',
+        ],
+        [
+            'locale' => 'de',
+            'name' => 'Deutsche Naturserie',
+            'description' => 'Eine Serie über die Natur.',
+        ],
+        [
+            'locale' => 'fr',
+            'name' => 'Série Nature Française',
+            'description' => 'Une série sur la nature.',
+        ],
+        [
+            'locale' => 'es',
+            'name' => 'Serie Naturaleza Española',
+            'description' => 'Una serie sobre la naturaleza.',
+        ],
+    ];
+
+    $series->translations()->createMany($translations);
+
+    // Exporteer de oorspronkelijke gegevens naar Excel.
+    $excelContent = Excel::raw(
+        new CatalogEditionExchangeExcelExport($catalog, $edition),
+        Xlsx::class
+    );
+
+    // Maak een tijdelijk Excel-bestand aan.
+    $filePath = tempnam(sys_get_temp_dir(), 'series_translations_round_trip_');
+
+    if ($filePath === false) {
+        throw new RuntimeException(
+            'Kan tijdelijk Excel-bestand niet aanmaken.'
+        );
+    }
+
+    try {
+        file_put_contents($filePath, $excelContent);
+
+        // Verwijder de oorspronkelijke catalogusvermelding.
+        StampCatalogEntry::query()
+            ->where('catalog_edition_id', $edition->id)
+            ->delete();
+
+        // Verwijder de oorspronkelijke serievertalingen.
+        $series->translations()->delete();
+
+        // Verwijder de oorspronkelijke cataloguseditie.
+        $edition->delete();
+
+        // Verwijder de oorspronkelijke postzegel.
+        $stamp->delete();
+
+        // Verwijder de oorspronkelijke postzegelserie.
+        $series->delete();
+
+        // Importeer het ongewijzigde Excel-bestand.
+        $importedEdition = app(CatalogEditionExchangeImporter::class)
+            ->importEdition($filePath, $catalog);
+
+        // Controleer de geïmporteerde cataloguseditie.
+        expect($importedEdition->catalog_id)->toBe($catalog->id);
+        expect($importedEdition->edition_name)->toBe('Editie 2026');
+
+        // Zoek de geïmporteerde postzegelserie.
+        $importedSeries = StampSeries::query()
+            ->where('name', 'Testserie vertalingen round trip')
+            ->first();
+
+        expect($importedSeries)->not->toBeNull();
+
+        // Controleer de oorspronkelijke seriegegevens.
+        expect($importedSeries->country_id)->toBe($country->id);
+        expect($importedSeries->issue_year)->toBe(2026);
+        expect($importedSeries->description)->toBe(
+            'Serie voor de Excel-round-triptest'
+        );
+
+        // Zoek de geïmporteerde postzegel.
+        $importedStamp = Stamp::query()
+            ->where('name', 'Testpostzegel serievertalingen round trip')
+            ->first();
+
+        expect($importedStamp)->not->toBeNull();
+
+        // Controleer de koppeling tussen postzegel en serie.
+        expect($importedStamp->stamp_series_id)->toBe($importedSeries->id);
+
+        // Controleer de catalogusvermelding.
+        expect(
+            $importedStamp->catalogEntries()
+                ->where('catalog_edition_id', $importedEdition->id)
+                ->where('catalog_number', '100')
+                ->exists()
+        )->toBeTrue();
+
+        // Haal alle geïmporteerde serievertalingen op.
+        $importedTranslations = $importedSeries->translations()
+            ->get()
+            ->keyBy('locale');
+
+        // Controleer dat precies vijf vertalingen zijn geïmporteerd.
+        expect($importedTranslations)->toHaveCount(5);
+
+        // Controleer iedere oorspronkelijke vertaling.
+        foreach ($translations as $translation) {
+            $importedTranslation = $importedTranslations->get(
+                $translation['locale']
+            );
+
+            expect($importedTranslation)->not->toBeNull();
+
+            expect($importedTranslation->name)->toBe(
+                $translation['name']
+            );
+
+            expect($importedTranslation->description)->toBe(
+                $translation['description']
+            );
+        }
+
+    } finally {
+        // Verwijder het tijdelijke Excel-bestand.
+        unlink($filePath);
+    }
+});
