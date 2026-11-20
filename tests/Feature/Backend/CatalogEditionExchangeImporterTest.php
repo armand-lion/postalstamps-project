@@ -12945,3 +12945,156 @@ test('landvertalingen blijven behouden na Excel round trip', function () {
         unlink($filePath);
     }
 });
+
+test('waarderingsvertalingen blijven behouden na Excel round trip', function () {
+    // Maak een testcatalogus aan.
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus waarderingsvertalingen round trip',
+    ]);
+
+    // Maak een cataloguseditie aan.
+    $edition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2026',
+        'edition_year' => 2026,
+    ]);
+
+    // Maak een waarderingscategorie aan.
+    $condition = Condition::create([
+        'slug' => 'round-trip-waarderingsvertalingen',
+        'sort_order' => 25,
+        'is_active' => true,
+    ]);
+
+    // Koppel de waarderingscategorie aan de catalogus.
+    CatalogConditionRule::create([
+        'catalog_id' => $catalog->id,
+        'country_id' => null,
+        'condition_id' => $condition->id,
+        'issue_year_from' => 2020,
+        'issue_year_to' => 2026,
+        'sort_order' => 1,
+    ]);
+
+    // Definieer de vijf waarderingsvertalingen.
+    $translations = [
+        [
+            'locale' => 'nl',
+            'name' => 'Testwaardering Nederlands',
+            'description' => 'Nederlandse beschrijving van de waarderingscategorie.',
+        ],
+        [
+            'locale' => 'en',
+            'name' => 'Test Condition English',
+            'description' => 'English description of the condition.',
+        ],
+        [
+            'locale' => 'de',
+            'name' => 'Testbewertung Deutsch',
+            'description' => 'Deutsche Beschreibung der Bewertungskategorie.',
+        ],
+        [
+            'locale' => 'fr',
+            'name' => 'Évaluation de test',
+            'description' => 'Description française de la catégorie.',
+        ],
+        [
+            'locale' => 'es',
+            'name' => 'Valoración de prueba',
+            'description' => 'Descripción española de la categoría.',
+        ],
+    ];
+
+    // Maak de vijf vertalingen aan.
+    $condition->translations()->createMany($translations);
+
+    // Controleer de oorspronkelijke vertalingen.
+    expect($condition->translations()->count())->toBe(5);
+
+    // Exporteer de oorspronkelijke gegevens naar Excel.
+    $excelContent = Excel::raw(
+        new CatalogEditionExchangeExcelExport($catalog, $edition),
+        Xlsx::class
+    );
+
+    // Maak een tijdelijk Excel-bestand aan.
+    $filePath = tempnam(sys_get_temp_dir(), 'condition_translations_round_trip_');
+
+    if ($filePath === false) {
+        throw new RuntimeException(
+            'Kan tijdelijk Excel-bestand niet aanmaken.'
+        );
+    }
+
+    try {
+        file_put_contents($filePath, $excelContent);
+
+        // Verwijder de oorspronkelijke vertalingen.
+        $condition->translations()->delete();
+
+        // Verwijder de oorspronkelijke cataloguswaarderingsregel.
+        CatalogConditionRule::query()
+            ->where('catalog_id', $catalog->id)
+            ->where('condition_id', $condition->id)
+            ->delete();
+
+        // Verwijder de oorspronkelijke cataloguseditie.
+        $edition->delete();
+
+        // Verwijder de oorspronkelijke waarderingscategorie.
+        $condition->delete();
+
+        // Controleer dat de oorspronkelijke categorie verwijderd is.
+        expect(
+            Condition::query()
+                ->where('slug', 'round-trip-waarderingsvertalingen')
+                ->exists()
+        )->toBeFalse();
+
+        // Importeer het ongewijzigde Excel-bestand.
+        $importedEdition = app(CatalogEditionExchangeImporter::class)
+            ->importEdition($filePath, $catalog);
+
+        // Controleer de geïmporteerde cataloguseditie.
+        expect($importedEdition->catalog_id)->toBe($catalog->id);
+
+        expect($importedEdition->edition_name)->toBe('Editie 2026');
+
+        // Zoek de geïmporteerde waarderingscategorie.
+        $importedCondition = Condition::query()
+            ->where('slug', 'round-trip-waarderingsvertalingen')
+            ->first();
+
+        expect($importedCondition)->not->toBeNull();
+
+        // Controleer de oorspronkelijke categoriegegevens.
+        expect($importedCondition->sort_order)->toBe(25);
+
+        expect($importedCondition->is_active)->toBeTrue();
+
+        // Controleer dat precies vijf vertalingen zijn geïmporteerd.
+        expect($importedCondition->translations()->count())->toBe(5);
+
+        // Controleer iedere geïmporteerde vertaling.
+        foreach ($translations as $translationData) {
+            $importedTranslation = ConditionTranslation::query()
+                ->where('condition_id', $importedCondition->id)
+                ->where('locale', $translationData['locale'])
+                ->first();
+
+            expect($importedTranslation)->not->toBeNull();
+
+            expect($importedTranslation->name)->toBe(
+                $translationData['name']
+            );
+
+            expect($importedTranslation->description)->toBe(
+                $translationData['description']
+            );
+        }
+
+    } finally {
+        // Verwijder het tijdelijke Excel-bestand.
+        unlink($filePath);
+    }
+});
