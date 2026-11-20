@@ -817,6 +817,8 @@ class CatalogEditionExchangeImporter
      *
      * Deze methode wordt uitgevoerd binnen de bestaande
      * databasetransactie van importEdition().
+     *
+     * @param  array<string, int>  $stampIdMap
      */
     private function importStampThemes(
         Spreadsheet $spreadsheet,
@@ -866,7 +868,7 @@ class CatalogEditionExchangeImporter
             }
 
             // Zoek de geïmporteerde postzegel.
-            $stamp = Stamp::findOrFail($stampId);
+            $stamp = Stamp::query()->findOrFail($stampId);
 
             // Leg de koppeling vast zonder bestaande koppelingen te verwijderen.
             $stamp->themes()->syncWithoutDetaching([
@@ -880,6 +882,10 @@ class CatalogEditionExchangeImporter
      *
      * De koppelingen met catalogusvermeldingen en bestaande
      * postzegels worden in volgende stappen uitgewerkt.
+     *
+     * @param  array<int, int>  $seriesIdMap
+     * @param  array<string, int>  $stampIdMap
+     * @param  array<string, int>  $catalogEntryIdMap
      */
     private function importStamps(
         Spreadsheet $spreadsheet,
@@ -1134,6 +1140,8 @@ class CatalogEditionExchangeImporter
      * via de Excel-identificaties in $stampIdMap.
      *
      * Deze methode wordt uitgevoerd binnen de bestaande databasetransactie.
+     *
+     * @param  array<string, int>  $stampIdMap
      */
     private function importStampTranslations(
         Spreadsheet $spreadsheet,
@@ -1207,6 +1215,8 @@ class CatalogEditionExchangeImporter
      * catalogusvermeldingen via de Excel-identificaties.
      *
      * Deze methode wordt uitgevoerd binnen de bestaande databasetransactie.
+     *
+     * @param  array<string, int>  $catalogEntryIdMap
      */
     private function importCatalogValues(
         Spreadsheet $spreadsheet,
