@@ -11691,3 +11691,134 @@ test('dubbele postzegel-themakoppelingen worden afgewezen tijdens Excel-import',
         unlink($filePath);
     }
 });
+
+test('een postzegel met serie en catalogusvermelding blijft behouden na Excel round trip', function () {
+    // Maak een testcatalogus aan.
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus Excel round trip',
+    ]);
+
+    // Maak een cataloguseditie aan.
+    $edition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2026',
+        'edition_year' => 2026,
+    ]);
+
+    // Maak een land aan.
+    $country = Country::create([
+        'slug' => 'testland-round-trip',
+        'iso_code' => 'TRT',
+        'name' => 'Testland round trip',
+    ]);
+
+    // Maak een postzegelserie aan.
+    $series = StampSeries::create([
+        'country_id' => $country->id,
+        'name' => 'Testserie round trip',
+        'issue_year' => 2026,
+        'description' => 'Serie voor Excel round-triptest',
+    ]);
+
+    // Maak een postzegel aan.
+    $stamp = Stamp::create([
+        'country_id' => $country->id,
+        'stamp_series_id' => $series->id,
+        'name' => 'Testpostzegel round trip',
+        'issue_year' => 2026,
+        'face_value' => '1/2',
+        'currency' => 'EUR',
+    ]);
+
+    // Koppel de postzegel aan de cataloguseditie.
+    StampCatalogEntry::create([
+        'catalog_edition_id' => $edition->id,
+        'stamp_id' => $stamp->id,
+        'catalog_number' => '100',
+        'notes' => 'Catalogusvermelding round trip',
+    ]);
+
+    // Exporteer de oorspronkelijke gegevens naar Excel.
+    $excelContent = Excel::raw(
+        new CatalogEditionExchangeExcelExport($catalog, $edition),
+        Xlsx::class
+    );
+
+    // Maak een tijdelijk Excel-bestand aan.
+    $filePath = tempnam(sys_get_temp_dir(), 'catalog_round_trip_');
+
+    if ($filePath === false) {
+        throw new RuntimeException(
+            'Kan tijdelijk Excel-bestand niet aanmaken.'
+        );
+    }
+
+    try {
+        file_put_contents($filePath, $excelContent);
+
+        // Verwijder de oorspronkelijke catalogusvermelding.
+        StampCatalogEntry::query()
+            ->where('catalog_edition_id', $edition->id)
+            ->delete();
+
+        // Verwijder de oorspronkelijke cataloguseditie.
+        $edition->delete();
+
+        // Verwijder de oorspronkelijke postzegel.
+        $stamp->delete();
+
+        // Verwijder de oorspronkelijke serie.
+        $series->delete();
+
+        // Importeer het ongewijzigde Excel-bestand.
+        $importedEdition = app(CatalogEditionExchangeImporter::class)
+            ->importEdition($filePath, $catalog);
+
+        // Controleer de geïmporteerde postzegel.
+        $importedStamp = Stamp::query()
+            ->where('name', 'Testpostzegel round trip')
+            ->first();
+
+        expect($importedStamp)->not->toBeNull();
+
+        expect($importedStamp->issue_year)->toBe(2026);
+        expect($importedStamp->face_value)->toBe('1/2');
+        expect($importedStamp->currency)->toBe('EUR');
+        expect($importedStamp->country_id)->toBe($country->id);
+
+        // Controleer de geïmporteerde serie.
+        $importedSeries = StampSeries::query()
+            ->where('name', 'Testserie round trip')
+            ->first();
+
+        expect($importedSeries)->not->toBeNull();
+
+        expect($importedSeries->issue_year)->toBe(2026);
+        expect($importedSeries->country_id)->toBe($country->id);
+
+        // Controleer de koppeling tussen postzegel en serie.
+        expect($importedStamp->stamp_series_id)->toBe($importedSeries->id);
+
+        // Controleer de catalogusvermelding.
+        $importedEntry = StampCatalogEntry::query()
+            ->where('catalog_edition_id', $importedEdition->id)
+            ->where('stamp_id', $importedStamp->id)
+            ->first();
+
+        expect($importedEntry)->not->toBeNull();
+
+        expect($importedEntry->catalog_number)->toBe('100');
+        expect($importedEntry->notes)->toBe('Catalogusvermelding round trip');
+
+        // Controleer dat de cataloguseditie precies één vermelding bevat.
+        expect(
+            StampCatalogEntry::query()
+                ->where('catalog_edition_id', $importedEdition->id)
+                ->count()
+        )->toBe(1);
+
+    } finally {
+        // Verwijder het tijdelijke Excel-bestand.
+        unlink($filePath);
+    }
+});
