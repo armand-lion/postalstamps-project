@@ -13439,13 +13439,19 @@ test('bovenliggende postzegel buiten cataloguseditie blijft behouden na Excel ro
         'name' => 'Testland externe hoofdpostzegel round trip',
     ]);
 
-    // Maak de hoofdpostzegel aan.
+    // Maak de hoofdpostzegel aan met alle inhoudelijke eigenschappen.
     $parentStamp = Stamp::create([
         'country_id' => $country->id,
         'name' => 'Testpostzegel externe hoofdpostzegel',
+        'description' => 'Beschrijving van de externe hoofdpostzegel.',
         'issue_year' => 2026,
+        'issue_date' => '2026-05-15',
         'face_value' => '1',
         'currency' => 'EUR',
+        'designer' => 'Testontwerper',
+        'printing_method' => 'Offsetdruk',
+        'catalog_reference' => 'EXT-2026-100',
+        'notes' => 'Opmerking bij de externe hoofdpostzegel.',
     ]);
 
     // Maak de eerste variant aan.
@@ -13534,6 +13540,39 @@ test('bovenliggende postzegel buiten cataloguseditie blijft behouden na Excel ro
         expect($importedParent)->not->toBeNull();
         expect($importedChildA)->not->toBeNull();
         expect($importedChildB)->not->toBeNull();
+
+        // Controleer of alle eigenschappen van de hoofdpostzegel behouden blijven.
+        expect($importedParent->country_id)->toBe($country->id);
+
+        expect($importedParent->name)
+            ->toBe('Testpostzegel externe hoofdpostzegel');
+
+        expect($importedParent->description)
+            ->toBe('Beschrijving van de externe hoofdpostzegel.');
+
+        expect($importedParent->issue_year)
+            ->toBe(2026);
+
+        expect($importedParent->issue_date->format('Y-m-d'))
+            ->toBe('2026-05-15');
+
+        expect((string) $importedParent->face_value)
+            ->toBe('1');
+
+        expect($importedParent->currency)
+            ->toBe('EUR');
+
+        expect($importedParent->designer)
+            ->toBe('Testontwerper');
+
+        expect($importedParent->printing_method)
+            ->toBe('Offsetdruk');
+
+        expect($importedParent->catalog_reference)
+            ->toBe('EXT-2026-100');
+
+        expect($importedParent->notes)
+            ->toBe('Opmerking bij de externe hoofdpostzegel.');
 
         // De hoofdpostzegel mag zelf geen bovenliggende postzegel hebben.
         expect($importedParent->parent_stamp_id)->toBeNull();
