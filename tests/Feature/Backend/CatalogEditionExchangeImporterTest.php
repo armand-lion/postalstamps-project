@@ -12085,3 +12085,160 @@ test('seriecataloguswaarden blijven behouden na Excel round trip', function () {
         unlink($filePath);
     }
 });
+
+test('postzegelvertalingen blijven behouden na Excel round trip', function () {
+    // Maak een testcatalogus aan.
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus postzegelvertalingen round trip',
+    ]);
+
+    // Maak een cataloguseditie aan.
+    $edition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2026',
+        'edition_year' => 2026,
+    ]);
+
+    // Maak een land aan.
+    $country = Country::create([
+        'slug' => 'testland-postzegelvertalingen-round-trip',
+        'iso_code' => 'PVR',
+        'name' => 'Testland postzegelvertalingen round trip',
+    ]);
+
+    // Maak een postzegel aan.
+    $stamp = Stamp::create([
+        'country_id' => $country->id,
+        'name' => 'Testpostzegel vertalingen round trip',
+        'issue_year' => 2026,
+    ]);
+
+    // Koppel de postzegel aan de cataloguseditie.
+    StampCatalogEntry::create([
+        'catalog_edition_id' => $edition->id,
+        'stamp_id' => $stamp->id,
+        'catalog_number' => '100',
+    ]);
+
+    // Maak vijf vertalingen aan.
+    $stamp->translations()->createMany([
+        [
+            'locale' => 'nl',
+            'name' => 'Nederlandse postzegel',
+            'description' => 'Nederlandse beschrijving',
+        ],
+        [
+            'locale' => 'en',
+            'name' => 'English stamp',
+            'description' => 'English description',
+        ],
+        [
+            'locale' => 'de',
+            'name' => 'Deutsche Briefmarke',
+            'description' => 'Deutsche Beschreibung',
+        ],
+        [
+            'locale' => 'fr',
+            'name' => 'Timbre français',
+            'description' => 'Description française',
+        ],
+        [
+            'locale' => 'es',
+            'name' => 'Sello español',
+            'description' => 'Descripción española',
+        ],
+    ]);
+
+    // Exporteer de oorspronkelijke gegevens naar Excel.
+    $excelContent = Excel::raw(
+        new CatalogEditionExchangeExcelExport($catalog, $edition),
+        Xlsx::class
+    );
+
+    // Maak een tijdelijk Excel-bestand aan.
+    $filePath = tempnam(sys_get_temp_dir(), 'stamp_translations_round_trip_');
+
+    if ($filePath === false) {
+        throw new RuntimeException(
+            'Kan tijdelijk Excel-bestand niet aanmaken.'
+        );
+    }
+
+    try {
+        file_put_contents($filePath, $excelContent);
+
+        // Verwijder de oorspronkelijke catalogusvermelding.
+        StampCatalogEntry::query()
+            ->where('catalog_edition_id', $edition->id)
+            ->delete();
+
+        // Verwijder de oorspronkelijke vertalingen.
+        $stamp->translations()->delete();
+
+        // Verwijder de oorspronkelijke cataloguseditie.
+        $edition->delete();
+
+        // Verwijder de oorspronkelijke postzegel.
+        $stamp->delete();
+
+        // Importeer het ongewijzigde Excel-bestand.
+        $importedEdition = app(CatalogEditionExchangeImporter::class)
+            ->importEdition($filePath, $catalog);
+
+        // Controleer de geïmporteerde cataloguseditie.
+        expect($importedEdition->catalog_id)->toBe($catalog->id);
+        expect($importedEdition->edition_name)->toBe('Editie 2026');
+
+        // Zoek de geïmporteerde postzegel.
+        $importedStamp = Stamp::query()
+            ->where('name', 'Testpostzegel vertalingen round trip')
+            ->first();
+
+        expect($importedStamp)->not->toBeNull();
+
+        // Controleer de catalogusvermelding.
+        expect(
+            $importedStamp->catalogEntries()
+                ->where('catalog_edition_id', $importedEdition->id)
+                ->where('catalog_number', '100')
+                ->exists()
+        )->toBeTrue();
+
+        // Haal alle geïmporteerde vertalingen op.
+        $translations = $importedStamp->translations()
+            ->get()
+            ->keyBy('locale');
+
+        // Controleer dat precies vijf vertalingen zijn geïmporteerd.
+        expect($translations)->toHaveCount(5);
+
+        // Controleer de Nederlandse vertaling.
+        expect($translations->get('nl'))->not->toBeNull();
+        expect($translations->get('nl')->name)->toBe('Nederlandse postzegel');
+        expect($translations->get('nl')->description)->toBe('Nederlandse beschrijving');
+
+        // Controleer de Engelse vertaling.
+        expect($translations->get('en'))->not->toBeNull();
+        expect($translations->get('en')->name)->toBe('English stamp');
+        expect($translations->get('en')->description)->toBe('English description');
+
+        // Controleer de Duitse vertaling.
+        expect($translations->get('de'))->not->toBeNull();
+        expect($translations->get('de')->name)->toBe('Deutsche Briefmarke');
+        expect($translations->get('de')->description)->toBe('Deutsche Beschreibung');
+
+        // Controleer de Franse vertaling.
+        expect($translations->get('fr'))->not->toBeNull();
+        expect($translations->get('fr')->name)->toBe('Timbre français');
+        expect($translations->get('fr')->description)->toBe('Description française');
+
+        // Controleer de Spaanse vertaling.
+        expect($translations->get('es'))->not->toBeNull();
+        expect($translations->get('es')->name)->toBe('Sello español');
+        expect($translations->get('es')->description)->toBe('Descripción española');
+
+    } finally {
+        // Verwijder het tijdelijke Excel-bestand.
+        unlink($filePath);
+    }
+});
