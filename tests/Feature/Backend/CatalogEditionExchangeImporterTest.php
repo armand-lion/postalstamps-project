@@ -12422,3 +12422,176 @@ test('postzegelserievertalingen blijven behouden na Excel round trip', function 
         unlink($filePath);
     }
 });
+
+test('postzegelthemas blijven behouden na Excel round trip', function () {
+    // Maak een testcatalogus aan.
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus postzegelthemas round trip',
+    ]);
+
+    // Maak een cataloguseditie aan.
+    $edition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2026',
+        'edition_year' => 2026,
+    ]);
+
+    // Maak een land aan.
+    $country = Country::create([
+        'slug' => 'testland-postzegelthemas-round-trip',
+        'iso_code' => 'PTR',
+        'name' => 'Testland postzegelthemas round trip',
+    ]);
+
+    // Maak een postzegel aan.
+    $stamp = Stamp::create([
+        'country_id' => $country->id,
+        'name' => 'Testpostzegel themas round trip',
+        'issue_year' => 2026,
+    ]);
+
+    // Koppel de postzegel aan de cataloguseditie.
+    StampCatalogEntry::create([
+        'catalog_edition_id' => $edition->id,
+        'stamp_id' => $stamp->id,
+        'catalog_number' => '100',
+    ]);
+
+    // Definieer drie thema's.
+    $themes = [
+        [
+            'slug' => 'round-trip-dieren',
+            'name' => 'Dieren',
+            'description' => 'Postzegels met dieren.',
+        ],
+        [
+            'slug' => 'round-trip-bloemen',
+            'name' => 'Bloemen',
+            'description' => 'Postzegels met bloemen.',
+        ],
+        [
+            'slug' => 'round-trip-sport',
+            'name' => 'Sport',
+            'description' => 'Postzegels met sport.',
+        ],
+    ];
+
+    // Maak de thema's aan en koppel ze aan de postzegel.
+    foreach ($themes as $themeData) {
+        $theme = Theme::create($themeData);
+
+        $stamp->themes()->attach($theme->id);
+    }
+
+    // Controleer de oorspronkelijke themakoppelingen.
+    expect($stamp->themes()->count())->toBe(3);
+
+    // Exporteer de oorspronkelijke gegevens naar Excel.
+    $excelContent = Excel::raw(
+        new CatalogEditionExchangeExcelExport($catalog, $edition),
+        Xlsx::class
+    );
+
+    // Maak een tijdelijk Excel-bestand aan.
+    $filePath = tempnam(sys_get_temp_dir(), 'stamp_themes_round_trip_');
+
+    if ($filePath === false) {
+        throw new RuntimeException(
+            'Kan tijdelijk Excel-bestand niet aanmaken.'
+        );
+    }
+
+    try {
+        file_put_contents($filePath, $excelContent);
+
+        // Verwijder de oorspronkelijke themakoppelingen.
+        $stamp->themes()->detach();
+
+        // Verwijder de oorspronkelijke catalogusvermelding.
+        StampCatalogEntry::query()
+            ->where('catalog_edition_id', $edition->id)
+            ->delete();
+
+        // Verwijder de oorspronkelijke cataloguseditie.
+        $edition->delete();
+
+        // Verwijder de oorspronkelijke postzegel.
+        $stamp->delete();
+
+        // Verwijder de oorspronkelijke thema's.
+        foreach ($themes as $themeData) {
+            Theme::query()
+                ->where('slug', $themeData['slug'])
+                ->delete();
+        }
+
+        // Controleer dat de oorspronkelijke thema's verwijderd zijn.
+        foreach ($themes as $themeData) {
+            expect(
+                Theme::query()
+                    ->where('slug', $themeData['slug'])
+                    ->exists()
+            )->toBeFalse();
+        }
+
+        // Importeer het ongewijzigde Excel-bestand.
+        $importedEdition = app(CatalogEditionExchangeImporter::class)
+            ->importEdition($filePath, $catalog);
+
+        // Controleer de geïmporteerde cataloguseditie.
+        expect($importedEdition->catalog_id)->toBe($catalog->id);
+        expect($importedEdition->edition_name)->toBe('Editie 2026');
+
+        // Zoek de geïmporteerde postzegel.
+        $importedStamp = Stamp::query()
+            ->where('name', 'Testpostzegel themas round trip')
+            ->first();
+
+        expect($importedStamp)->not->toBeNull();
+
+        // Controleer de catalogusvermelding.
+        expect(
+            $importedStamp->catalogEntries()
+                ->where('catalog_edition_id', $importedEdition->id)
+                ->where('catalog_number', '100')
+                ->exists()
+        )->toBeTrue();
+
+        // Controleer dat precies drie thema's gekoppeld zijn.
+        expect($importedStamp->themes()->count())->toBe(3);
+
+        // Controleer ieder geïmporteerd thema.
+        foreach ($themes as $themeData) {
+            $importedTheme = Theme::query()
+                ->where('slug', $themeData['slug'])
+                ->first();
+
+            expect($importedTheme)->not->toBeNull();
+
+            // Controleer de oorspronkelijke themagegevens.
+            expect($importedTheme->name)->toBe($themeData['name']);
+
+            expect($importedTheme->description)->toBe(
+                $themeData['description']
+            );
+
+            // Controleer de koppeling met de postzegel.
+            expect(
+                $importedStamp->themes()
+                    ->where('themes.id', $importedTheme->id)
+                    ->exists()
+            )->toBeTrue();
+        }
+
+        // Controleer de koppelingen in de tussentabel.
+        expect(
+            DB::table('stamp_themes')
+                ->where('stamp_id', $importedStamp->id)
+                ->count()
+        )->toBe(3);
+
+    } finally {
+        // Verwijder het tijdelijke Excel-bestand.
+        unlink($filePath);
+    }
+});
