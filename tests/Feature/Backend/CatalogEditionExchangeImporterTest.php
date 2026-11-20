@@ -13605,6 +13605,11 @@ test('land van bovenliggende postzegel buiten cataloguseditie wordt geexporteerd
         'slug' => 'testland-extern-hoofdpostzegelland',
         'iso_code' => 'TEH',
         'name' => 'Testland externe hoofdpostzegel',
+        'entity_type' => 'country',
+        'start_year' => 1850,
+        'end_year' => 1999,
+        'is_active' => false,
+        'description' => 'Testbeschrijving externe hoofdpostzegel.',
     ]);
 
     // Maak een ander land voor de variant aan.
@@ -13718,6 +13723,30 @@ test('land van bovenliggende postzegel buiten cataloguseditie wordt geexporteerd
         expect($importedParentCountry)->not->toBeNull();
         expect($importedChildCountry)->not->toBeNull();
 
+        // Controleer alle geïmporteerde gegevens van het land.
+        expect($importedParentCountry->name)
+            ->toBe('Testland externe hoofdpostzegel');
+
+        expect($importedParentCountry->iso_code)
+            ->toBe('TEH');
+
+        expect($importedParentCountry->entity_type)
+            ->toBe('country');
+
+        expect($importedParentCountry->start_year)
+            ->toBe(1850);
+
+        expect($importedParentCountry->end_year)
+            ->toBe(1999);
+
+        expect($importedParentCountry->is_active)
+            ->toBeFalse();
+
+        expect($importedParentCountry->slug)
+            ->toBe('testland-extern-hoofdpostzegelland');
+
+        expect($importedParentCountry->description)
+            ->toBe('Testbeschrijving externe hoofdpostzegel.');
         // Zoek de opnieuw geïmporteerde postzegels.
         $importedParent = Stamp::query()
             ->where('name', 'Testpostzegel hoofdpostzegel ander land')

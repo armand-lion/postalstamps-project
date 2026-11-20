@@ -10,9 +10,10 @@ use App\Models\SeriesCatalogValue;
 use App\Models\StampSeries;
 use Maatwebsite\Excel\Concerns\FromArray;
 use Maatwebsite\Excel\Concerns\WithEvents;
+use Maatwebsite\Excel\Concerns\WithStrictNullComparison;
 use Maatwebsite\Excel\Concerns\WithTitle;
 
-class CountriesSheet implements FromArray, WithEvents, WithTitle
+class CountriesSheet implements FromArray, WithEvents, WithStrictNullComparison, WithTitle
 {
     use FormatsExchangeSheet;
 
