@@ -12800,3 +12800,148 @@ test('themavertalingen blijven behouden na Excel round trip', function () {
         unlink($filePath);
     }
 });
+
+test('landvertalingen blijven behouden na Excel round trip', function () {
+    // Maak een testcatalogus aan.
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus landvertalingen round trip',
+    ]);
+
+    // Maak een cataloguseditie aan.
+    $edition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2026',
+        'edition_year' => 2026,
+    ]);
+
+    // Maak een land aan.
+    $country = Country::create([
+        'slug' => 'round-trip-landvertalingen',
+        'iso_code' => 'LVR',
+        'name' => 'Landvertalingen round trip',
+    ]);
+
+    // Koppel het land aan de catalogus.
+    $catalog->countries()->attach($country->id);
+
+    // Definieer de vijf landvertalingen.
+    $translations = [
+        [
+            'locale' => 'nl',
+            'name' => 'Testland',
+            'description' => 'Nederlandse beschrijving van het testland.',
+        ],
+        [
+            'locale' => 'en',
+            'name' => 'Test Country',
+            'description' => 'English description of the test country.',
+        ],
+        [
+            'locale' => 'de',
+            'name' => 'Testland',
+            'description' => 'Deutsche Beschreibung des Testlandes.',
+        ],
+        [
+            'locale' => 'fr',
+            'name' => 'Pays de test',
+            'description' => 'Description française du pays de test.',
+        ],
+        [
+            'locale' => 'es',
+            'name' => 'País de prueba',
+            'description' => 'Descripción española del país de prueba.',
+        ],
+    ];
+
+    // Maak de vijf vertalingen aan.
+    $country->translations()->createMany($translations);
+
+    // Controleer de oorspronkelijke vertalingen.
+    expect($country->translations()->count())->toBe(5);
+
+    // Exporteer de oorspronkelijke gegevens naar Excel.
+    $excelContent = Excel::raw(
+        new CatalogEditionExchangeExcelExport($catalog, $edition),
+        Xlsx::class
+    );
+
+    // Maak een tijdelijk Excel-bestand aan.
+    $filePath = tempnam(sys_get_temp_dir(), 'country_translations_round_trip_');
+
+    if ($filePath === false) {
+        throw new RuntimeException(
+            'Kan tijdelijk Excel-bestand niet aanmaken.'
+        );
+    }
+
+    try {
+        file_put_contents($filePath, $excelContent);
+
+        // Verwijder de oorspronkelijke vertalingen.
+        $country->translations()->delete();
+
+        // Verwijder de oorspronkelijke cataloguskoppeling.
+        $catalog->countries()->detach($country->id);
+
+        // Verwijder de oorspronkelijke cataloguseditie.
+        $edition->delete();
+
+        // Verwijder het oorspronkelijke land.
+        $country->delete();
+
+        // Controleer dat het oorspronkelijke land verwijderd is.
+        expect(
+            Country::query()
+                ->where('slug', 'round-trip-landvertalingen')
+                ->exists()
+        )->toBeFalse();
+
+        // Importeer het ongewijzigde Excel-bestand.
+        $importedEdition = app(CatalogEditionExchangeImporter::class)
+            ->importEdition($filePath, $catalog);
+
+        // Controleer de geïmporteerde cataloguseditie.
+        expect($importedEdition->catalog_id)->toBe($catalog->id);
+
+        expect($importedEdition->edition_name)->toBe('Editie 2026');
+
+        // Zoek het geïmporteerde land.
+        $importedCountry = Country::query()
+            ->where('slug', 'round-trip-landvertalingen')
+            ->first();
+
+        expect($importedCountry)->not->toBeNull();
+
+        // Controleer de oorspronkelijke landgegevens.
+        expect($importedCountry->name)->toBe(
+            'Landvertalingen round trip'
+        );
+
+        expect($importedCountry->iso_code)->toBe('LVR');
+
+        // Controleer dat precies vijf vertalingen zijn geïmporteerd.
+        expect($importedCountry->translations()->count())->toBe(5);
+
+        // Controleer iedere geïmporteerde vertaling.
+        foreach ($translations as $translationData) {
+            $importedTranslation = CountryTranslation::query()
+                ->where('country_id', $importedCountry->id)
+                ->where('locale', $translationData['locale'])
+                ->first();
+
+            expect($importedTranslation)->not->toBeNull();
+
+            expect($importedTranslation->name)->toBe(
+                $translationData['name']
+            );
+
+            expect($importedTranslation->description)->toBe(
+                $translationData['description']
+            );
+        }
+
+    } finally {
+        // Verwijder het tijdelijke Excel-bestand.
+        unlink($filePath);
+    }
+});
