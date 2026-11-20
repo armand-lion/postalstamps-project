@@ -13418,3 +13418,356 @@ test('bovenliggende postzegel en variant blijven behouden na Excel round trip', 
         unlink($filePath);
     }
 });
+
+test('bovenliggende postzegel buiten cataloguseditie blijft behouden na Excel round trip', function () {
+    // Maak een testcatalogus aan.
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus externe hoofdpostzegel round trip',
+    ]);
+
+    // Maak een cataloguseditie aan.
+    $edition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2026',
+        'edition_year' => 2026,
+    ]);
+
+    // Maak een land aan.
+    $country = Country::create([
+        'slug' => 'testland-externe-hoofdpostzegel-round-trip',
+        'iso_code' => 'TEH',
+        'name' => 'Testland externe hoofdpostzegel round trip',
+    ]);
+
+    // Maak de hoofdpostzegel aan.
+    $parentStamp = Stamp::create([
+        'country_id' => $country->id,
+        'name' => 'Testpostzegel externe hoofdpostzegel',
+        'issue_year' => 2026,
+        'face_value' => '1',
+        'currency' => 'EUR',
+    ]);
+
+    // Maak de eerste variant aan.
+    $childStampA = Stamp::create([
+        'country_id' => $country->id,
+        'parent_stamp_id' => $parentStamp->id,
+        'name' => 'Testpostzegel externe variant rood',
+        'issue_year' => 2026,
+        'face_value' => '1',
+        'currency' => 'EUR',
+    ]);
+
+    // Maak de tweede variant aan.
+    $childStampB = Stamp::create([
+        'country_id' => $country->id,
+        'parent_stamp_id' => $parentStamp->id,
+        'name' => 'Testpostzegel externe variant blauw',
+        'issue_year' => 2026,
+        'face_value' => '1',
+        'currency' => 'EUR',
+    ]);
+
+    // Koppel uitsluitend de varianten aan de cataloguseditie.
+    StampCatalogEntry::create([
+        'catalog_edition_id' => $edition->id,
+        'stamp_id' => $childStampA->id,
+        'catalog_number' => '100a',
+    ]);
+
+    StampCatalogEntry::create([
+        'catalog_edition_id' => $edition->id,
+        'stamp_id' => $childStampB->id,
+        'catalog_number' => '100b',
+    ]);
+
+    // Exporteer de gegevens naar Excel.
+    $excelContent = Excel::raw(
+        new CatalogEditionExchangeExcelExport($catalog, $edition),
+        Xlsx::class
+    );
+
+    // Maak een tijdelijk Excel-bestand aan.
+    $filePath = tempnam(sys_get_temp_dir(), 'catalog_round_trip_');
+
+    if ($filePath === false) {
+        throw new RuntimeException(
+            'Kan tijdelijk Excel-bestand niet aanmaken.'
+        );
+    }
+
+    try {
+        file_put_contents($filePath, $excelContent);
+
+        // Verwijder de oorspronkelijke catalogusvermeldingen.
+        StampCatalogEntry::query()
+            ->where('catalog_edition_id', $edition->id)
+            ->delete();
+
+        // Verwijder de oorspronkelijke cataloguseditie.
+        $edition->delete();
+
+        // Verwijder eerst de varianten en daarna de hoofdpostzegel.
+        $childStampA->delete();
+        $childStampB->delete();
+        $parentStamp->delete();
+
+        // Importeer het ongewijzigde Excel-bestand.
+        $importedEdition = app(CatalogEditionExchangeImporter::class)
+            ->importEdition($filePath, $catalog);
+
+        // Zoek de opnieuw geïmporteerde hoofdpostzegel.
+        $importedParent = Stamp::query()
+            ->where('name', 'Testpostzegel externe hoofdpostzegel')
+            ->first();
+
+        // Zoek beide opnieuw geïmporteerde varianten.
+        $importedChildA = Stamp::query()
+            ->where('name', 'Testpostzegel externe variant rood')
+            ->first();
+
+        $importedChildB = Stamp::query()
+            ->where('name', 'Testpostzegel externe variant blauw')
+            ->first();
+
+        // Controleer of alle drie de postzegels bestaan.
+        expect($importedParent)->not->toBeNull();
+        expect($importedChildA)->not->toBeNull();
+        expect($importedChildB)->not->toBeNull();
+
+        // De hoofdpostzegel mag zelf geen bovenliggende postzegel hebben.
+        expect($importedParent->parent_stamp_id)->toBeNull();
+
+        // Beide varianten moeten naar dezelfde hoofdpostzegel verwijzen.
+        expect($importedChildA->parent_stamp_id)->toBe($importedParent->id);
+        expect($importedChildB->parent_stamp_id)->toBe($importedParent->id);
+
+        // De hoofdpostzegel mag geen catalogusvermelding hebben.
+        expect(
+            StampCatalogEntry::query()
+                ->where('catalog_edition_id', $importedEdition->id)
+                ->where('stamp_id', $importedParent->id)
+                ->exists()
+        )->toBeFalse();
+
+        // Controleer de catalogusvermeldingen van beide varianten.
+        $importedEntryA = StampCatalogEntry::query()
+            ->where('catalog_edition_id', $importedEdition->id)
+            ->where('stamp_id', $importedChildA->id)
+            ->first();
+
+        $importedEntryB = StampCatalogEntry::query()
+            ->where('catalog_edition_id', $importedEdition->id)
+            ->where('stamp_id', $importedChildB->id)
+            ->first();
+
+        expect($importedEntryA)->not->toBeNull();
+        expect($importedEntryB)->not->toBeNull();
+
+        expect($importedEntryA->catalog_number)->toBe('100a');
+        expect($importedEntryB->catalog_number)->toBe('100b');
+
+        // Controleer dat de hoofdpostzegel precies één keer is aangemaakt.
+        expect(
+            Stamp::query()
+                ->where('name', 'Testpostzegel externe hoofdpostzegel')
+                ->count()
+        )->toBe(1);
+
+        // De cataloguseditie moet uitsluitend twee vermeldingen bevatten.
+        expect(
+            StampCatalogEntry::query()
+                ->where('catalog_edition_id', $importedEdition->id)
+                ->count()
+        )->toBe(2);
+
+    } finally {
+        // Verwijder het tijdelijke Excel-bestand.
+        unlink($filePath);
+    }
+});
+
+test('land van bovenliggende postzegel buiten cataloguseditie wordt geexporteerd', function () {
+    // Maak een testcatalogus aan.
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus extern hoofdpostzegelland',
+    ]);
+
+    // Maak een cataloguseditie aan.
+    $edition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2026',
+        'edition_year' => 2026,
+    ]);
+
+    // Maak het land van de hoofdpostzegel aan.
+    $parentCountry = Country::create([
+        'slug' => 'testland-extern-hoofdpostzegelland',
+        'iso_code' => 'TEH',
+        'name' => 'Testland externe hoofdpostzegel',
+    ]);
+
+    // Maak een ander land voor de variant aan.
+    $childCountry = Country::create([
+        'slug' => 'testland-externe-variant',
+        'iso_code' => 'TEV',
+        'name' => 'Testland externe variant',
+    ]);
+
+    // Maak de hoofdpostzegel aan.
+    $parentStamp = Stamp::create([
+        'country_id' => $parentCountry->id,
+        'name' => 'Testpostzegel hoofdpostzegel ander land',
+        'issue_year' => 2026,
+        'face_value' => '1',
+        'currency' => 'EUR',
+    ]);
+
+    // Maak de variant aan.
+    $childStamp = Stamp::create([
+        'country_id' => $childCountry->id,
+        'parent_stamp_id' => $parentStamp->id,
+        'name' => 'Testpostzegel variant ander land',
+        'issue_year' => 2026,
+        'face_value' => '1',
+        'currency' => 'EUR',
+    ]);
+
+    // Koppel uitsluitend de variant aan de cataloguseditie.
+    StampCatalogEntry::create([
+        'catalog_edition_id' => $edition->id,
+        'stamp_id' => $childStamp->id,
+        'catalog_number' => '100a',
+    ]);
+
+    // Exporteer de cataloguseditie naar Excel.
+    $excelContent = Excel::raw(
+        new CatalogEditionExchangeExcelExport($catalog, $edition),
+        Xlsx::class
+    );
+
+    // Maak een tijdelijk Excel-bestand aan.
+    $filePath = tempnam(sys_get_temp_dir(), 'catalog_round_trip_');
+
+    if ($filePath === false) {
+        throw new RuntimeException(
+            'Kan tijdelijk Excel-bestand niet aanmaken.'
+        );
+    }
+
+    $spreadsheet = null;
+
+    try {
+        file_put_contents($filePath, $excelContent);
+
+        // Open het geëxporteerde Excel-bestand.
+        $spreadsheet = IOFactory::load($filePath);
+
+        // Lees het werkblad Landen.
+        $countriesSheet = $spreadsheet->getSheetByName('Landen');
+
+        expect($countriesSheet)->not->toBeNull();
+
+        // Verzamel alle geëxporteerde landslugs.
+        $exportedCountrySlugs = [];
+
+        for ($row = 2; $row <= $countriesSheet->getHighestRow(); $row++) {
+            $exportedCountrySlugs[] = $countriesSheet
+                ->getCell('G'.$row)
+                ->getValue();
+        }
+
+        // Beide landen moeten in de export voorkomen.
+        expect($exportedCountrySlugs)
+            ->toContain($parentCountry->slug)
+            ->toContain($childCountry->slug);
+
+        // Sluit het spreadsheet voordat de import begint.
+        $spreadsheet->disconnectWorksheets();
+        $spreadsheet = null;
+
+        // Verwijder de oorspronkelijke catalogusvermelding.
+        StampCatalogEntry::query()
+            ->where('catalog_edition_id', $edition->id)
+            ->delete();
+
+        // Verwijder de oorspronkelijke cataloguseditie.
+        $edition->delete();
+
+        // Verwijder eerst de variant en daarna de hoofdpostzegel.
+        $childStamp->delete();
+        $parentStamp->delete();
+
+        // Verwijder beide oorspronkelijke landen.
+        $parentCountry->delete();
+        $childCountry->delete();
+
+        // Importeer het ongewijzigde Excel-bestand.
+        $importedEdition = app(CatalogEditionExchangeImporter::class)
+            ->importEdition($filePath, $catalog);
+
+        // Controleer of beide landen opnieuw zijn aangemaakt.
+        $importedParentCountry = Country::query()
+            ->where('slug', 'testland-extern-hoofdpostzegelland')
+            ->first();
+
+        $importedChildCountry = Country::query()
+            ->where('slug', 'testland-externe-variant')
+            ->first();
+
+        expect($importedParentCountry)->not->toBeNull();
+        expect($importedChildCountry)->not->toBeNull();
+
+        // Zoek de opnieuw geïmporteerde postzegels.
+        $importedParent = Stamp::query()
+            ->where('name', 'Testpostzegel hoofdpostzegel ander land')
+            ->first();
+
+        $importedChild = Stamp::query()
+            ->where('name', 'Testpostzegel variant ander land')
+            ->first();
+
+        expect($importedParent)->not->toBeNull();
+        expect($importedChild)->not->toBeNull();
+
+        // Controleer of beide postzegels hun eigen land behouden.
+        expect($importedParent->country_id)->toBe($importedParentCountry->id);
+        expect($importedChild->country_id)->toBe($importedChildCountry->id);
+
+        // Controleer of de ouder-kindrelatie is hersteld.
+        expect($importedParent->parent_stamp_id)->toBeNull();
+        expect($importedChild->parent_stamp_id)->toBe($importedParent->id);
+
+        // De hoofdpostzegel mag geen catalogusvermelding hebben.
+        expect(
+            StampCatalogEntry::query()
+                ->where('catalog_edition_id', $importedEdition->id)
+                ->where('stamp_id', $importedParent->id)
+                ->exists()
+        )->toBeFalse();
+
+        // De variant moet catalogusnummer 100a behouden.
+        $importedChildEntry = StampCatalogEntry::query()
+            ->where('catalog_edition_id', $importedEdition->id)
+            ->where('stamp_id', $importedChild->id)
+            ->first();
+
+        expect($importedChildEntry)->not->toBeNull();
+        expect($importedChildEntry->catalog_number)->toBe('100a');
+
+        // De cataloguseditie moet precies één vermelding bevatten.
+        expect(
+            StampCatalogEntry::query()
+                ->where('catalog_edition_id', $importedEdition->id)
+                ->count()
+        )->toBe(1);
+
+    } finally {
+        if ($spreadsheet !== null) {
+            $spreadsheet->disconnectWorksheets();
+        }
+
+        // Verwijder het tijdelijke Excel-bestand.
+        unlink($filePath);
+    }
+});

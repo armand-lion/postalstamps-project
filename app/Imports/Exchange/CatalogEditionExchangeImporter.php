@@ -191,6 +191,13 @@ class CatalogEditionExchangeImporter
                     $catalogEntryIdMap
                 );
 
+                // Importeer bovenliggende postzegels die niet in deze
+                // cataloguseditie voorkomen en herstel hun ouder-kindrelaties.
+                $this->importParentStamps(
+                    $spreadsheet,
+                    $stampIdMap
+                );
+
                 // Importeer de vertalingen van de postzegels.
                 $this->importStampTranslations(
                     $spreadsheet,
@@ -1162,6 +1169,165 @@ class CatalogEditionExchangeImporter
                 ->whereKey($childStampId)
                 ->update([
                     'parent_stamp_id' => $parentStampId,
+                ]);
+        }
+    }
+
+    /**
+     * Importeer bovenliggende postzegels die niet in de cataloguseditie staan.
+     *
+     * Maak iedere unieke hoofdpostzegel één keer aan en koppel
+     * de bijbehorende varianten aan deze hoofdpostzegel.
+     *
+     * Deze methode wordt uitgevoerd binnen de bestaande databasetransactie.
+     *
+     * @param  array<string, int>  $stampIdMap
+     */
+    private function importParentStamps(
+        Spreadsheet $spreadsheet,
+        array $stampIdMap
+    ): void {
+        $parentStampsSheet = $spreadsheet->getSheetByName('BovenliggendePostzegels');
+
+        if ($parentStampsSheet === null) {
+            throw new RuntimeException(
+                'Het tabblad BovenliggendePostzegels ontbreekt.'
+            );
+        }
+
+        // Koppeling tussen Excel-hoofdpostzegel-ID's en nieuwe database-ID's.
+        $parentIdMap = [];
+
+        for ($row = 2; $row <= $parentStampsSheet->getHighestDataRow(); $row++) {
+            $parentExchangeId = trim((string) $parentStampsSheet->getCell('A'.$row)->getValue());
+            $childExchangeId = trim((string) $parentStampsSheet->getCell('B'.$row)->getValue());
+
+            $countrySlug = trim((string) $parentStampsSheet->getCell('C'.$row)->getValue());
+            $countryIsoCode = trim((string) $parentStampsSheet->getCell('D'.$row)->getValue());
+
+            $name = trim((string) $parentStampsSheet->getCell('E'.$row)->getValue());
+            $description = $parentStampsSheet->getCell('F'.$row)->getValue();
+            $issueYear = $parentStampsSheet->getCell('G'.$row)->getValue();
+            $issueDate = trim((string) $parentStampsSheet->getCell('H'.$row)->getValue());
+            $faceValue = trim((string) $parentStampsSheet->getCell('I'.$row)->getValue());
+            $currency = trim((string) $parentStampsSheet->getCell('J'.$row)->getValue());
+            $designer = $parentStampsSheet->getCell('K'.$row)->getValue();
+            $printingMethod = $parentStampsSheet->getCell('L'.$row)->getValue();
+            $catalogReference = $parentStampsSheet->getCell('M'.$row)->getValue();
+            $notes = $parentStampsSheet->getCell('N'.$row)->getValue();
+
+            // Controleer of de variant succesvol is geïmporteerd.
+            $childStampId = $stampIdMap[$childExchangeId] ?? null;
+
+            if ($childStampId === null) {
+                throw new RuntimeException(
+                    'Onbekende child_exchange_stamp_id '.$childExchangeId.
+                    ' in tabblad BovenliggendePostzegels, rij '.$row
+                );
+            }
+
+            // Maak dezelfde hoofdpostzegel niet meerdere keren aan.
+            if (! isset($parentIdMap[$parentExchangeId])) {
+                $country = Country::query()
+                    ->where('slug', $countrySlug)
+                    ->first();
+
+                if ($country === null) {
+                    throw new RuntimeException(
+                        'Onbekende country_slug '.$countrySlug.
+                        ' in tabblad BovenliggendePostzegels, rij '.$row
+                    );
+                }
+
+                if (($country->iso_code ?? '') !== $countryIsoCode) {
+                    throw new RuntimeException(
+                        'Conflicterende country_iso_code voor country_slug '.$countrySlug.
+                        ' in tabblad BovenliggendePostzegels, rij '.$row
+                    );
+                }
+
+                if ($name === '' || mb_strlen($name) > 200) {
+                    throw new RuntimeException(
+                        'Ongeldige name in tabblad BovenliggendePostzegels, rij '.$row
+                    );
+                }
+
+                if (
+                    filter_var(
+                        $issueYear,
+                        FILTER_VALIDATE_INT,
+                        [
+                            'options' => [
+                                'min_range' => 1840,
+                                'max_range' => 2200,
+                            ],
+                        ]
+                    ) === false
+                ) {
+                    throw new RuntimeException(
+                        'Ongeldig issue_year in tabblad BovenliggendePostzegels, rij '.$row
+                    );
+                }
+
+                if ($issueDate !== '') {
+                    $date = \DateTimeImmutable::createFromFormat('!Y-m-d', $issueDate);
+
+                    if ($date === false || $date->format('Y-m-d') !== $issueDate) {
+                        throw new RuntimeException(
+                            'Ongeldige issue_date '.$issueDate.
+                            ' in tabblad BovenliggendePostzegels, rij '.$row
+                        );
+                    }
+                }
+
+                if (mb_strlen($faceValue) > 50) {
+                    throw new RuntimeException(
+                        'Veld face_value overschrijdt de maximale lengte van 50 tekens'.
+                        ' in tabblad BovenliggendePostzegels, rij '.$row
+                    );
+                }
+
+                $textFields = [
+                    'currency' => [$currency, 3],
+                    'designer' => [$designer, 150],
+                    'printing_method' => [$printingMethod, 100],
+                    'catalog_reference' => [$catalogReference, 100],
+                ];
+
+                foreach ($textFields as $field => [$value, $maxLength]) {
+                    if ($value !== null && mb_strlen((string) $value) > $maxLength) {
+                        throw new RuntimeException(
+                            'Veld '.$field.
+                            ' overschrijdt de maximale lengte van '.$maxLength.
+                            ' tekens in tabblad BovenliggendePostzegels, rij '.$row
+                        );
+                    }
+                }
+
+                // Maak de hoofdpostzegel aan zonder catalogusvermelding.
+                $parentStamp = Stamp::create([
+                    'country_id' => $country->id,
+                    'parent_stamp_id' => null,
+                    'name' => $name,
+                    'description' => $description === null || $description === '' ? null : $description,
+                    'issue_year' => (int) $issueYear,
+                    'issue_date' => $issueDate !== '' ? $issueDate : null,
+                    'face_value' => $faceValue !== '' ? $faceValue : null,
+                    'currency' => $currency !== '' ? $currency : null,
+                    'designer' => $designer === null || $designer === '' ? null : $designer,
+                    'printing_method' => $printingMethod === null || $printingMethod === '' ? null : $printingMethod,
+                    'catalog_reference' => $catalogReference === null || $catalogReference === '' ? null : $catalogReference,
+                    'notes' => $notes === null || $notes === '' ? null : $notes,
+                ]);
+
+                $parentIdMap[$parentExchangeId] = $parentStamp->id;
+            }
+
+            // Koppel de variant aan de juiste hoofdpostzegel.
+            Stamp::query()
+                ->whereKey($childStampId)
+                ->update([
+                    'parent_stamp_id' => $parentIdMap[$parentExchangeId],
                 ]);
         }
     }

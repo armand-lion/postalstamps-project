@@ -46,6 +46,13 @@ class CountriesSheet implements FromArray, WithEvents, WithTitle
             ->get()
             ->pluck('stamp.country_id');
 
+        // Landen van bovenliggende postzegels die buiten de cataloguseditie vallen.
+        $parentStampCountryIds = $this->edition->stampEntries()
+            ->with('stamp.parentStamp')
+            ->get()
+            ->pluck('stamp.parentStamp.country_id')
+            ->filter();
+
         // Series die aan postzegels binnen deze editie gekoppeld zijn.
         $stampSeriesIds = $this->edition->stampEntries()
             ->with('stamp')
@@ -72,6 +79,7 @@ class CountriesSheet implements FromArray, WithEvents, WithTitle
         // Alle benodigde landen samenvoegen.
         $countryIds = $catalogCountryIds
             ->merge($stampCountryIds)
+            ->merge($parentStampCountryIds)
             ->merge($seriesCountryIds)
             ->filter()
             ->unique()
