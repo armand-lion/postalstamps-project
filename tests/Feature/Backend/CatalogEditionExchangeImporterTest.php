@@ -13771,3 +13771,189 @@ test('land van bovenliggende postzegel buiten cataloguseditie wordt geexporteerd
         unlink($filePath);
     }
 });
+
+test('landvertalingen van bovenliggende postzegel buiten cataloguseditie blijven behouden na Excel round trip', function () {
+    // Maak een testcatalogus aan.
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus externe hoofdpostzegel landvertalingen',
+    ]);
+
+    // Maak een cataloguseditie aan.
+    $edition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2026',
+        'edition_year' => 2026,
+    ]);
+
+    // Maak het land van de hoofdpostzegel aan.
+    $parentCountry = Country::create([
+        'slug' => 'extern-hoofdpostzegelland-vertalingen',
+        'iso_code' => 'EHV',
+        'name' => 'Extern hoofdpostzegelland',
+    ]);
+
+    // Maak een ander land voor de variant aan.
+    $childCountry = Country::create([
+        'slug' => 'extern-variantland-vertalingen',
+        'iso_code' => 'EVV',
+        'name' => 'Extern variantland',
+    ]);
+
+    // Definieer de vijf vertalingen van het hoofdpostzegelland.
+    $translations = [
+        [
+            'locale' => 'nl',
+            'name' => 'Extern testland',
+            'description' => 'Nederlandse beschrijving.',
+        ],
+        [
+            'locale' => 'en',
+            'name' => 'External test country',
+            'description' => 'English description.',
+        ],
+        [
+            'locale' => 'de',
+            'name' => 'Externes Testland',
+            'description' => 'Deutsche Beschreibung.',
+        ],
+        [
+            'locale' => 'fr',
+            'name' => 'Pays de test externe',
+            'description' => 'Description française.',
+        ],
+        [
+            'locale' => 'es',
+            'name' => 'País de prueba externo',
+            'description' => 'Descripción española.',
+        ],
+    ];
+
+    // Maak de vijf landvertalingen aan.
+    $parentCountry->translations()->createMany($translations);
+
+    // Maak de hoofdpostzegel aan.
+    $parentStamp = Stamp::create([
+        'country_id' => $parentCountry->id,
+        'name' => 'Hoofdpostzegel externe landvertalingen',
+        'issue_year' => 2026,
+        'face_value' => '1',
+        'currency' => 'EUR',
+    ]);
+
+    // Maak de variant aan.
+    $childStamp = Stamp::create([
+        'country_id' => $childCountry->id,
+        'parent_stamp_id' => $parentStamp->id,
+        'name' => 'Variant externe landvertalingen',
+        'issue_year' => 2026,
+        'face_value' => '1',
+        'currency' => 'EUR',
+    ]);
+
+    // Koppel uitsluitend de variant aan de cataloguseditie.
+    StampCatalogEntry::create([
+        'catalog_edition_id' => $edition->id,
+        'stamp_id' => $childStamp->id,
+        'catalog_number' => '100a',
+    ]);
+
+    // Exporteer de cataloguseditie.
+    $excelContent = Excel::raw(
+        new CatalogEditionExchangeExcelExport($catalog, $edition),
+        Xlsx::class
+    );
+
+    // Maak een tijdelijk Excel-bestand aan.
+    $filePath = tempnam(sys_get_temp_dir(), 'external_country_translations_');
+
+    if ($filePath === false) {
+        throw new RuntimeException(
+            'Kan tijdelijk Excel-bestand niet aanmaken.'
+        );
+    }
+
+    try {
+        file_put_contents($filePath, $excelContent);
+
+        // Verwijder de oorspronkelijke catalogusvermelding.
+        StampCatalogEntry::query()
+            ->where('catalog_edition_id', $edition->id)
+            ->delete();
+
+        // Verwijder de oorspronkelijke cataloguseditie.
+        $edition->delete();
+
+        // Verwijder eerst de variant en daarna de hoofdpostzegel.
+        $childStamp->delete();
+        $parentStamp->delete();
+
+        // Verwijder de oorspronkelijke landvertalingen.
+        $parentCountry->translations()->delete();
+
+        // Verwijder beide oorspronkelijke landen.
+        $parentCountry->delete();
+        $childCountry->delete();
+
+        // Importeer het ongewijzigde Excel-bestand.
+        $importedEdition = app(CatalogEditionExchangeImporter::class)
+            ->importEdition($filePath, $catalog);
+
+        // Controleer de geïmporteerde cataloguseditie.
+        expect($importedEdition->catalog_id)->toBe($catalog->id);
+
+        // Zoek het opnieuw geïmporteerde hoofdpostzegelland.
+        $importedParentCountry = Country::query()
+            ->where('slug', 'extern-hoofdpostzegelland-vertalingen')
+            ->first();
+
+        expect($importedParentCountry)->not->toBeNull();
+
+        // Controleer dat alle vijf vertalingen zijn behouden.
+        expect($importedParentCountry->translations()->count())->toBe(5);
+
+        // Controleer iedere vertaling afzonderlijk.
+        foreach ($translations as $translationData) {
+            $importedTranslation = CountryTranslation::query()
+                ->where('country_id', $importedParentCountry->id)
+                ->where('locale', $translationData['locale'])
+                ->first();
+
+            expect($importedTranslation)->not->toBeNull();
+
+            expect($importedTranslation->name)->toBe(
+                $translationData['name']
+            );
+
+            expect($importedTranslation->description)->toBe(
+                $translationData['description']
+            );
+        }
+
+        // Controleer of de hoofdpostzegel opnieuw is geïmporteerd.
+        $importedParent = Stamp::query()
+            ->where('name', 'Hoofdpostzegel externe landvertalingen')
+            ->first();
+
+        expect($importedParent)->not->toBeNull();
+
+        expect($importedParent->country_id)->toBe(
+            $importedParentCountry->id
+        );
+
+        // Controleer of de variant opnieuw is geïmporteerd.
+        $importedChild = Stamp::query()
+            ->where('name', 'Variant externe landvertalingen')
+            ->first();
+
+        expect($importedChild)->not->toBeNull();
+
+        // Controleer de ouder-kindrelatie.
+        expect($importedChild->parent_stamp_id)->toBe(
+            $importedParent->id
+        );
+
+    } finally {
+        // Verwijder het tijdelijke Excel-bestand.
+        unlink($filePath);
+    }
+});
