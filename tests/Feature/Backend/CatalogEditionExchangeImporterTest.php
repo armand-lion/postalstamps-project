@@ -11822,3 +11822,138 @@ test('een postzegel met serie en catalogusvermelding blijft behouden na Excel ro
         unlink($filePath);
     }
 });
+
+test('cataloguswaarden blijven behouden na Excel round trip', function () {
+    // Maak een testcatalogus aan.
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus cataloguswaarden round trip',
+    ]);
+
+    // Maak een cataloguseditie aan.
+    $edition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2026',
+        'edition_year' => 2026,
+    ]);
+
+    // Maak een land aan.
+    $country = Country::create([
+        'slug' => 'testland-cataloguswaarden-round-trip',
+        'iso_code' => 'CRT',
+        'name' => 'Testland cataloguswaarden round trip',
+    ]);
+
+    // Maak een waarderingscategorie aan.
+    $condition = Condition::create([
+        'slug' => 'postfris',
+        'sort_order' => 1,
+        'is_active' => true,
+    ]);
+
+    // Maak een postzegel aan.
+    $stamp = Stamp::create([
+        'country_id' => $country->id,
+        'name' => 'Testpostzegel cataloguswaarden round trip',
+        'issue_year' => 2026,
+        'face_value' => '1/2',
+        'currency' => 'EUR',
+    ]);
+
+    // Maak de catalogusvermelding aan.
+    $entry = StampCatalogEntry::create([
+        'catalog_edition_id' => $edition->id,
+        'stamp_id' => $stamp->id,
+        'catalog_number' => '100',
+    ]);
+
+    // Maak een cataloguswaarde aan.
+    StampCatalogValue::create([
+        'stamp_catalog_entry_id' => $entry->id,
+        'condition_id' => $condition->id,
+        'catalog_value' => '25.50',
+        'currency' => 'EUR',
+        'notes' => 'Testopmerking cataloguswaarde round trip',
+        'needs_review' => true,
+    ]);
+
+    // Exporteer de gegevens naar Excel.
+    $excelContent = Excel::raw(
+        new CatalogEditionExchangeExcelExport($catalog, $edition),
+        Xlsx::class
+    );
+
+    // Maak een tijdelijk Excel-bestand aan.
+    $filePath = tempnam(sys_get_temp_dir(), 'catalog_values_round_trip_');
+
+    if ($filePath === false) {
+        throw new RuntimeException(
+            'Kan tijdelijk Excel-bestand niet aanmaken.'
+        );
+    }
+
+    try {
+        file_put_contents($filePath, $excelContent);
+
+        // Verwijder de oorspronkelijke cataloguswaarde.
+        StampCatalogValue::query()
+            ->where('stamp_catalog_entry_id', $entry->id)
+            ->delete();
+
+        // Verwijder de oorspronkelijke catalogusvermelding.
+        $entry->delete();
+
+        // Verwijder de oorspronkelijke cataloguseditie.
+        $edition->delete();
+
+        // Verwijder de oorspronkelijke postzegel.
+        $stamp->delete();
+
+        // Importeer het ongewijzigde Excel-bestand.
+        $importedEdition = app(CatalogEditionExchangeImporter::class)
+            ->importEdition($filePath, $catalog);
+
+        // Zoek de geïmporteerde postzegel.
+        $importedStamp = Stamp::query()
+            ->where('name', 'Testpostzegel cataloguswaarden round trip')
+            ->first();
+
+        expect($importedStamp)->not->toBeNull();
+
+        // Zoek de geïmporteerde catalogusvermelding.
+        $importedEntry = StampCatalogEntry::query()
+            ->where('catalog_edition_id', $importedEdition->id)
+            ->where('stamp_id', $importedStamp->id)
+            ->first();
+
+        expect($importedEntry)->not->toBeNull();
+
+        expect($importedEntry->catalog_number)->toBe('100');
+
+        // Zoek de geïmporteerde cataloguswaarde.
+        $importedValue = StampCatalogValue::query()
+            ->where('stamp_catalog_entry_id', $importedEntry->id)
+            ->first();
+
+        expect($importedValue)->not->toBeNull();
+
+        // Controleer alle oorspronkelijke cataloguswaardegegevens.
+        expect($importedValue->condition_id)->toBe($condition->id);
+        expect($importedValue->catalog_value)->toBe('25.50');
+        expect($importedValue->currency)->toBe('EUR');
+        expect($importedValue->notes)->toBe(
+            'Testopmerking cataloguswaarde round trip'
+        );
+        expect($importedValue->needs_review)->toBeTrue();
+
+        // Controleer dat precies één cataloguswaarde is geïmporteerd.
+        expect(
+            StampCatalogValue::query()
+                ->where('stamp_catalog_entry_id', $importedEntry->id)
+                ->count()
+        )->toBe(1);
+
+    } finally {
+        // Verwijder het tijdelijke Excel-bestand.
+        unlink($filePath);
+    }
+});
