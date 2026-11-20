@@ -12595,3 +12595,208 @@ test('postzegelthemas blijven behouden na Excel round trip', function () {
         unlink($filePath);
     }
 });
+
+test('themavertalingen blijven behouden na Excel round trip', function () {
+    // Maak een testcatalogus aan.
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus themavertalingen round trip',
+    ]);
+
+    // Maak een cataloguseditie aan.
+    $edition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2026',
+        'edition_year' => 2026,
+    ]);
+
+    // Maak een land aan.
+    $country = Country::create([
+        'slug' => 'testland-themavertalingen-round-trip',
+        'iso_code' => 'TVR',
+        'name' => 'Testland themavertalingen round trip',
+    ]);
+
+    // Maak een postzegel aan.
+    $stamp = Stamp::create([
+        'country_id' => $country->id,
+        'name' => 'Testpostzegel themavertalingen round trip',
+        'issue_year' => 2026,
+    ]);
+
+    // Koppel de postzegel aan de cataloguseditie.
+    StampCatalogEntry::create([
+        'catalog_edition_id' => $edition->id,
+        'stamp_id' => $stamp->id,
+        'catalog_number' => '100',
+    ]);
+
+    // Maak een thema aan.
+    $theme = Theme::create([
+        'slug' => 'round-trip-themavertalingen-bloemen',
+        'name' => 'Bloemen',
+        'description' => 'Postzegels met bloemen.',
+    ]);
+
+    // Koppel het thema aan de postzegel.
+    $stamp->themes()->attach($theme->id);
+
+    // Definieer de vijf themavertalingen.
+    $translations = [
+        [
+            'locale' => 'nl',
+            'name' => 'Bloemen',
+            'description' => 'Postzegels met bloemen.',
+        ],
+        [
+            'locale' => 'en',
+            'name' => 'Flowers',
+            'description' => 'Stamps featuring flowers.',
+        ],
+        [
+            'locale' => 'de',
+            'name' => 'Blumen',
+            'description' => 'Briefmarken mit Blumen.',
+        ],
+        [
+            'locale' => 'fr',
+            'name' => 'Fleurs',
+            'description' => 'Timbres représentant des fleurs.',
+        ],
+        [
+            'locale' => 'es',
+            'name' => 'Flores',
+            'description' => 'Sellos con flores.',
+        ],
+    ];
+
+    // Maak de vijf vertalingen aan.
+    $theme->translations()->createMany($translations);
+
+    // Controleer de oorspronkelijke vertalingen.
+    expect($theme->translations()->count())->toBe(5);
+
+    // Exporteer de oorspronkelijke gegevens naar Excel.
+    $excelContent = Excel::raw(
+        new CatalogEditionExchangeExcelExport($catalog, $edition),
+        Xlsx::class
+    );
+
+    // Maak een tijdelijk Excel-bestand aan.
+    $filePath = tempnam(sys_get_temp_dir(), 'theme_translations_round_trip_');
+
+    if ($filePath === false) {
+        throw new RuntimeException(
+            'Kan tijdelijk Excel-bestand niet aanmaken.'
+        );
+    }
+
+    try {
+        file_put_contents($filePath, $excelContent);
+
+        // Verwijder de oorspronkelijke themakoppeling.
+        $stamp->themes()->detach();
+
+        // Verwijder de oorspronkelijke catalogusvermelding.
+        StampCatalogEntry::query()
+            ->where('catalog_edition_id', $edition->id)
+            ->delete();
+
+        // Verwijder de oorspronkelijke cataloguseditie.
+        $edition->delete();
+
+        // Verwijder de oorspronkelijke postzegel.
+        $stamp->delete();
+
+        // Verwijder de oorspronkelijke vertalingen.
+        ThemeTranslation::query()
+            ->where('theme_id', $theme->id)
+            ->delete();
+
+        // Verwijder het oorspronkelijke thema.
+        $theme->delete();
+
+        // Controleer dat het thema verwijderd is.
+        expect(
+            Theme::query()
+                ->where('slug', 'round-trip-themavertalingen-bloemen')
+                ->exists()
+        )->toBeFalse();
+
+        // Controleer dat de oorspronkelijke vertalingen verwijderd zijn.
+        expect(
+            ThemeTranslation::query()
+                ->where('theme_id', $theme->id)
+                ->count()
+        )->toBe(0);
+
+        // Importeer het ongewijzigde Excel-bestand.
+        $importedEdition = app(CatalogEditionExchangeImporter::class)
+            ->importEdition($filePath, $catalog);
+
+        // Controleer de geïmporteerde cataloguseditie.
+        expect($importedEdition->catalog_id)->toBe($catalog->id);
+
+        expect($importedEdition->edition_name)->toBe('Editie 2026');
+
+        // Zoek de geïmporteerde postzegel.
+        $importedStamp = Stamp::query()
+            ->where('name', 'Testpostzegel themavertalingen round trip')
+            ->first();
+
+        expect($importedStamp)->not->toBeNull();
+
+        // Controleer de catalogusvermelding.
+        expect(
+            $importedStamp->catalogEntries()
+                ->where('catalog_edition_id', $importedEdition->id)
+                ->where('catalog_number', '100')
+                ->exists()
+        )->toBeTrue();
+
+        // Zoek het geïmporteerde thema.
+        $importedTheme = Theme::query()
+            ->where('slug', 'round-trip-themavertalingen-bloemen')
+            ->first();
+
+        expect($importedTheme)->not->toBeNull();
+
+        // Controleer de oorspronkelijke themagegevens.
+        expect($importedTheme->name)->toBe('Bloemen');
+
+        expect($importedTheme->description)->toBe(
+            'Postzegels met bloemen.'
+        );
+
+        // Controleer de koppeling met de postzegel.
+        expect(
+            $importedStamp->themes()
+                ->where('themes.id', $importedTheme->id)
+                ->exists()
+        )->toBeTrue();
+
+        // Controleer dat precies vijf vertalingen zijn geïmporteerd.
+        expect($importedTheme->translations()->count())->toBe(5);
+
+        // Controleer iedere geïmporteerde vertaling.
+        foreach ($translations as $translationData) {
+            $importedTranslation = ThemeTranslation::query()
+                ->where('theme_id', $importedTheme->id)
+                ->where('locale', $translationData['locale'])
+                ->first();
+
+            expect($importedTranslation)->not->toBeNull();
+
+            expect($importedTranslation->name)->toBe(
+                $translationData['name']
+            );
+
+            expect($importedTranslation->description)->toBe(
+                $translationData['description']
+            );
+        }
+
+    } finally {
+        // Verwijder het tijdelijke Excel-bestand.
+        unlink($filePath);
+    }
+});
