@@ -13282,3 +13282,139 @@ test('waarderingsregels blijven behouden na Excel round trip', function () {
         unlink($filePath);
     }
 });
+
+test('bovenliggende postzegel en variant blijven behouden na Excel round trip', function () {
+    // Maak een testcatalogus aan.
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus ouder-kind round trip',
+    ]);
+
+    // Maak een cataloguseditie aan.
+    $edition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2026',
+        'edition_year' => 2026,
+    ]);
+
+    // Maak een land aan.
+    $country = Country::create([
+        'slug' => 'testland-ouder-kind-round-trip',
+        'iso_code' => 'TOK',
+        'name' => 'Testland ouder-kind round trip',
+    ]);
+
+    // Maak de hoofdpostzegel aan.
+    $parentStamp = Stamp::create([
+        'country_id' => $country->id,
+        'name' => 'Testpostzegel hoofdzegel',
+        'issue_year' => 2026,
+        'face_value' => '1',
+        'currency' => 'EUR',
+    ]);
+
+    // Maak een variant van de hoofdpostzegel aan.
+    $childStamp = Stamp::create([
+        'country_id' => $country->id,
+        'parent_stamp_id' => $parentStamp->id,
+        'name' => 'Testpostzegel kleurvariant',
+        'issue_year' => 2026,
+        'face_value' => '1',
+        'currency' => 'EUR',
+    ]);
+
+    // Koppel beide postzegels aan dezelfde cataloguseditie.
+    StampCatalogEntry::create([
+        'catalog_edition_id' => $edition->id,
+        'stamp_id' => $parentStamp->id,
+        'catalog_number' => '100',
+    ]);
+
+    StampCatalogEntry::create([
+        'catalog_edition_id' => $edition->id,
+        'stamp_id' => $childStamp->id,
+        'catalog_number' => '100a',
+    ]);
+
+    // Exporteer de gegevens naar Excel.
+    $excelContent = Excel::raw(
+        new CatalogEditionExchangeExcelExport($catalog, $edition),
+        Xlsx::class
+    );
+
+    // Maak een tijdelijk Excel-bestand aan.
+    $filePath = tempnam(sys_get_temp_dir(), 'catalog_round_trip_');
+
+    if ($filePath === false) {
+        throw new RuntimeException(
+            'Kan tijdelijk Excel-bestand niet aanmaken.'
+        );
+    }
+
+    try {
+        file_put_contents($filePath, $excelContent);
+
+        // Verwijder de oorspronkelijke catalogusvermeldingen.
+        StampCatalogEntry::query()
+            ->where('catalog_edition_id', $edition->id)
+            ->delete();
+
+        // Verwijder de oorspronkelijke cataloguseditie.
+        $edition->delete();
+
+        // Verwijder eerst de variant en daarna de hoofdpostzegel.
+        $childStamp->delete();
+        $parentStamp->delete();
+
+        // Importeer het ongewijzigde Excel-bestand.
+        $importedEdition = app(CatalogEditionExchangeImporter::class)
+            ->importEdition($filePath, $catalog);
+
+        // Zoek de opnieuw geïmporteerde hoofdpostzegel.
+        $importedParent = Stamp::query()
+            ->where('name', 'Testpostzegel hoofdzegel')
+            ->first();
+
+        // Zoek de opnieuw geïmporteerde variant.
+        $importedChild = Stamp::query()
+            ->where('name', 'Testpostzegel kleurvariant')
+            ->first();
+
+        // Controleer of beide postzegels bestaan.
+        expect($importedParent)->not->toBeNull();
+        expect($importedChild)->not->toBeNull();
+
+        // De hoofdpostzegel mag zelf geen bovenliggende postzegel hebben.
+        expect($importedParent->parent_stamp_id)->toBeNull();
+
+        // De variant moet naar de geïmporteerde hoofdpostzegel verwijzen.
+        expect($importedChild->parent_stamp_id)->toBe($importedParent->id);
+
+        // Controleer de catalogusvermeldingen.
+        $importedParentEntry = StampCatalogEntry::query()
+            ->where('catalog_edition_id', $importedEdition->id)
+            ->where('stamp_id', $importedParent->id)
+            ->first();
+
+        $importedChildEntry = StampCatalogEntry::query()
+            ->where('catalog_edition_id', $importedEdition->id)
+            ->where('stamp_id', $importedChild->id)
+            ->first();
+
+        expect($importedParentEntry)->not->toBeNull();
+        expect($importedChildEntry)->not->toBeNull();
+
+        expect($importedParentEntry->catalog_number)->toBe('100');
+        expect($importedChildEntry->catalog_number)->toBe('100a');
+
+        // De geïmporteerde cataloguseditie moet twee vermeldingen bevatten.
+        expect(
+            StampCatalogEntry::query()
+                ->where('catalog_edition_id', $importedEdition->id)
+                ->count()
+        )->toBe(2);
+
+    } finally {
+        // Verwijder het tijdelijke Excel-bestand.
+        unlink($filePath);
+    }
+});

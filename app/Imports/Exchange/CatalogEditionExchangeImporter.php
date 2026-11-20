@@ -907,6 +907,10 @@ class CatalogEditionExchangeImporter
         // Houd bij welke Excel-identificaties al zijn verwerkt.
         $processedExchangeStampIds = [];
 
+        // Bewaar tijdelijk de ouder-kindrelaties uit Excel.
+        // Deze worden hersteld nadat alle postzegels zijn geïmporteerd.
+        $parentStampReferences = [];
+
         // Doorloop alle postzegels vanaf rij 2.
         for ($row = 2; $row <= $stampsSheet->getHighestDataRow(); $row++) {
 
@@ -1118,6 +1122,12 @@ class CatalogEditionExchangeImporter
             // en de database-ID van de nieuwe postzegel.
             $stampIdMap[$exchangeStampId] = $stamp->id;
 
+            // Bewaar de verwijzing naar de bovenliggende postzegel.
+            // De database-ID van de ouder is mogelijk nog niet bekend.
+            if ($parentExchangeStampId !== '') {
+                $parentStampReferences[$exchangeStampId] = $parentExchangeStampId;
+            }
+
             // Maak de catalogusvermelding voor deze postzegel aan.
             $catalogEntry = $stamp->catalogEntries()->create([
                 'catalog_edition_id' => $importedEdition->id,
@@ -1130,6 +1140,29 @@ class CatalogEditionExchangeImporter
             // Bewaar de koppeling tussen de Excel-identificatie
             // en de database-ID van de nieuwe catalogusvermelding.
             $catalogEntryIdMap[$exchangeStampId] = $catalogEntry->id;
+        }
+
+        // Herstel de ouder-kindrelaties nadat alle postzegels zijn aangemaakt.
+        foreach ($parentStampReferences as $childExchangeId => $parentExchangeId) {
+
+            // Zoek de nieuwe database-ID's van de variant en de hoofdpostzegel.
+            $childStampId = $stampIdMap[$childExchangeId] ?? null;
+            $parentStampId = $stampIdMap[$parentExchangeId] ?? null;
+
+            // Beide postzegels moeten succesvol zijn geïmporteerd.
+            if ($childStampId === null || $parentStampId === null) {
+                throw new RuntimeException(
+                    'Kan ouder-kindrelatie niet herstellen voor exchange_stamp_id '
+                    .$childExchangeId
+                );
+            }
+
+            // Koppel de variant aan de opnieuw geïmporteerde hoofdpostzegel.
+            Stamp::query()
+                ->whereKey($childStampId)
+                ->update([
+                    'parent_stamp_id' => $parentStampId,
+                ]);
         }
     }
 
