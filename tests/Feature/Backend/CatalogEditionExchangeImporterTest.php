@@ -14025,3 +14025,228 @@ test('landvertalingen van bovenliggende postzegel buiten cataloguseditie blijven
         unlink($filePath);
     }
 });
+
+test('vertalingen van bovenliggende postzegel buiten cataloguseditie blijven behouden na Excel round trip', function () {
+    // Maak een testcatalogus aan.
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus externe hoofdpostzegelvertalingen',
+    ]);
+
+    // Maak een cataloguseditie aan.
+    $edition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2026',
+        'edition_year' => 2026,
+    ]);
+
+    // Maak een land aan.
+    $country = Country::create([
+        'slug' => 'testland-externe-hoofdpostzegelvertalingen',
+        'iso_code' => 'EHV',
+        'name' => 'Testland externe hoofdpostzegelvertalingen',
+    ]);
+
+    // Maak een bovenliggende postzegel aan zonder catalogusvermelding.
+    $parentStamp = Stamp::create([
+        'country_id' => $country->id,
+        'name' => 'Hoofdpostzegel externe vertalingen',
+        'issue_year' => 2026,
+        'face_value' => '1',
+        'currency' => 'EUR',
+    ]);
+
+    // Maak vijf vertalingen voor de externe bovenliggende postzegel aan.
+    $parentStamp->translations()->createMany([
+        [
+            'locale' => 'nl',
+            'name' => 'Nederlandse hoofdpostzegel',
+            'description' => 'Nederlandse beschrijving hoofdpostzegel',
+        ],
+        [
+            'locale' => 'en',
+            'name' => 'English parent stamp',
+            'description' => 'English parent stamp description',
+        ],
+        [
+            'locale' => 'de',
+            'name' => 'Deutsche Hauptbriefmarke',
+            'description' => 'Deutsche Beschreibung der Hauptbriefmarke',
+        ],
+        [
+            'locale' => 'fr',
+            'name' => 'Timbre principal français',
+            'description' => 'Description française du timbre principal',
+        ],
+        [
+            'locale' => 'es',
+            'name' => 'Sello principal español',
+            'description' => 'Descripción española del sello principal',
+        ],
+    ]);
+
+    // Maak de eerste variant aan.
+    $childStampA = Stamp::create([
+        'country_id' => $country->id,
+        'parent_stamp_id' => $parentStamp->id,
+        'name' => 'Variant rood externe vertalingen',
+        'issue_year' => 2026,
+        'face_value' => '1',
+        'currency' => 'EUR',
+    ]);
+
+    // Maak de tweede variant aan.
+    $childStampB = Stamp::create([
+        'country_id' => $country->id,
+        'parent_stamp_id' => $parentStamp->id,
+        'name' => 'Variant blauw externe vertalingen',
+        'issue_year' => 2026,
+        'face_value' => '1',
+        'currency' => 'EUR',
+    ]);
+
+    // Koppel uitsluitend de eerste variant aan de cataloguseditie.
+    StampCatalogEntry::create([
+        'catalog_edition_id' => $edition->id,
+        'stamp_id' => $childStampA->id,
+        'catalog_number' => '100a',
+    ]);
+
+    // Koppel uitsluitend de tweede variant aan de cataloguseditie.
+    StampCatalogEntry::create([
+        'catalog_edition_id' => $edition->id,
+        'stamp_id' => $childStampB->id,
+        'catalog_number' => '100b',
+    ]);
+
+    // Exporteer de cataloguseditie inclusief de externe hoofdpostzegel
+    // en de vijf bijbehorende vertalingen naar Excel.
+    $excelContent = Excel::raw(
+        new CatalogEditionExchangeExcelExport($catalog, $edition),
+        Xlsx::class
+    );
+
+    // Maak een tijdelijk Excel-bestand aan.
+    $filePath = tempnam(
+        sys_get_temp_dir(),
+        'parent_stamp_translations_round_trip_'
+    );
+
+    if ($filePath === false) {
+        throw new RuntimeException(
+            'Kan tijdelijk Excel-bestand niet aanmaken.'
+        );
+    }
+
+    try {
+        // Schrijf de Excel-export naar het tijdelijke bestand.
+        file_put_contents($filePath, $excelContent);
+
+        // Verwijder de oorspronkelijke catalogusvermeldingen.
+        StampCatalogEntry::query()
+            ->where('catalog_edition_id', $edition->id)
+            ->delete();
+
+        // Verwijder de vijf oorspronkelijke vertalingen.
+        $parentStamp->translations()->delete();
+
+        // Verwijder de oorspronkelijke cataloguseditie.
+        $edition->delete();
+
+        // Verwijder eerst de varianten en daarna de hoofdpostzegel.
+        $childStampA->delete();
+        $childStampB->delete();
+        $parentStamp->delete();
+
+        // Importeer het ongewijzigde Excel-bestand.
+        $importedEdition = app(CatalogEditionExchangeImporter::class)
+            ->importEdition($filePath, $catalog);
+
+        // Zoek de opnieuw geïmporteerde bovenliggende postzegel.
+        $importedParent = Stamp::query()
+            ->where('name', 'Hoofdpostzegel externe vertalingen')
+            ->first();
+
+        // Zoek beide opnieuw geïmporteerde varianten.
+        $importedChildA = Stamp::query()
+            ->where('name', 'Variant rood externe vertalingen')
+            ->first();
+
+        $importedChildB = Stamp::query()
+            ->where('name', 'Variant blauw externe vertalingen')
+            ->first();
+
+        // Controleer of alle drie de postzegels bestaan.
+        expect($importedParent)->not->toBeNull();
+        expect($importedChildA)->not->toBeNull();
+        expect($importedChildB)->not->toBeNull();
+
+        // Controleer of beide varianten dezelfde hoofdpostzegel hebben.
+        expect($importedChildA->parent_stamp_id)
+            ->toBe($importedParent->id);
+
+        expect($importedChildB->parent_stamp_id)
+            ->toBe($importedParent->id);
+
+        // Controleer of de hoofdpostzegel precies één keer is aangemaakt.
+        expect(
+            Stamp::query()
+                ->where('name', 'Hoofdpostzegel externe vertalingen')
+                ->count()
+        )->toBe(1);
+
+        // De hoofdpostzegel mag geen eigen catalogusvermelding hebben.
+        expect(
+            StampCatalogEntry::query()
+                ->where('catalog_edition_id', $importedEdition->id)
+                ->where('stamp_id', $importedParent->id)
+                ->exists()
+        )->toBeFalse();
+
+        // Haal alle geïmporteerde vertalingen van de hoofdpostzegel op.
+        $translations = $importedParent->translations()
+            ->get()
+            ->keyBy('locale');
+
+        // Controleer of precies vijf vertalingen zijn geïmporteerd.
+        expect($translations)->toHaveCount(5);
+
+        // Controleer de Nederlandse vertaling.
+        expect($translations->get('nl'))->not->toBeNull();
+        expect($translations->get('nl')->name)
+            ->toBe('Nederlandse hoofdpostzegel');
+        expect($translations->get('nl')->description)
+            ->toBe('Nederlandse beschrijving hoofdpostzegel');
+
+        // Controleer de Engelse vertaling.
+        expect($translations->get('en'))->not->toBeNull();
+        expect($translations->get('en')->name)
+            ->toBe('English parent stamp');
+        expect($translations->get('en')->description)
+            ->toBe('English parent stamp description');
+
+        // Controleer de Duitse vertaling.
+        expect($translations->get('de'))->not->toBeNull();
+        expect($translations->get('de')->name)
+            ->toBe('Deutsche Hauptbriefmarke');
+        expect($translations->get('de')->description)
+            ->toBe('Deutsche Beschreibung der Hauptbriefmarke');
+
+        // Controleer de Franse vertaling.
+        expect($translations->get('fr'))->not->toBeNull();
+        expect($translations->get('fr')->name)
+            ->toBe('Timbre principal français');
+        expect($translations->get('fr')->description)
+            ->toBe('Description française du timbre principal');
+
+        // Controleer de Spaanse vertaling.
+        expect($translations->get('es'))->not->toBeNull();
+        expect($translations->get('es')->name)
+            ->toBe('Sello principal español');
+        expect($translations->get('es')->description)
+            ->toBe('Descripción española del sello principal');
+
+    } finally {
+        // Verwijder het tijdelijke Excel-bestand.
+        unlink($filePath);
+    }
+});

@@ -1185,7 +1185,7 @@ class CatalogEditionExchangeImporter
      */
     private function importParentStamps(
         Spreadsheet $spreadsheet,
-        array $stampIdMap
+        array &$stampIdMap
     ): void {
         $parentStampsSheet = $spreadsheet->getSheetByName('BovenliggendePostzegels');
 
@@ -1321,6 +1321,9 @@ class CatalogEditionExchangeImporter
                 ]);
 
                 $parentIdMap[$parentExchangeId] = $parentStamp->id;
+
+                // Maak de hoofdpostzegel ook beschikbaar voor de vertaalimport.
+                $stampIdMap[$parentExchangeId] = $parentStamp->id;
             }
 
             // Koppel de variant aan de juiste hoofdpostzegel.

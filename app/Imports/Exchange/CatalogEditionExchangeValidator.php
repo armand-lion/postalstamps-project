@@ -487,6 +487,9 @@ class CatalogEditionExchangeValidator
             $parentChildRelations = [];
             $childParentRelations = [];
 
+            // Houd bij welke externe bovenliggende postzegels in Excel voorkomen.
+            $externalParentStampIds = [];
+
             for ($row = 2; $row <= $parentStampsSheet->getHighestDataRow(); $row++) {
 
                 // Controleer de identificatie van de bovenliggende postzegel.
@@ -555,6 +558,9 @@ class CatalogEditionExchangeValidator
                 // Registreer de geldige koppelingen.
                 $parentChildRelations[$parentExchangeId][$childExchangeStampId] = true;
                 $childParentRelations[$childExchangeStampId] = $parentExchangeId;
+
+                // Registreer de identificatie voor de validatie van postzegelvertalingen.
+                $externalParentStampIds[$parentExchangeId] = true;
             }
 
             // Controleer de vertalingen van de postzegels.
@@ -569,10 +575,14 @@ class CatalogEditionExchangeValidator
                     (string) $stampTranslationsSheet->getCell('A'.$row)->getValue()
                 );
 
-                // De identificatie moet verwijzen naar een bestaande postzegel.
+                // De identificatie moet verwijzen naar een postzegel uit de editie
+                // of naar een externe bovenliggende postzegel.
                 if (
                     $translationStampId === '' ||
-                    ! isset($exchangeStampIds[$translationStampId])
+                    (
+                        ! isset($exchangeStampIds[$translationStampId]) &&
+                        ! isset($externalParentStampIds[$translationStampId])
+                    )
                 ) {
                     throw new RuntimeException(
                         'Onbekende exchange_stamp_id '.$translationStampId.
@@ -585,11 +595,18 @@ class CatalogEditionExchangeValidator
                     (string) $stampTranslationsSheet->getCell('B'.$row)->getValue()
                 );
 
-                // Het catalogusnummer moet overeenkomen met de oorspronkelijke postzegel.
-                if (
-                    $translationCatalogNumber !==
-                    $stampCatalogNumbers[$translationStampId]
-                ) {
+                // Controleer of het om een externe bovenliggende postzegel gaat.
+                $isExternalParentStamp = isset(
+                    $externalParentStampIds[$translationStampId]
+                );
+
+                // Externe bovenliggende postzegels hebben geen catalogusnummer.
+                // Gewone postzegels moeten hun oorspronkelijke catalogusnummer behouden.
+                $expectedCatalogNumber = $isExternalParentStamp
+                    ? ''
+                    : $stampCatalogNumbers[$translationStampId];
+
+                if ($translationCatalogNumber !== $expectedCatalogNumber) {
                     throw new RuntimeException(
                         'Afwijkend catalog_number voor exchange_stamp_id '.
                         $translationStampId.
