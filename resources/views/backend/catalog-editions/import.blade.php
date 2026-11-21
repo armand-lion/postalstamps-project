@@ -60,7 +60,13 @@
                     </flux:label>
 
                     <input type="file" name="file" accept=".xlsx" required
-                        class="block w-full rounded-lg border border-theme-accent-3 bg-brown-5 p-3 text-zinc-900 focus:border-theme-accent-3 focus:ring-2 focus:ring-theme-accent-3 focus:outline-none">
+                        class="block w-full rounded-lg border border-theme-accent-3 bg-brown-5 p-3 text-zinc-900 focus:border-theme-accent-3 focus:ring-2 focus:ring-theme-accent-3 focus:outline-none placeholder:text-zinc-500
+               focus:border-theme-accent-3
+               focus:outline-none
+               focus:ring-2
+               focus:ring-theme-accent-3
+               focus:ring-offset-2
+               focus:ring-offset-brown-6" />
 
                     <flux:error name="file" />
                 </flux:field>
@@ -77,7 +83,7 @@
 
                     <flux:button type="submit"
                         class="border border-theme-accent-3! bg-brown-6! text-zinc-900! hover:bg-brown-5!">
-                        {{ __('Cataloguseditie importeren') }}
+                        {{ __('Excel-bestand controleren') }}
                     </flux:button>
 
                 </div>

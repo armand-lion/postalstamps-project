@@ -26,8 +26,16 @@
                     {{ __('Terug naar catalogus') }}
                 </flux:button>
 
-                <flux:button :href="route('backend.catalogs.editions.create', $catalog)" class="bg-brown-1 hover:bg-brown-2" variant="primary" icon="plus">
+                <flux:button :href="route('backend.catalogs.editions.create', $catalog)"
+                    class="bg-brown-1 hover:bg-brown-2" variant="primary" icon="plus">
                     {{ __('Editie toevoegen') }}
+                </flux:button>
+                {{-- Excel-import --}}
+                <flux:button :href="route('backend.catalogs.editions.import.create', $catalog)" icon="arrow-down-tray"
+                    class="border border-theme-accent-3! bg-brown-6! text-zinc-900! hover:bg-brown-5!">
+
+                    {{ __('Excel importeren') }}
+
                 </flux:button>
 
             </div>
@@ -49,7 +57,8 @@
         @endif
 
         {{-- Overzicht catalogusedities --}}
-        <section class="flex flex-col gap-4 rounded-xl border border-theme-accent-1 bg-brown-6 dark:border-neutral-700">
+        <section
+            class="flex flex-col gap-4 overflow-hidden rounded-xl border border-theme-accent-1 bg-brown-6 dark:border-neutral-700">
 
             <div class="border-b border-theme-accent-1 bg-brown-6 px-4 py-3 dark:border-neutral-700">
 

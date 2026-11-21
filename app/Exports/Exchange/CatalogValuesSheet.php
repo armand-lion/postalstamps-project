@@ -6,9 +6,10 @@ use App\Exports\Exchange\Concerns\FormatsExchangeSheet;
 use App\Models\CatalogEdition;
 use Maatwebsite\Excel\Concerns\FromArray;
 use Maatwebsite\Excel\Concerns\WithEvents;
+use Maatwebsite\Excel\Concerns\WithStrictNullComparison;
 use Maatwebsite\Excel\Concerns\WithTitle;
 
-class CatalogValuesSheet implements FromArray, WithEvents, WithTitle
+class CatalogValuesSheet implements FromArray, WithEvents, WithStrictNullComparison, WithTitle
 {
     use FormatsExchangeSheet;
 

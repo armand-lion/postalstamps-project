@@ -36,7 +36,7 @@
 
                 {{-- Excel-export cataloguseditie --}}
                 <flux:button :href="route('backend.catalogs.editions.export.excel', [$catalog, $edition])"
-                    icon="arrow-down-tray"
+                    icon="arrow-up-tray"
                     class="border border-theme-accent-3! bg-brown-5! text-zinc-900! hover:bg-brown-6!">
                     {{ __('Excel exporteren') }}
                 </flux:button>

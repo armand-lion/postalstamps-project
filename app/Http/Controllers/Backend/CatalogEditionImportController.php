@@ -3,11 +3,14 @@
 namespace App\Http\Controllers\Backend;
 
 use App\Http\Controllers\Controller;
+use App\Imports\Exchange\CatalogEditionExchangeImporter;
+use App\Imports\Exchange\CatalogEditionExchangePreview;
 use App\Imports\Exchange\CatalogEditionExchangeValidator;
 use App\Models\Catalog;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
 
@@ -44,11 +47,137 @@ class CatalogEditionImportController extends Controller
             ]);
         }
 
+        // Sla het gevalideerde Excel-bestand tijdelijk en privé op.
+        $storedPath = $validated['file']->store(
+            'catalog-edition-imports',
+            'local'
+        );
+
+        // Controleer of het bestand succesvol is opgeslagen.
+        if ($storedPath === false) {
+            throw ValidationException::withMessages([
+                'file' => __('Het Excel-bestand kon niet tijdelijk worden opgeslagen.'),
+            ]);
+        }
+
+        // Bewaar de tijdelijke importgegevens in de sessie.
+        $request->session()->put('catalog_edition_import', [
+            'user_id' => $request->user()->id,
+            'catalog_id' => $catalog->id,
+            'file_path' => $storedPath,
+        ]);
+
+        // Open na succesvolle validatie de Excel-voorbeeldpagina.
         return redirect()
-            ->route('backend.catalogs.editions.import.create', $catalog)
-            ->with(
-                'success',
-                __('Het Excel-uitwisselingsbestand is succesvol gevalideerd.')
+            ->route('backend.catalogs.editions.import.preview', $catalog);
+    }
+
+    /**
+     * Toon de voorbeeldweergave van een gevalideerd Excel-bestand.
+     */
+    public function preview(
+        Request $request,
+        Catalog $catalog,
+        CatalogEditionExchangePreview $exchangePreview
+    ): View|RedirectResponse {
+        // Haal de tijdelijke importgegevens uit de sessie.
+        $import = $request->session()->get('catalog_edition_import');
+
+        // Controleer of de sessie geldige importgegevens bevat.
+        if (
+            ! is_array($import)
+            || ! isset(
+                $import['user_id'],
+                $import['catalog_id'],
+                $import['file_path']
+            )
+            || (int) $import['user_id'] !== $request->user()->id
+            || (int) $import['catalog_id'] !== $catalog->id
+            || ! is_string($import['file_path'])
+            || ! str_starts_with($import['file_path'], 'catalog-edition-imports/')
+            || ! Storage::disk('local')->exists($import['file_path'])
+        ) {
+            return redirect()
+                ->route('backend.catalogs.editions.import.create', $catalog)
+                ->withErrors([
+                    'file' => __('Er is geen geldig tijdelijk Excel-importbestand beschikbaar.'),
+                ]);
+        }
+
+        // Lees de gegevens uit het tijdelijk opgeslagen Excel-bestand.
+        $preview = $exchangePreview->getPreview(
+            Storage::disk('local')->path($import['file_path'])
+        );
+
+        // Toon de Excel-voorbeeldpagina.
+        return view('backend.catalog-editions.import-preview', [
+            'catalog' => $catalog,
+            'preview' => $preview,
+        ]);
+    }
+
+    /**
+     * Bevestig en voer de definitieve Excel-import uit.
+     */
+    public function confirm(
+        Request $request,
+        Catalog $catalog,
+        CatalogEditionExchangeImporter $importer
+    ): RedirectResponse {
+        // Haal de tijdelijke importgegevens uit de sessie.
+        $import = $request->session()->get('catalog_edition_import');
+
+        // Controleer of de tijdelijke importgegevens geldig zijn.
+        if (
+            ! is_array($import)
+            || ! isset(
+                $import['user_id'],
+                $import['catalog_id'],
+                $import['file_path']
+            )
+            || (int) $import['user_id'] !== $request->user()->id
+            || (int) $import['catalog_id'] !== $catalog->id
+            || ! is_string($import['file_path'])
+            || ! str_starts_with($import['file_path'], 'catalog-edition-imports/')
+            || ! Storage::disk('local')->exists($import['file_path'])
+        ) {
+            return redirect()
+                ->route('backend.catalogs.editions.import.create', $catalog)
+                ->withErrors([
+                    'file' => __('Er is geen geldig tijdelijk Excel-importbestand beschikbaar.'),
+                ]);
+        }
+
+        // Bepaal het volledige pad van het tijdelijke Excel-bestand.
+        $filePath = Storage::disk('local')->path($import['file_path']);
+
+        try {
+            // Voer de definitieve import uit.
+            $importedEdition = $importer->importEdition(
+                $filePath,
+                $catalog
             );
+        } catch (RuntimeException $exception) {
+            // Toon de foutmelding zonder de tijdelijke import te verwijderen.
+            return redirect()
+                ->route('backend.catalogs.editions.import.preview', $catalog)
+                ->withErrors([
+                    'file' => $exception->getMessage(),
+                ]);
+        }
+
+        // Verwijder het tijdelijke Excel-bestand na succesvolle import.
+        Storage::disk('local')->delete($import['file_path']);
+
+        // Verwijder de tijdelijke importgegevens uit de sessie.
+        $request->session()->forget('catalog_edition_import');
+
+        // Open de geïmporteerde cataloguseditie.
+        return redirect()
+            ->route('backend.catalogs.editions.show', [
+                'catalog' => $catalog,
+                'edition' => $importedEdition,
+            ])
+            ->with('success', __('De cataloguseditie is succesvol geïmporteerd.'));
     }
 }

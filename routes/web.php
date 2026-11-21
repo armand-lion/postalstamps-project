@@ -20,6 +20,7 @@ use App\Http\Controllers\Backend\StampImageController;
 use App\Http\Controllers\Backend\StampSeriesController;
 use App\Http\Controllers\Backend\ThemeController;
 use App\Http\Controllers\Backend\WatermarkController;
+use App\Http\Middleware\EnsureUserIsAdmin;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -125,15 +126,30 @@ Route::middleware(['auth'])->group(function () { //
             )->name('catalogs.editions.export.excel');
 
             // Excel-import van een cataloguseditie.
-            Route::get(
-                'catalogs/{catalog}/editions/import',
-                [CatalogEditionImportController::class, 'create']
-            )->name('catalogs.editions.import.create');
+            // Alleen beheerders mogen de importpagina openen en bestanden uploaden.
+            Route::middleware(EnsureUserIsAdmin::class)->group(function () {
+                Route::get(
+                    'catalogs/{catalog}/editions/import',
+                    [CatalogEditionImportController::class, 'create']
+                )->name('catalogs.editions.import.create');
 
-            Route::post(
-                'catalogs/{catalog}/editions/import',
-                [CatalogEditionImportController::class, 'store']
-            )->name('catalogs.editions.import.store');
+                Route::post(
+                    'catalogs/{catalog}/editions/import',
+                    [CatalogEditionImportController::class, 'store']
+                )->name('catalogs.editions.import.store');
+
+                // Voorbeeldweergave van een gevalideerd Excel-importbestand.
+                Route::get(
+                    'catalogs/{catalog}/editions/import/preview',
+                    [CatalogEditionImportController::class, 'preview']
+                )->name('catalogs.editions.import.preview');
+
+                // Bevestig en start de definitieve Excel-import.
+                Route::post(
+                    'catalogs/{catalog}/editions/import/confirm',
+                    [CatalogEditionImportController::class, 'confirm']
+                )->name('catalogs.editions.import.confirm');
+            });
 
             Route::resource('catalogs.editions', CatalogEditionController::class);
         });
