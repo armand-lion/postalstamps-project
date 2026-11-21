@@ -45,9 +45,17 @@ class StampSeriesSheet implements FromArray, WithEvents, WithTitle
             ->where('catalog_edition_id', $this->edition->id)
             ->pluck('stamp_series_id');
 
-        // Beide verzamelingen samenvoegen zonder dubbele series.
+        // Series die gekoppeld zijn aan bovenliggende postzegels,
+        // ook wanneer deze zelf niet in de cataloguseditie voorkomen.
+        $parentStampSeriesIds = $this->edition->stampEntries()
+            ->with('stamp.parentStamp')
+            ->get()
+            ->pluck('stamp.parentStamp.stamp_series_id');
+
+        // Alle drie de verzamelingen samenvoegen zonder dubbele series.
         $seriesIds = $stampSeriesIds
             ->merge($valueSeriesIds)
+            ->merge($parentStampSeriesIds)
             ->filter()
             ->unique()
             ->values();

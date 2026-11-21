@@ -34,6 +34,7 @@ class ParentStampsSheet implements FromArray, WithEvents, WithTitle
                 'printing_method',
                 'catalog_reference',
                 'notes',
+                'exchange_series_id',
             ],
         ];
 
@@ -74,6 +75,7 @@ class ParentStampsSheet implements FromArray, WithEvents, WithTitle
                 $parent->printing_method,
                 $parent->catalog_reference,
                 $parent->notes,
+                $parent->stamp_series_id,
             ];
         }
 

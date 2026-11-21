@@ -195,6 +195,7 @@ class CatalogEditionExchangeImporter
                 // cataloguseditie voorkomen en herstel hun ouder-kindrelaties.
                 $this->importParentStamps(
                     $spreadsheet,
+                    $seriesIdMap,
                     $stampIdMap
                 );
 
@@ -1181,10 +1182,12 @@ class CatalogEditionExchangeImporter
      *
      * Deze methode wordt uitgevoerd binnen de bestaande databasetransactie.
      *
+     * @param  array<int, int>  $seriesIdMap
      * @param  array<string, int>  $stampIdMap
      */
     private function importParentStamps(
         Spreadsheet $spreadsheet,
+        array $seriesIdMap,
         array &$stampIdMap
     ): void {
         $parentStampsSheet = $spreadsheet->getSheetByName('BovenliggendePostzegels');
@@ -1215,6 +1218,25 @@ class CatalogEditionExchangeImporter
             $printingMethod = $parentStampsSheet->getCell('L'.$row)->getValue();
             $catalogReference = $parentStampsSheet->getCell('M'.$row)->getValue();
             $notes = $parentStampsSheet->getCell('N'.$row)->getValue();
+
+            // Lees de optionele Excel-identificatie van de postzegelserie.
+            $parentSeriesExchangeId = trim(
+                (string) $parentStampsSheet->getCell('O'.$row)->getValue()
+            );
+
+            // Bepaal de lokale database-ID van de postzegelserie.
+            $parentSeriesId = null;
+
+            if ($parentSeriesExchangeId !== '') {
+                $parentSeriesId = $seriesIdMap[$parentSeriesExchangeId] ?? null;
+
+                if ($parentSeriesId === null) {
+                    throw new RuntimeException(
+                        'Onbekende exchange_series_id '.$parentSeriesExchangeId.
+                        ' in tabblad BovenliggendePostzegels, rij '.$row
+                    );
+                }
+            }
 
             // Controleer of de variant succesvol is geïmporteerd.
             $childStampId = $stampIdMap[$childExchangeId] ?? null;
@@ -1308,6 +1330,7 @@ class CatalogEditionExchangeImporter
                 $parentStamp = Stamp::create([
                     'country_id' => $country->id,
                     'parent_stamp_id' => null,
+                    'stamp_series_id' => $parentSeriesId,
                     'name' => $name,
                     'description' => $description === null || $description === '' ? null : $description,
                     'issue_year' => (int) $issueYear,

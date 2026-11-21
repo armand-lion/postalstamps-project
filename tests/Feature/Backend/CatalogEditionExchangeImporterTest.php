@@ -14670,3 +14670,653 @@ test('themas van bovenliggende postzegel buiten cataloguseditie blijven behouden
         unlink($filePath);
     }
 });
+
+test('postzegelseries van bovenliggende postzegel buiten cataloguseditie blijven behouden na Excel round trip', function () {
+    // Maak een testcatalogus aan.
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus externe hoofdpostzegelserie',
+    ]);
+
+    // Maak een cataloguseditie aan.
+    $edition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2026',
+        'edition_year' => 2026,
+    ]);
+
+    // Maak het land van de postzegels aan.
+    $country = Country::create([
+        'slug' => 'testland-externe-hoofdpostzegelserie',
+        'iso_code' => 'EHS',
+        'name' => 'Testland externe hoofdpostzegelserie',
+    ]);
+
+    // Maak een afzonderlijk land voor de bovenliggende postzegelserie aan.
+    $seriesCountry = Country::create([
+        'slug' => 'testland-externe-serie',
+        'iso_code' => 'TES',
+        'name' => 'Testland externe serie',
+    ]);
+
+    // Maak de serie van de externe bovenliggende postzegel aan.
+    $parentSeries = StampSeries::create([
+        'country_id' => $seriesCountry->id,
+        'name' => 'Serie externe hoofdpostzegel',
+        'issue_year' => 2025,
+        'description' => 'Serie die uitsluitend aan de externe hoofdpostzegel is gekoppeld.',
+    ]);
+
+    // Maak een afzonderlijke serie voor de eerste variant aan.
+    $childSeries = StampSeries::create([
+        'country_id' => $country->id,
+        'name' => 'Serie externe hoofdpostzegel variant',
+        'issue_year' => 2026,
+        'description' => 'Afzonderlijke serie van de eerste variant.',
+    ]);
+
+    // Definieer de vijf vertalingen van de bovenliggende postzegelserie.
+    $seriesTranslations = [
+        [
+            'locale' => 'nl',
+            'name' => 'Bloemenserie',
+            'description' => 'Een serie postzegels met afbeeldingen van bloemen.',
+        ],
+        [
+            'locale' => 'en',
+            'name' => 'Flower Series',
+            'description' => 'A series of stamps featuring flowers.',
+        ],
+        [
+            'locale' => 'de',
+            'name' => 'Blumenserie',
+            'description' => 'Eine Briefmarkenserie mit Blumenmotiven.',
+        ],
+        [
+            'locale' => 'fr',
+            'name' => 'Série de fleurs',
+            'description' => 'Une série de timbres représentant des fleurs.',
+        ],
+        [
+            'locale' => 'es',
+            'name' => 'Serie de flores',
+            'description' => 'Una serie de sellos con imágenes de flores.',
+        ],
+    ];
+
+    // Sla alle serievertalingen op.
+    $parentSeries->translations()->createMany($seriesTranslations);
+
+    // Definieer de vijf landvertalingen van het land van de bovenliggende serie.
+    $seriesCountryTranslations = [
+        [
+            'locale' => 'nl',
+            'name' => 'Testland externe serie',
+            'description' => 'Het land van de externe postzegelserie.',
+        ],
+        [
+            'locale' => 'en',
+            'name' => 'External Series Test Country',
+            'description' => 'The country of the external stamp series.',
+        ],
+        [
+            'locale' => 'de',
+            'name' => 'Testland externe Serie',
+            'description' => 'Das Land der externen Briefmarkenserie.',
+        ],
+        [
+            'locale' => 'fr',
+            'name' => 'Pays test de la série externe',
+            'description' => 'Le pays de la série externe de timbres.',
+        ],
+        [
+            'locale' => 'es',
+            'name' => 'País de prueba de la serie externa',
+            'description' => 'El país de la serie externa de sellos.',
+        ],
+    ];
+
+    // Sla alle landvertalingen van de bovenliggende serie op.
+    $seriesCountry->translations()->createMany($seriesCountryTranslations);
+
+    // Maak de externe bovenliggende postzegel aan.
+    $parentStamp = Stamp::create([
+        'country_id' => $country->id,
+        'stamp_series_id' => $parentSeries->id,
+        'name' => 'Hoofdpostzegel externe serie',
+        'description' => 'Bovenliggende postzegel buiten de cataloguseditie.',
+        'issue_year' => 2025,
+        'face_value' => '1/2',
+        'currency' => 'EUR',
+    ]);
+
+    // Maak de eerste onderliggende variant met een eigen postzegelserie aan.
+    $childStampA = Stamp::create([
+        'country_id' => $country->id,
+        'parent_stamp_id' => $parentStamp->id,
+        'stamp_series_id' => $childSeries->id,
+        'name' => 'Variant rood externe serie',
+        'description' => 'Onderliggende variant met een eigen postzegelserie.',
+        'issue_year' => 2026,
+        'face_value' => '1/2',
+        'currency' => 'EUR',
+    ]);
+
+    // Maak de tweede onderliggende variant zonder postzegelserie aan.
+    $childStampB = Stamp::create([
+        'country_id' => $country->id,
+        'parent_stamp_id' => $parentStamp->id,
+        'stamp_series_id' => null,
+        'name' => 'Variant blauw externe serie',
+        'description' => 'Onderliggende variant zonder postzegelserie.',
+        'issue_year' => 2026,
+        'face_value' => '1/2',
+        'currency' => 'EUR',
+    ]);
+
+    // Koppel de eerste variant aan de cataloguseditie.
+    StampCatalogEntry::create([
+        'catalog_edition_id' => $edition->id,
+        'stamp_id' => $childStampA->id,
+        'catalog_number' => '100a',
+    ]);
+
+    // Koppel de tweede variant aan de cataloguseditie.
+    StampCatalogEntry::create([
+        'catalog_edition_id' => $edition->id,
+        'stamp_id' => $childStampB->id,
+        'catalog_number' => '100b',
+    ]);
+
+    // Controleer de oorspronkelijke seriekoppelingen.
+    expect($parentStamp->stamp_series_id)->toBe($parentSeries->id);
+    expect($childStampA->stamp_series_id)->toBe($childSeries->id);
+    expect($childStampB->stamp_series_id)->toBeNull();
+
+    // Controleer de oorspronkelijke ouder-kindrelaties.
+    expect($parentStamp->parent_stamp_id)->toBeNull();
+    expect($childStampA->parent_stamp_id)->toBe($parentStamp->id);
+    expect($childStampB->parent_stamp_id)->toBe($parentStamp->id);
+
+    // Controleer de landen van beide postzegelseries.
+    expect($parentSeries->country_id)->toBe($seriesCountry->id);
+    expect($childSeries->country_id)->toBe($country->id);
+
+    // Controleer dat beide landen verschillend zijn.
+    expect($seriesCountry->id)->not->toBe($country->id);
+
+    // Controleer de oorspronkelijke vertalingen.
+    expect($parentSeries->translations()->count())->toBe(5);
+    expect($seriesCountry->translations()->count())->toBe(5);
+
+    // Controleer de oorspronkelijke catalogusvermeldingen.
+    expect($parentStamp->catalogEntries()->exists())->toBeFalse();
+    expect($edition->stampEntries()->count())->toBe(2);
+
+    // Exporteer de oorspronkelijke gegevens naar Excel.
+    $excelContent = Excel::raw(
+        new CatalogEditionExchangeExcelExport($catalog, $edition),
+        Xlsx::class
+    );
+
+    // Maak een tijdelijk Excel-bestand aan.
+    $filePath = tempnam(
+        sys_get_temp_dir(),
+        'parent_stamp_series_round_trip_'
+    );
+
+    if ($filePath === false) {
+        throw new RuntimeException(
+            'Kan tijdelijk Excel-bestand niet aanmaken.'
+        );
+    }
+
+    try {
+        // Schrijf de geëxporteerde gegevens naar het tijdelijke Excel-bestand.
+        file_put_contents($filePath, $excelContent);
+
+        // Verwijder de oorspronkelijke catalogusvermeldingen.
+        StampCatalogEntry::query()
+            ->where('catalog_edition_id', $edition->id)
+            ->delete();
+
+        // Verwijder de oorspronkelijke cataloguseditie.
+        $edition->delete();
+
+        // Verwijder eerst beide onderliggende varianten.
+        $childStampA->delete();
+        $childStampB->delete();
+
+        // Verwijder daarna de bovenliggende postzegel.
+        $parentStamp->delete();
+
+        // Controleer dat alle drie de oorspronkelijke postzegels verwijderd zijn.
+        expect(
+            Stamp::query()
+                ->whereIn('id', [
+                    $parentStamp->id,
+                    $childStampA->id,
+                    $childStampB->id,
+                ])
+                ->count()
+        )->toBe(0);
+
+        // Verwijder de oorspronkelijke serievertalingen.
+        $parentSeries->translations()->delete();
+
+        // Controleer dat de oorspronkelijke serievertalingen verwijderd zijn.
+        expect($parentSeries->translations()->count())->toBe(0);
+
+        // Verwijder beide oorspronkelijke postzegelseries.
+        $parentSeries->delete();
+        $childSeries->delete();
+
+        // Controleer dat beide oorspronkelijke postzegelseries verwijderd zijn.
+        expect(
+            StampSeries::query()
+                ->whereIn('id', [
+                    $parentSeries->id,
+                    $childSeries->id,
+                ])
+                ->count()
+        )->toBe(0);
+
+        // Verwijder de oorspronkelijke landvertalingen van de bovenliggende serie.
+        $seriesCountry->translations()->delete();
+
+        // Controleer dat alle oorspronkelijke landvertalingen verwijderd zijn.
+        expect($seriesCountry->translations()->count())->toBe(0);
+
+        // Verwijder het oorspronkelijke land van de bovenliggende serie.
+        $seriesCountry->delete();
+
+        // Controleer dat het oorspronkelijke serieland verwijderd is.
+        expect(
+            Country::query()
+                ->where('slug', 'testland-externe-serie')
+                ->exists()
+        )->toBeFalse();
+
+        // Controleer dat het gewone postzegelland behouden is gebleven.
+        expect(
+            Country::query()
+                ->where('id', $country->id)
+                ->exists()
+        )->toBeTrue();
+
+        // Importeer het ongewijzigde Excel-bestand.
+        $importedEdition = app(CatalogEditionExchangeImporter::class)
+            ->importEdition($filePath, $catalog);
+
+        // Controleer de geïmporteerde cataloguseditie.
+        expect($importedEdition->catalog_id)->toBe($catalog->id);
+        expect($importedEdition->edition_name)->toBe('Editie 2026');
+        expect($importedEdition->edition_year)->toBe(2026);
+
+        // Controleer dat de geïmporteerde cataloguseditie precies twee vermeldingen bevat.
+        expect($importedEdition->stampEntries()->count())->toBe(2);
+
+        // Haal de geïmporteerde bovenliggende postzegel op.
+        $importedParentStamp = Stamp::query()
+            ->where('name', 'Hoofdpostzegel externe serie')
+            ->first();
+
+        // Haal de geïmporteerde eerste variant op.
+        $importedChildStampA = Stamp::query()
+            ->where('name', 'Variant rood externe serie')
+            ->first();
+
+        // Haal de geïmporteerde tweede variant op.
+        $importedChildStampB = Stamp::query()
+            ->where('name', 'Variant blauw externe serie')
+            ->first();
+
+        // Controleer dat alle drie de postzegels opnieuw zijn aangemaakt.
+        expect($importedParentStamp)->not->toBeNull();
+        expect($importedChildStampA)->not->toBeNull();
+        expect($importedChildStampB)->not->toBeNull();
+
+        // Controleer de geïmporteerde ouder-kindrelaties.
+        expect($importedParentStamp->parent_stamp_id)->toBeNull();
+        expect($importedChildStampA->parent_stamp_id)->toBe($importedParentStamp->id);
+        expect($importedChildStampB->parent_stamp_id)->toBe($importedParentStamp->id);
+
+        // Controleer dat de bovenliggende postzegel slechts één keer is aangemaakt.
+        expect(
+            Stamp::query()
+                ->where('name', 'Hoofdpostzegel externe serie')
+                ->count()
+        )->toBe(1);
+
+        // Controleer dat de bovenliggende postzegel geen catalogusvermelding heeft.
+        expect($importedParentStamp->catalogEntries()->exists())->toBeFalse();
+
+        // Controleer de catalogusvermelding van de eerste variant.
+        expect(
+            $importedChildStampA->catalogEntries()
+                ->where('catalog_edition_id', $importedEdition->id)
+                ->where('catalog_number', '100a')
+                ->exists()
+        )->toBeTrue();
+
+        // Controleer de catalogusvermelding van de tweede variant.
+        expect(
+            $importedChildStampB->catalogEntries()
+                ->where('catalog_edition_id', $importedEdition->id)
+                ->where('catalog_number', '100b')
+                ->exists()
+        )->toBeTrue();
+
+        // Haal de geïmporteerde serie van de bovenliggende postzegel op.
+        $importedParentSeries = StampSeries::query()
+            ->where('name', 'Serie externe hoofdpostzegel')
+            ->first();
+
+        // Haal de geïmporteerde serie van de eerste variant op.
+        $importedChildSeries = StampSeries::query()
+            ->where('name', 'Serie externe hoofdpostzegel variant')
+            ->first();
+
+        // Controleer dat beide postzegelseries opnieuw zijn aangemaakt.
+        expect($importedParentSeries)->not->toBeNull();
+        expect($importedChildSeries)->not->toBeNull();
+
+        // Controleer de gegevens van de bovenliggende postzegelserie.
+        expect($importedParentSeries->issue_year)->toBe(2025);
+        expect($importedParentSeries->description)
+            ->toBe('Serie die uitsluitend aan de externe hoofdpostzegel is gekoppeld.');
+
+        // Controleer de gegevens van de afzonderlijke variantserie.
+        expect($importedChildSeries->issue_year)->toBe(2026);
+        expect($importedChildSeries->description)
+            ->toBe('Afzonderlijke serie van de eerste variant.');
+
+        // Controleer dat beide postzegelseries slechts één keer voorkomen.
+        expect(
+            StampSeries::query()
+                ->whereIn('name', [
+                    'Serie externe hoofdpostzegel',
+                    'Serie externe hoofdpostzegel variant',
+                ])
+                ->count()
+        )->toBe(2);
+
+        // Controleer de seriekoppeling van de bovenliggende postzegel.
+        expect($importedParentStamp->stamp_series_id)
+            ->toBe($importedParentSeries->id);
+
+        // Controleer de eigen seriekoppeling van de eerste variant.
+        expect($importedChildStampA->stamp_series_id)
+            ->toBe($importedChildSeries->id);
+
+        // Controleer dat de tweede variant geen postzegelserie heeft.
+        expect($importedChildStampB->stamp_series_id)->toBeNull();
+
+        // Controleer dat de twee postzegelseries verschillende ID's hebben.
+        expect($importedParentSeries->id)
+            ->not->toBe($importedChildSeries->id);
+
+        // Haal het geïmporteerde land van de bovenliggende postzegelserie op.
+        $importedSeriesCountry = Country::query()
+            ->where('slug', 'testland-externe-serie')
+            ->first();
+
+        // Controleer dat het afzonderlijke serieland opnieuw is aangemaakt.
+        expect($importedSeriesCountry)->not->toBeNull();
+
+        // Controleer de oorspronkelijke landgegevens.
+        expect($importedSeriesCountry->iso_code)->toBe('TES');
+        expect($importedSeriesCountry->name)->toBe('Testland externe serie');
+
+        // Controleer dat de bovenliggende serie aan dit land gekoppeld is.
+        expect($importedParentSeries->country_id)
+            ->toBe($importedSeriesCountry->id);
+
+        // Controleer dat de variantserie aan het gewone postzegelland gekoppeld is.
+        expect($importedChildSeries->country_id)
+            ->toBe($country->id);
+
+        // Controleer dat beide series verschillende landen hebben.
+        expect($importedParentSeries->country_id)
+            ->not->toBe($importedChildSeries->country_id);
+
+        // Controleer dat het afzonderlijke serieland slechts één keer voorkomt.
+        expect(
+            Country::query()
+                ->where('slug', 'testland-externe-serie')
+                ->count()
+        )->toBe(1);
+
+        // Controleer het aantal geïmporteerde landvertalingen.
+        expect($importedSeriesCountry->translations()->count())->toBe(5);
+
+        // Controleer de naam en beschrijving van iedere landvertaling.
+        foreach ($seriesCountryTranslations as $translationData) {
+            $importedTranslation = $importedSeriesCountry->translations()
+                ->where('locale', $translationData['locale'])
+                ->first();
+
+            expect($importedTranslation)->not->toBeNull();
+            expect($importedTranslation->name)
+                ->toBe($translationData['name']);
+            expect($importedTranslation->description)
+                ->toBe($translationData['description']);
+        }
+
+        // Controleer het aantal geïmporteerde serievertalingen.
+        expect($importedParentSeries->translations()->count())->toBe(5);
+
+        // Controleer de naam en beschrijving van iedere serievertaling.
+        foreach ($seriesTranslations as $translationData) {
+            $importedTranslation = $importedParentSeries->translations()
+                ->where('locale', $translationData['locale'])
+                ->first();
+
+            expect($importedTranslation)->not->toBeNull();
+            expect($importedTranslation->name)
+                ->toBe($translationData['name']);
+            expect($importedTranslation->description)
+                ->toBe($translationData['description']);
+        }
+
+    } finally {
+        // Verwijder het tijdelijke Excel-bestand.
+        unlink($filePath);
+    }
+});
+
+test('oud Excel-bestand zonder exchange_series_id blijft importeerbaar', function () {
+    // Maak een testcatalogus aan.
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus oude Excel-indeling',
+    ]);
+
+    // Maak een cataloguseditie aan.
+    $edition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2026',
+        'edition_year' => 2026,
+    ]);
+
+    // Maak een land aan.
+    $country = Country::create([
+        'slug' => 'testland-oude-excel-indeling',
+        'iso_code' => 'OEI',
+        'name' => 'Testland oude Excel-indeling',
+    ]);
+
+    // Maak een bovenliggende postzegel aan.
+    $parentStamp = Stamp::create([
+        'country_id' => $country->id,
+        'name' => 'Hoofdpostzegel oude Excel-indeling',
+        'description' => 'Bovenliggende postzegel zonder seriekoppeling.',
+        'issue_year' => 2025,
+        'face_value' => '1/2',
+        'currency' => 'EUR',
+    ]);
+
+    // Maak een onderliggende variant aan.
+    $childStamp = Stamp::create([
+        'country_id' => $country->id,
+        'parent_stamp_id' => $parentStamp->id,
+        'name' => 'Variant oude Excel-indeling',
+        'description' => 'Variant gekoppeld aan de bovenliggende postzegel.',
+        'issue_year' => 2026,
+        'face_value' => '1/2',
+        'currency' => 'EUR',
+    ]);
+
+    // Koppel uitsluitend de variant aan de cataloguseditie.
+    StampCatalogEntry::create([
+        'catalog_edition_id' => $edition->id,
+        'stamp_id' => $childStamp->id,
+        'catalog_number' => '100a',
+    ]);
+
+    // Controleer de oorspronkelijke ouder-kindrelatie.
+    expect($parentStamp->parent_stamp_id)->toBeNull();
+    expect($childStamp->parent_stamp_id)->toBe($parentStamp->id);
+
+    // Controleer dat de bovenliggende postzegel geen serie heeft.
+    expect($parentStamp->stamp_series_id)->toBeNull();
+
+    // Controleer de oorspronkelijke catalogusvermeldingen.
+    expect($parentStamp->catalogEntries()->exists())->toBeFalse();
+    expect($edition->stampEntries()->count())->toBe(1);
+
+    // Exporteer de oorspronkelijke gegevens naar Excel.
+    $excelContent = Excel::raw(
+        new CatalogEditionExchangeExcelExport($catalog, $edition),
+        Xlsx::class
+    );
+
+    // Maak een tijdelijk Excel-bestand aan.
+    $filePath = tempnam(
+        sys_get_temp_dir(),
+        'legacy_parent_stamp_round_trip_'
+    );
+
+    if ($filePath === false) {
+        throw new RuntimeException(
+            'Kan tijdelijk Excel-bestand niet aanmaken.'
+        );
+    }
+
+    $spreadsheet = null;
+
+    try {
+        // Schrijf de geëxporteerde gegevens naar het tijdelijke Excel-bestand.
+        file_put_contents($filePath, $excelContent);
+
+        // Open het geëxporteerde Excel-bestand.
+        $spreadsheet = IOFactory::load($filePath);
+
+        // Haal het tabblad met bovenliggende postzegels op.
+        $parentStampsSheet = $spreadsheet->getSheetByName('BovenliggendePostzegels');
+
+        // Controleer dat de nieuwe kolom aanwezig is.
+        expect($parentStampsSheet->getCell('O1')->getValue())
+            ->toBe('exchange_series_id');
+
+        // Verwijder kolom O om de oude Excel-indeling te herstellen.
+        $parentStampsSheet->removeColumn('O');
+
+        // Controleer dat de oude indeling uit 14 kolommen bestaat.
+        expect($parentStampsSheet->getHighestColumn())->toBe('N');
+
+        // Sla het Excel-bestand met de oude kolomindeling op.
+        $writer = new Xlsx($spreadsheet);
+        $writer->save($filePath);
+
+        // Geef het spreadsheetobject vrij.
+        $spreadsheet->disconnectWorksheets();
+        $spreadsheet = null;
+
+        // Verwijder de oorspronkelijke catalogusvermelding.
+        StampCatalogEntry::query()
+            ->where('catalog_edition_id', $edition->id)
+            ->delete();
+
+        // Verwijder de oorspronkelijke cataloguseditie.
+        $edition->delete();
+
+        // Verwijder eerst de onderliggende variant.
+        $childStamp->delete();
+
+        // Verwijder daarna de bovenliggende postzegel.
+        $parentStamp->delete();
+
+        // Controleer dat beide oorspronkelijke postzegels verwijderd zijn.
+        expect(
+            Stamp::query()
+                ->whereIn('id', [
+                    $parentStamp->id,
+                    $childStamp->id,
+                ])
+                ->count()
+        )->toBe(0);
+
+        // Controleer dat de oorspronkelijke cataloguseditie verwijderd is.
+        expect(
+            CatalogEdition::query()
+                ->where('id', $edition->id)
+                ->exists()
+        )->toBeFalse();
+
+        // Importeer het Excel-bestand met de oude kolomindeling.
+        $importedEdition = app(CatalogEditionExchangeImporter::class)
+            ->importEdition($filePath, $catalog);
+
+        // Controleer dat de cataloguseditie opnieuw is aangemaakt.
+        expect($importedEdition)->not->toBeNull();
+
+        // Controleer de gegevens van de geïmporteerde cataloguseditie.
+        expect($importedEdition->catalog_id)->toBe($catalog->id);
+        expect($importedEdition->edition_name)->toBe('Editie 2026');
+        expect($importedEdition->edition_year)->toBe(2026);
+
+        // Controleer dat de cataloguseditie één vermelding bevat.
+        expect($importedEdition->stampEntries()->count())->toBe(1);
+
+        // Haal de geïmporteerde bovenliggende postzegel op.
+        $importedParentStamp = Stamp::query()
+            ->where('name', 'Hoofdpostzegel oude Excel-indeling')
+            ->first();
+
+        // Haal de geïmporteerde onderliggende variant op.
+        $importedChildStamp = Stamp::query()
+            ->where('name', 'Variant oude Excel-indeling')
+            ->first();
+
+        // Controleer dat beide postzegels opnieuw zijn aangemaakt.
+        expect($importedParentStamp)->not->toBeNull();
+        expect($importedChildStamp)->not->toBeNull();
+
+        // Controleer de ouder-kindrelatie.
+        expect($importedParentStamp->parent_stamp_id)->toBeNull();
+        expect($importedChildStamp->parent_stamp_id)
+            ->toBe($importedParentStamp->id);
+
+        // Controleer dat de ontbrekende seriekolom geen seriekoppeling oplevert.
+        expect($importedParentStamp->stamp_series_id)->toBeNull();
+
+        // Controleer dat de bovenliggende postzegel geen catalogusvermelding heeft.
+        expect($importedParentStamp->catalogEntries()->exists())->toBeFalse();
+
+        // Controleer de catalogusvermelding van de variant.
+        expect(
+            $importedChildStamp->catalogEntries()
+                ->where('catalog_edition_id', $importedEdition->id)
+                ->where('catalog_number', '100a')
+                ->exists()
+        )->toBeTrue();
+
+    } finally {
+        // Ruim het geladen spreadsheetobject op.
+        if ($spreadsheet !== null) {
+            $spreadsheet->disconnectWorksheets();
+        }
+
+        // Verwijder het tijdelijke Excel-bestand.
+        unlink($filePath);
+    }
+});

@@ -81,6 +81,28 @@ class CatalogEditionExchangeValidator
             foreach (CatalogEditionExchangeSchema::HEADERS as $sheetName => $expectedHeaders) {
                 $sheet = $spreadsheet->getSheetByName($sheetName);
 
+                // Bepaal welke aanvullende kolommen voor dit tabblad zijn toegestaan.
+                $optionalHeaders = CatalogEditionExchangeSchema::OPTIONAL_TRAILING_HEADERS[$sheetName] ?? [];
+
+                // Bepaal het werkelijke aantal kolommen in het Excel-tabblad.
+                $actualColumnCount = Coordinate::columnIndexFromString(
+                    $sheet->getHighestDataColumn()
+                );
+
+                // Bepaal het aantal aanwezige optionele kolommen.
+                $optionalColumnCount = $actualColumnCount - count($expectedHeaders);
+
+                // Voeg uitsluitend toegestane optionele kolommen toe aan de verwachte structuur.
+                if (
+                    $optionalColumnCount > 0 &&
+                    $optionalColumnCount <= count($optionalHeaders)
+                ) {
+                    $expectedHeaders = array_merge(
+                        $expectedHeaders,
+                        array_slice($optionalHeaders, 0, $optionalColumnCount)
+                    );
+                }
+
                 $columnCount = count($expectedHeaders);
 
                 $actualHeaders = $sheet->rangeToArray(
@@ -490,6 +512,9 @@ class CatalogEditionExchangeValidator
             // Houd bij welke externe bovenliggende postzegels in Excel voorkomen.
             $externalParentStampIds = [];
 
+            // Houd de serieverwijzingen van externe bovenliggende postzegels bij.
+            $parentStampSeriesReferences = [];
+
             for ($row = 2; $row <= $parentStampsSheet->getHighestDataRow(); $row++) {
 
                 // Controleer de identificatie van de bovenliggende postzegel.
@@ -514,6 +539,30 @@ class CatalogEditionExchangeValidator
                     throw new RuntimeException(
                         'face_value is langer dan 50 tekens in tabblad BovenliggendePostzegels, rij '.$row
                     );
+                }
+
+                // Lees de optionele identificatie van de postzegelserie.
+                $parentSeriesExchangeId = trim(
+                    (string) $parentStampsSheet->getCell('O'.$row)->getValue()
+                );
+
+                // Controleer of dezelfde hoofdpostzegel tegenstrijdige serieverwijzingen heeft.
+                if (
+                    isset($parentStampSeriesReferences[$parentExchangeId]) &&
+                    $parentStampSeriesReferences[$parentExchangeId]['series_id'] !== $parentSeriesExchangeId
+                ) {
+                    throw new RuntimeException(
+                        'Tegenstrijdige exchange_series_id voor parent_exchange_id '.$parentExchangeId.
+                        ' in tabblad BovenliggendePostzegels, rij '.$row
+                    );
+                }
+
+                // Registreer de serieverwijzing en het oorspronkelijke Excel-rijnummer.
+                if (! isset($parentStampSeriesReferences[$parentExchangeId])) {
+                    $parentStampSeriesReferences[$parentExchangeId] = [
+                        'series_id' => $parentSeriesExchangeId,
+                        'row' => $row,
+                    ];
                 }
 
                 // Controleer de identificatie van de onderliggende postzegel.
@@ -1354,6 +1403,24 @@ class CatalogEditionExchangeValidator
                 ) {
                     throw new RuntimeException(
                         'Ongeldige description in tabblad Postzegelseries, rij '.$row
+                    );
+                }
+            }
+
+            // Controleer de serieverwijzingen van externe bovenliggende postzegels.
+            foreach ($parentStampSeriesReferences as $reference) {
+                $parentSeriesExchangeId = $reference['series_id'];
+
+                // Een bovenliggende postzegel hoeft niet aan een serie gekoppeld te zijn.
+                if ($parentSeriesExchangeId === '') {
+                    continue;
+                }
+
+                // Een ingevulde serie-identificatie moet voorkomen in Postzegelseries.
+                if (! isset($availableSeriesIds[$parentSeriesExchangeId])) {
+                    throw new RuntimeException(
+                        'Onbekende exchange_series_id '.$parentSeriesExchangeId.
+                        ' in tabblad BovenliggendePostzegels, rij '.$reference['row']
                     );
                 }
             }

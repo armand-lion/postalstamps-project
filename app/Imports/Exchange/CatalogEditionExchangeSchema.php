@@ -165,4 +165,11 @@ class CatalogEditionExchangeSchema
             'notes',
         ],
     ];
+
+    // Optionele kolommen die achter de bestaande kolommen mogen voorkomen.
+    public const OPTIONAL_TRAILING_HEADERS = [
+        'BovenliggendePostzegels' => [
+            'exchange_series_id',
+        ],
+    ];
 }
