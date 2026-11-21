@@ -828,17 +828,20 @@ class CatalogEditionExchangeValidator
                     (string) $stampThemesSheet->getCell('A'.$row)->getValue()
                 );
 
-                // De identificatie moet verwijzen naar een bestaande postzegel.
+                // De identificatie moet verwijzen naar een postzegel uit de editie
+                // of naar een externe bovenliggende postzegel.
                 if (
                     $stampThemeExchangeId === '' ||
-                    ! isset($exchangeStampIds[$stampThemeExchangeId])
+                    (
+                        ! isset($exchangeStampIds[$stampThemeExchangeId]) &&
+                        ! isset($externalParentStampIds[$stampThemeExchangeId])
+                    )
                 ) {
                     throw new RuntimeException(
                         'Onbekende exchange_stamp_id '.$stampThemeExchangeId.
                         ' in tabblad Postzegelthemas, rij '.$row
                     );
                 }
-
                 // Lees de identificatie van het thema.
                 $stampThemeSlug = trim(
                     (string) $stampThemesSheet->getCell('B'.$row)->getValue()

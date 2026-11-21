@@ -14250,3 +14250,423 @@ test('vertalingen van bovenliggende postzegel buiten cataloguseditie blijven beh
         unlink($filePath);
     }
 });
+
+test('themas van bovenliggende postzegel buiten cataloguseditie blijven behouden na Excel round trip', function () {
+    // Maak een testcatalogus aan.
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus externe hoofdpostzegelthemas',
+    ]);
+
+    // Maak een cataloguseditie aan.
+    $edition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2026',
+        'edition_year' => 2026,
+    ]);
+
+    // Maak een land aan.
+    $country = Country::create([
+        'slug' => 'testland-externe-hoofdpostzegelthemas',
+        'iso_code' => 'EHT',
+        'name' => 'Testland externe hoofdpostzegelthemas',
+    ]);
+
+    // Maak een bovenliggende postzegel aan zonder catalogusvermelding.
+    $parentStamp = Stamp::create([
+        'country_id' => $country->id,
+        'name' => 'Hoofdpostzegel externe themas',
+        'issue_year' => 2026,
+        'face_value' => '1',
+        'currency' => 'EUR',
+    ]);
+
+    // Maak de eerste variant aan.
+    $childStampA = Stamp::create([
+        'country_id' => $country->id,
+        'parent_stamp_id' => $parentStamp->id,
+        'name' => 'Variant rood externe themas',
+        'issue_year' => 2026,
+        'face_value' => '1',
+        'currency' => 'EUR',
+    ]);
+
+    // Maak de tweede variant aan.
+    $childStampB = Stamp::create([
+        'country_id' => $country->id,
+        'parent_stamp_id' => $parentStamp->id,
+        'name' => 'Variant blauw externe themas',
+        'issue_year' => 2026,
+        'face_value' => '1',
+        'currency' => 'EUR',
+    ]);
+
+    // Koppel uitsluitend de eerste variant aan de cataloguseditie.
+    StampCatalogEntry::create([
+        'catalog_edition_id' => $edition->id,
+        'stamp_id' => $childStampA->id,
+        'catalog_number' => '100a',
+    ]);
+
+    // Koppel uitsluitend de tweede variant aan de cataloguseditie.
+    StampCatalogEntry::create([
+        'catalog_edition_id' => $edition->id,
+        'stamp_id' => $childStampB->id,
+        'catalog_number' => '100b',
+    ]);
+
+    // Maak het thema Bloemen aan.
+    $flowersTheme = Theme::create([
+        'slug' => 'externe-hoofdpostzegel-bloemen',
+        'name' => 'Bloemen',
+        'description' => 'Postzegels met afbeeldingen van bloemen.',
+    ]);
+
+    // Maak het thema Natuur aan.
+    $natureTheme = Theme::create([
+        'slug' => 'externe-hoofdpostzegel-natuur',
+        'name' => 'Natuur',
+        'description' => 'Postzegels met afbeeldingen van de natuur.',
+    ]);
+
+    // Maak het thema Dieren aan.
+    $animalsTheme = Theme::create([
+        'slug' => 'externe-hoofdpostzegel-dieren',
+        'name' => 'Dieren',
+        'description' => 'Postzegels met afbeeldingen van dieren.',
+    ]);
+
+    // Koppel Bloemen en Natuur aan de bovenliggende postzegel.
+    $parentStamp->themes()->attach([
+        $flowersTheme->id,
+        $natureTheme->id,
+    ]);
+
+    // Koppel Dieren aan de eerste variant.
+    $childStampA->themes()->attach($animalsTheme->id);
+
+    // Koppel Natuur aan de tweede variant.
+    $childStampB->themes()->attach($natureTheme->id);
+
+    // Definieer de vijf vertalingen van het thema Bloemen.
+    $translations = [
+        [
+            'locale' => 'nl',
+            'name' => 'Bloemen',
+            'description' => 'Postzegels met afbeeldingen van bloemen.',
+        ],
+        [
+            'locale' => 'en',
+            'name' => 'Flowers',
+            'description' => 'Stamps featuring flowers.',
+        ],
+        [
+            'locale' => 'de',
+            'name' => 'Blumen',
+            'description' => 'Briefmarken mit Blumen.',
+        ],
+        [
+            'locale' => 'fr',
+            'name' => 'Fleurs',
+            'description' => 'Timbres représentant des fleurs.',
+        ],
+        [
+            'locale' => 'es',
+            'name' => 'Flores',
+            'description' => 'Sellos con flores.',
+        ],
+    ];
+
+    // Maak de vijf themavertalingen aan.
+    $flowersTheme->translations()->createMany($translations);
+
+    // Controleer de oorspronkelijke themakoppelingen.
+    expect($parentStamp->themes()->count())->toBe(2);
+    expect($childStampA->themes()->count())->toBe(1);
+    expect($childStampB->themes()->count())->toBe(1);
+
+    // Controleer de oorspronkelijke themavertalingen.
+    expect($flowersTheme->translations()->count())->toBe(5);
+
+    // Controleer dat beide varianten dezelfde hoofdpostzegel hebben.
+    expect($childStampA->parent_stamp_id)->toBe($parentStamp->id);
+    expect($childStampB->parent_stamp_id)->toBe($parentStamp->id);
+
+    // Controleer dat de hoofdpostzegel geen eigen catalogusvermelding heeft.
+    expect(
+        $parentStamp->catalogEntries()->exists()
+    )->toBeFalse();
+
+    // Controleer dat uitsluitend de twee varianten in de editie voorkomen.
+    expect($edition->stampEntries()->count())->toBe(2);
+
+    // Exporteer de cataloguseditie inclusief de externe hoofdpostzegel,
+    // de thema's, themavertalingen en themakoppelingen naar Excel.
+    $excelContent = Excel::raw(
+        new CatalogEditionExchangeExcelExport($catalog, $edition),
+        Xlsx::class
+    );
+
+    // Maak een tijdelijk Excel-bestand aan.
+    $filePath = tempnam(
+        sys_get_temp_dir(),
+        'parent_stamp_themes_round_trip_'
+    );
+
+    if ($filePath === false) {
+        throw new RuntimeException(
+            'Kan tijdelijk Excel-bestand niet aanmaken.'
+        );
+    }
+
+    try {
+        // Schrijf de Excel-export naar het tijdelijke bestand.
+        file_put_contents($filePath, $excelContent);
+
+        // Verwijder de oorspronkelijke themakoppelingen.
+        $parentStamp->themes()->detach();
+        $childStampA->themes()->detach();
+        $childStampB->themes()->detach();
+
+        // Controleer dat alle oorspronkelijke themakoppelingen verwijderd zijn.
+        expect($parentStamp->themes()->count())->toBe(0);
+        expect($childStampA->themes()->count())->toBe(0);
+        expect($childStampB->themes()->count())->toBe(0);
+
+        // Verwijder de oorspronkelijke catalogusvermeldingen.
+        StampCatalogEntry::query()
+            ->where('catalog_edition_id', $edition->id)
+            ->delete();
+
+        // Verwijder de oorspronkelijke cataloguseditie.
+        $edition->delete();
+
+        // Verwijder eerst de varianten en daarna de hoofdpostzegel.
+        $childStampA->delete();
+        $childStampB->delete();
+        $parentStamp->delete();
+
+        // Controleer dat alle drie de oorspronkelijke postzegels verwijderd zijn.
+        expect(
+            Stamp::query()
+                ->whereIn('id', [
+                    $parentStamp->id,
+                    $childStampA->id,
+                    $childStampB->id,
+                ])
+                ->count()
+        )->toBe(0);
+
+        // Verwijder de oorspronkelijke themavertalingen.
+        ThemeTranslation::query()
+            ->where('theme_id', $flowersTheme->id)
+            ->delete();
+
+        // Controleer dat alle oorspronkelijke themavertalingen verwijderd zijn.
+        expect(
+            ThemeTranslation::query()
+                ->where('theme_id', $flowersTheme->id)
+                ->count()
+        )->toBe(0);
+
+        // Verwijder de drie oorspronkelijke thema's.
+        $flowersTheme->delete();
+        $natureTheme->delete();
+        $animalsTheme->delete();
+
+        // Controleer dat alle oorspronkelijke thema's verwijderd zijn.
+        expect(
+            Theme::query()
+                ->whereIn('slug', [
+                    'externe-hoofdpostzegel-bloemen',
+                    'externe-hoofdpostzegel-natuur',
+                    'externe-hoofdpostzegel-dieren',
+                ])
+                ->count()
+        )->toBe(0);
+
+        // Importeer het ongewijzigde Excel-bestand.
+        $importedEdition = app(CatalogEditionExchangeImporter::class)
+            ->importEdition($filePath, $catalog);
+
+        // Controleer de geïmporteerde cataloguseditie.
+        expect($importedEdition->catalog_id)->toBe($catalog->id);
+        expect($importedEdition->edition_name)->toBe('Editie 2026');
+        expect($importedEdition->edition_year)->toBe(2026);
+
+        // Controleer dat uitsluitend de twee varianten in de editie voorkomen.
+        expect($importedEdition->stampEntries()->count())->toBe(2);
+
+        // Zoek de opnieuw geïmporteerde bovenliggende postzegel.
+        $importedParent = Stamp::query()
+            ->where('name', 'Hoofdpostzegel externe themas')
+            ->first();
+
+        // Zoek de opnieuw geïmporteerde eerste variant.
+        $importedChildA = Stamp::query()
+            ->where('name', 'Variant rood externe themas')
+            ->first();
+
+        // Zoek de opnieuw geïmporteerde tweede variant.
+        $importedChildB = Stamp::query()
+            ->where('name', 'Variant blauw externe themas')
+            ->first();
+
+        // Controleer of alle drie de postzegels bestaan.
+        expect($importedParent)->not->toBeNull();
+        expect($importedChildA)->not->toBeNull();
+        expect($importedChildB)->not->toBeNull();
+
+        // Controleer of beide varianten dezelfde hoofdpostzegel hebben.
+        expect($importedChildA->parent_stamp_id)
+            ->toBe($importedParent->id);
+
+        expect($importedChildB->parent_stamp_id)
+            ->toBe($importedParent->id);
+
+        // Controleer of de hoofdpostzegel precies één keer is aangemaakt.
+        expect(
+            Stamp::query()
+                ->where('name', 'Hoofdpostzegel externe themas')
+                ->count()
+        )->toBe(1);
+
+        // De hoofdpostzegel mag geen eigen catalogusvermelding hebben.
+        expect(
+            $importedParent->catalogEntries()->exists()
+        )->toBeFalse();
+
+        // Controleer de catalogusvermelding van de eerste variant.
+        expect(
+            $importedChildA->catalogEntries()
+                ->where('catalog_edition_id', $importedEdition->id)
+                ->where('catalog_number', '100a')
+                ->exists()
+        )->toBeTrue();
+
+        // Controleer de catalogusvermelding van de tweede variant.
+        expect(
+            $importedChildB->catalogEntries()
+                ->where('catalog_edition_id', $importedEdition->id)
+                ->where('catalog_number', '100b')
+                ->exists()
+        )->toBeTrue();
+
+        // Zoek het opnieuw geïmporteerde thema Bloemen.
+        $importedFlowersTheme = Theme::query()
+            ->where('slug', 'externe-hoofdpostzegel-bloemen')
+            ->first();
+
+        // Zoek het opnieuw geïmporteerde thema Natuur.
+        $importedNatureTheme = Theme::query()
+            ->where('slug', 'externe-hoofdpostzegel-natuur')
+            ->first();
+
+        // Zoek het opnieuw geïmporteerde thema Dieren.
+        $importedAnimalsTheme = Theme::query()
+            ->where('slug', 'externe-hoofdpostzegel-dieren')
+            ->first();
+
+        // Controleer of alle drie de thema's bestaan.
+        expect($importedFlowersTheme)->not->toBeNull();
+        expect($importedNatureTheme)->not->toBeNull();
+        expect($importedAnimalsTheme)->not->toBeNull();
+
+        // Controleer de oorspronkelijke gegevens van het thema Bloemen.
+        expect($importedFlowersTheme->name)->toBe('Bloemen');
+        expect($importedFlowersTheme->description)
+            ->toBe('Postzegels met afbeeldingen van bloemen.');
+
+        // Controleer de oorspronkelijke gegevens van het thema Natuur.
+        expect($importedNatureTheme->name)->toBe('Natuur');
+        expect($importedNatureTheme->description)
+            ->toBe('Postzegels met afbeeldingen van de natuur.');
+
+        // Controleer de oorspronkelijke gegevens van het thema Dieren.
+        expect($importedAnimalsTheme->name)->toBe('Dieren');
+        expect($importedAnimalsTheme->description)
+            ->toBe('Postzegels met afbeeldingen van dieren.');
+
+        // Controleer dat precies drie thema's met deze slugs bestaan.
+        expect(
+            Theme::query()
+                ->whereIn('slug', [
+                    'externe-hoofdpostzegel-bloemen',
+                    'externe-hoofdpostzegel-natuur',
+                    'externe-hoofdpostzegel-dieren',
+                ])
+                ->count()
+        )->toBe(3);
+
+        // Controleer het exacte aantal themakoppelingen per postzegel.
+        expect($importedParent->themes()->count())->toBe(2);
+        expect($importedChildA->themes()->count())->toBe(1);
+        expect($importedChildB->themes()->count())->toBe(1);
+
+        // Controleer de koppeling van Bloemen met de hoofdpostzegel.
+        expect(
+            $importedParent->themes()
+                ->where('themes.id', $importedFlowersTheme->id)
+                ->exists()
+        )->toBeTrue();
+
+        // Controleer de koppeling van Natuur met de hoofdpostzegel.
+        expect(
+            $importedParent->themes()
+                ->where('themes.id', $importedNatureTheme->id)
+                ->exists()
+        )->toBeTrue();
+
+        // Controleer de koppeling van Dieren met de eerste variant.
+        expect(
+            $importedChildA->themes()
+                ->where('themes.id', $importedAnimalsTheme->id)
+                ->exists()
+        )->toBeTrue();
+
+        // Controleer de koppeling van Natuur met de tweede variant.
+        expect(
+            $importedChildB->themes()
+                ->where('themes.id', $importedNatureTheme->id)
+                ->exists()
+        )->toBeTrue();
+
+        // Controleer het totale aantal koppelingen in de tussentabel.
+        expect(
+            DB::table('stamp_themes')
+                ->whereIn('stamp_id', [
+                    $importedParent->id,
+                    $importedChildA->id,
+                    $importedChildB->id,
+                ])
+                ->count()
+        )->toBe(4);
+
+        // Controleer dat precies vijf themavertalingen zijn geïmporteerd.
+        expect($importedFlowersTheme->translations()->count())->toBe(5);
+
+        // Controleer iedere geïmporteerde themavertaling.
+        foreach ($translations as $translationData) {
+            $importedTranslation = ThemeTranslation::query()
+                ->where('theme_id', $importedFlowersTheme->id)
+                ->where('locale', $translationData['locale'])
+                ->first();
+
+            // Controleer of de vertaling bestaat.
+            expect($importedTranslation)->not->toBeNull();
+
+            // Controleer de oorspronkelijke vertaalde naam.
+            expect($importedTranslation->name)->toBe(
+                $translationData['name']
+            );
+
+            // Controleer de oorspronkelijke vertaalde beschrijving.
+            expect($importedTranslation->description)->toBe(
+                $translationData['description']
+            );
+        }
+
+    } finally {
+        // Verwijder het tijdelijke Excel-bestand.
+        unlink($filePath);
+    }
+});

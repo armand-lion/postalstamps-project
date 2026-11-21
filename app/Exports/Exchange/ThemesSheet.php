@@ -28,9 +28,21 @@ class ThemesSheet implements FromArray, WithEvents, WithTitle
         ];
 
         $themeIds = $this->edition->stampEntries()
-            ->with('stamp.themes')
+            ->with([
+                'stamp.themes',
+                'stamp.parentStamp.themes',
+            ])
             ->get()
-            ->flatMap(fn ($entry) => $entry->stamp?->themes->pluck('id') ?? collect())
+            ->flatMap(function ($entry) {
+                // Verzamel de thema-ID's van de postzegel zelf.
+                $stampThemeIds = $entry->stamp?->themes->pluck('id') ?? collect();
+
+                // Verzamel de thema-ID's van de bovenliggende postzegel.
+                $parentThemeIds = $entry->stamp?->parentStamp?->themes->pluck('id') ?? collect();
+
+                // Voeg beide verzamelingen samen.
+                return $stampThemeIds->merge($parentThemeIds);
+            })
             ->unique()
             ->values();
 
