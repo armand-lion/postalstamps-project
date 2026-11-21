@@ -34,13 +34,6 @@
                     {{ __('Volledigheid bekijken') }}
                 </flux:button>
 
-                {{-- CSV-export cataloguseditie --}}
-                <flux:button :href="route('backend.catalogs.editions.export', [$catalog, $edition])"
-                    icon="arrow-down-tray"
-                    class="border border-theme-accent-3! bg-brown-5! text-zinc-900! hover:bg-brown-6!">
-                    {{ __('CSV exporteren') }}
-                </flux:button>
-
                 {{-- Excel-export cataloguseditie --}}
                 <flux:button :href="route('backend.catalogs.editions.export.excel', [$catalog, $edition])"
                     icon="arrow-down-tray"

@@ -118,12 +118,6 @@ Route::middleware(['auth'])->group(function () { //
                 [CatalogEditionBulkEditController::class, 'update']
             )->name('catalogs.editions.bulk-update');
 
-            // CSV-export van een cataloguseditie.
-            Route::get(
-                'catalogs/{catalog}/editions/{edition}/export',
-                [CatalogEditionExportController::class, 'export']
-            )->name('catalogs.editions.export');
-
             // Excel-export van een cataloguseditie.
             Route::get(
                 'catalogs/{catalog}/editions/{edition}/export/excel',

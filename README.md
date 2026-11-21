@@ -478,7 +478,7 @@ The navigation includes:
 
 ## Phase 14 — Catalog Values and Value History
 
-*Status:** ✅ Completed
+**Status:** ✅ Completed
 
 Objective
 
@@ -859,7 +859,7 @@ Implemented features:
 
 **Result:** Administrators can monitor catalog completeness and efficiently identify missing information.
 
-### Part D — Excel and CSV Import
+### Part D — Excel Import
 
 **Status:** ⏳ Planned
 
@@ -881,7 +881,7 @@ Planned features:
 
 **Result:** Large amounts of catalog information can be imported efficiently and safely.
 
-### Part E — Excel and CSV Export
+### Part E — Excel Export
 
 **Status:** ⏳ Planned
 
