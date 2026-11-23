@@ -943,3 +943,956 @@ test('de controller geeft een berekende waardestijging door aan de view', functi
             && $value['status'] === 'increased';
     });
 });
+
+test('de vergelijking toont uitsluitend waarderingscategorieën van de geselecteerde catalogus', function () {
+    // Maak een ingelogde gebruiker aan.
+    $user = User::factory()->create([
+        'is_admin' => false,
+    ]);
+
+    // Maak twee catalogi aan.
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus waarderingscategorieën',
+    ]);
+
+    $otherCatalog = Catalog::create([
+        'name' => 'Andere catalogus waarderingscategorieën',
+    ]);
+
+    // Maak drie actieve waarderingscategorieën aan.
+    $postfris = Condition::create([
+        'slug' => 'postfris',
+        'sort_order' => 1,
+        'is_active' => true,
+    ]);
+
+    $gestempeld = Condition::create([
+        'slug' => 'gestempeld',
+        'sort_order' => 2,
+        'is_active' => true,
+    ]);
+
+    $persoonlijk = Condition::create([
+        'slug' => 'persoonlijke-conditie',
+        'sort_order' => 3,
+        'is_active' => true,
+    ]);
+
+    // Koppel Postfris aan de geselecteerde catalogus.
+    $catalog->conditionRules()->create([
+        'condition_id' => $postfris->id,
+        'sort_order' => 1,
+    ]);
+
+    // Koppel Gestempeld aan een andere catalogus.
+    $otherCatalog->conditionRules()->create([
+        'condition_id' => $gestempeld->id,
+        'sort_order' => 1,
+    ]);
+
+    // De persoonlijke conditie krijgt geen cataloguskoppeling.
+
+    // Open de vergelijkingspagina.
+    $response = $this->actingAs($user)->get(
+        route('backend.catalogs.editions.compare', $catalog)
+    );
+
+    // Controleer of de pagina succesvol wordt weergegeven.
+    $response->assertOk();
+
+    // Controleer welke waarderingscategorieën de view ontvangt.
+    $response->assertViewHas('conditions', function ($conditions) use ($postfris, $gestempeld, $persoonlijk) {
+        return $conditions->count() === 1
+            && $conditions->contains('id', $postfris->id)
+            && ! $conditions->contains('id', $gestempeld->id)
+            && ! $conditions->contains('id', $persoonlijk->id);
+    });
+});
+
+test('de vergelijking weigert een waarderingscategorie van een andere catalogus', function () {
+    // Maak een ingelogde gebruiker aan.
+    $user = User::factory()->create([
+        'is_admin' => false,
+    ]);
+
+    // Maak twee catalogi aan.
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus conditievalidatie',
+    ]);
+
+    $otherCatalog = Catalog::create([
+        'name' => 'Andere catalogus conditievalidatie',
+    ]);
+
+    // Maak twee edities van de geselecteerde catalogus aan.
+    $previousEdition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2025',
+        'edition_year' => 2025,
+        'currency' => 'EUR',
+    ]);
+
+    $currentEdition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2026',
+        'edition_year' => 2026,
+        'currency' => 'EUR',
+    ]);
+
+    // Maak twee waarderingscategorieën aan.
+    $postfris = Condition::create([
+        'slug' => 'postfris',
+        'sort_order' => 1,
+        'is_active' => true,
+    ]);
+
+    $gestempeld = Condition::create([
+        'slug' => 'gestempeld',
+        'sort_order' => 2,
+        'is_active' => true,
+    ]);
+
+    // Koppel Postfris aan de geselecteerde catalogus.
+    $catalog->conditionRules()->create([
+        'condition_id' => $postfris->id,
+        'sort_order' => 1,
+    ]);
+
+    // Koppel Gestempeld uitsluitend aan de andere catalogus.
+    $otherCatalog->conditionRules()->create([
+        'condition_id' => $gestempeld->id,
+        'sort_order' => 1,
+    ]);
+
+    // Probeer een waarderingscategorie van de andere catalogus te selecteren.
+    $response = $this->actingAs($user)
+        ->from(route('backend.catalogs.editions.compare', $catalog))
+        ->get(route('backend.catalogs.editions.compare', [
+            'catalog' => $catalog,
+            'previous_edition_id' => $previousEdition->id,
+            'current_edition_id' => $currentEdition->id,
+            'condition_id' => $gestempeld->id,
+        ]));
+
+    // Controleer of Laravel terugstuurt naar de vergelijkingspagina.
+    $response->assertRedirect(
+        route('backend.catalogs.editions.compare', $catalog)
+    );
+
+    // Controleer of de waarderingscategorie wordt afgewezen.
+    $response->assertSessionHasErrors('condition_id');
+
+    // Controleer of beide catalogusedities geldig zijn.
+    $response->assertSessionDoesntHaveErrors([
+        'previous_edition_id',
+        'current_edition_id',
+    ]);
+});
+
+test('de vergelijking filtert cataloguswaarden op de geselecteerde waarderingscategorie', function () {
+    // Maak een ingelogde gebruiker aan.
+    $user = User::factory()->create([
+        'is_admin' => false,
+    ]);
+
+    // Maak een postzegel en catalogus aan.
+    $stamp = Stamp::factory()->create();
+
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus conditiefilter',
+    ]);
+
+    // Maak twee catalogusedities aan.
+    $previousEdition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2025',
+        'edition_year' => 2025,
+        'currency' => 'EUR',
+    ]);
+
+    $currentEdition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2026',
+        'edition_year' => 2026,
+        'currency' => 'EUR',
+    ]);
+
+    // Maak twee waarderingscategorieën aan.
+    $postfris = Condition::create([
+        'slug' => 'postfris',
+        'sort_order' => 1,
+        'is_active' => true,
+    ]);
+
+    $gestempeld = Condition::create([
+        'slug' => 'gestempeld',
+        'sort_order' => 2,
+        'is_active' => true,
+    ]);
+
+    // Koppel beide waarderingscategorieën aan de catalogus.
+    $catalog->conditionRules()->create([
+        'condition_id' => $postfris->id,
+        'sort_order' => 1,
+    ]);
+
+    $catalog->conditionRules()->create([
+        'condition_id' => $gestempeld->id,
+        'sort_order' => 2,
+    ]);
+
+    // Koppel de postzegel aan beide catalogusedities.
+    $previousEntry = StampCatalogEntry::create([
+        'stamp_id' => $stamp->id,
+        'catalog_edition_id' => $previousEdition->id,
+        'catalog_number' => 'TEST-001',
+    ]);
+
+    $currentEntry = StampCatalogEntry::create([
+        'stamp_id' => $stamp->id,
+        'catalog_edition_id' => $currentEdition->id,
+        'catalog_number' => 'TEST-001',
+    ]);
+
+    // Cataloguswaarden Postfris.
+    StampCatalogValue::create([
+        'stamp_catalog_entry_id' => $previousEntry->id,
+        'condition_id' => $postfris->id,
+        'catalog_value' => 10.00,
+        'currency' => 'EUR',
+    ]);
+
+    StampCatalogValue::create([
+        'stamp_catalog_entry_id' => $currentEntry->id,
+        'condition_id' => $postfris->id,
+        'catalog_value' => 15.00,
+        'currency' => 'EUR',
+    ]);
+
+    // Cataloguswaarden Gestempeld.
+    StampCatalogValue::create([
+        'stamp_catalog_entry_id' => $previousEntry->id,
+        'condition_id' => $gestempeld->id,
+        'catalog_value' => 5.00,
+        'currency' => 'EUR',
+    ]);
+
+    StampCatalogValue::create([
+        'stamp_catalog_entry_id' => $currentEntry->id,
+        'condition_id' => $gestempeld->id,
+        'catalog_value' => 8.00,
+        'currency' => 'EUR',
+    ]);
+
+    // Vergelijk beide edities met uitsluitend Postfris geselecteerd.
+    $response = $this->actingAs($user)->get(
+        route('backend.catalogs.editions.compare', [
+            'catalog' => $catalog,
+            'previous_edition_id' => $previousEdition->id,
+            'current_edition_id' => $currentEdition->id,
+            'condition_id' => $postfris->id,
+        ])
+    );
+
+    $response->assertOk();
+
+    // Controleer dat uitsluitend Postfris wordt weergegeven.
+    $response->assertViewHas('comparisonResults', function ($results) use ($stamp, $postfris) {
+        if (count($results) !== 1) {
+            return false;
+        }
+
+        $result = $results[0];
+
+        if (
+            $result['stamp_id'] !== $stamp->id ||
+            count($result['conditions']) !== 1
+        ) {
+            return false;
+        }
+
+        $value = $result['conditions'][0];
+
+        return $value['condition_id'] === $postfris->id
+            && $value['previous_value'] === 10.00
+            && $value['current_value'] === 15.00
+            && $value['absolute_change'] === 5.00
+            && $value['percentage_change'] === 50.00
+            && $value['status'] === 'increased';
+    });
+});
+
+test('de vergelijking toont alle waarderingscategorieën wanneer geen filter is geselecteerd', function () {
+    // Maak een ingelogde gebruiker aan.
+    $user = User::factory()->create([
+        'is_admin' => false,
+    ]);
+
+    // Maak een postzegel en catalogus aan.
+    $stamp = Stamp::factory()->create();
+
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus zonder conditiefilter',
+    ]);
+
+    // Maak twee catalogusedities aan.
+    $previousEdition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2025',
+        'edition_year' => 2025,
+        'currency' => 'EUR',
+    ]);
+
+    $currentEdition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2026',
+        'edition_year' => 2026,
+        'currency' => 'EUR',
+    ]);
+
+    // Maak twee waarderingscategorieën aan.
+    $postfris = Condition::create([
+        'slug' => 'postfris',
+        'sort_order' => 1,
+        'is_active' => true,
+    ]);
+
+    $gestempeld = Condition::create([
+        'slug' => 'gestempeld',
+        'sort_order' => 2,
+        'is_active' => true,
+    ]);
+
+    // Koppel beide waarderingscategorieën aan de catalogus.
+    $catalog->conditionRules()->create([
+        'condition_id' => $postfris->id,
+        'sort_order' => 1,
+    ]);
+
+    $catalog->conditionRules()->create([
+        'condition_id' => $gestempeld->id,
+        'sort_order' => 2,
+    ]);
+
+    // Koppel de postzegel aan beide edities.
+    $previousEntry = StampCatalogEntry::create([
+        'stamp_id' => $stamp->id,
+        'catalog_edition_id' => $previousEdition->id,
+        'catalog_number' => 'TEST-001',
+    ]);
+
+    $currentEntry = StampCatalogEntry::create([
+        'stamp_id' => $stamp->id,
+        'catalog_edition_id' => $currentEdition->id,
+        'catalog_number' => 'TEST-001',
+    ]);
+
+    // Registreer de cataloguswaarden voor beide categorieën.
+    foreach ([
+        [$previousEntry, $postfris, 10.00],
+        [$currentEntry, $postfris, 15.00],
+        [$previousEntry, $gestempeld, 5.00],
+        [$currentEntry, $gestempeld, 8.00],
+    ] as [$entry, $condition, $value]) {
+        StampCatalogValue::create([
+            'stamp_catalog_entry_id' => $entry->id,
+            'condition_id' => $condition->id,
+            'catalog_value' => $value,
+            'currency' => 'EUR',
+        ]);
+    }
+
+    // Vergelijk beide edities zonder waarderingscategoriefilter.
+    $response = $this->actingAs($user)->get(
+        route('backend.catalogs.editions.compare', [
+            'catalog' => $catalog,
+            'previous_edition_id' => $previousEdition->id,
+            'current_edition_id' => $currentEdition->id,
+        ])
+    );
+
+    $response->assertOk();
+
+    // Controleer of beide waarderingscategorieën aanwezig blijven.
+    $response->assertViewHas('comparisonResults', function ($results) use ($stamp, $postfris, $gestempeld) {
+        if (count($results) !== 1) {
+            return false;
+        }
+
+        $result = $results[0];
+
+        if (
+            $result['stamp_id'] !== $stamp->id ||
+            count($result['conditions']) !== 2
+        ) {
+            return false;
+        }
+
+        $conditionIds = array_column($result['conditions'], 'condition_id');
+
+        return in_array($postfris->id, $conditionIds, true)
+            && in_array($gestempeld->id, $conditionIds, true);
+    });
+
+    // Vergelijk beide edities met expliciete standaardvolgorde.
+    $defaultResponse = $this->actingAs($user)->get(
+        route('backend.catalogs.editions.compare', [
+            'catalog' => $catalog,
+            'previous_edition_id' => $previousEdition->id,
+            'current_edition_id' => $currentEdition->id,
+            'sort' => 'default',
+        ])
+    );
+
+    $defaultResponse->assertOk();
+
+    // Controleer dat de standaardvolgorde dezelfde resultaten oplevert.
+    $defaultResponse->assertViewHas('comparisonResults', function ($results) use ($stamp, $postfris, $gestempeld) {
+        if (count($results) !== 1) {
+            return false;
+        }
+
+        $result = $results[0];
+
+        return $result['stamp_id'] === $stamp->id
+            && count($result['conditions']) === 2
+            && array_column($result['conditions'], 'condition_id') === [
+                $postfris->id,
+                $gestempeld->id,
+            ];
+    });
+});
+
+test('de vergelijking sorteert op grootste procentuele stijging', function () {
+    // Maak een ingelogde gebruiker aan.
+    $user = User::factory()->create([
+        'is_admin' => false,
+    ]);
+
+    // Maak een testcatalogus aan.
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus procentuele stijging',
+    ]);
+
+    // Maak twee catalogusedities aan.
+    $previousEdition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2025',
+        'edition_year' => 2025,
+        'currency' => 'EUR',
+    ]);
+
+    $currentEdition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2026',
+        'edition_year' => 2026,
+        'currency' => 'EUR',
+    ]);
+
+    // Maak de waarderingscategorie Postfris aan.
+    $condition = Condition::create([
+        'slug' => 'postfris',
+        'sort_order' => 1,
+        'is_active' => true,
+    ]);
+
+    // Koppel de waarderingscategorie aan de catalogus.
+    $catalog->conditionRules()->create([
+        'condition_id' => $condition->id,
+        'sort_order' => 1,
+    ]);
+
+    // Maak drie postzegels aan met verschillende procentuele stijgingen.
+    $values = [
+        ['previous' => 10.00, 'current' => 15.00, 'percentage' => 50.00],
+        ['previous' => 5.00, 'current' => 10.00, 'percentage' => 100.00],
+        ['previous' => 20.00, 'current' => 25.00, 'percentage' => 25.00],
+    ];
+
+    $stampIds = [];
+
+    foreach ($values as $index => $value) {
+        $stamp = Stamp::factory()->create();
+
+        $stampIds[$index] = $stamp->id;
+
+        // Koppel de postzegel aan beide edities.
+        $previousEntry = StampCatalogEntry::create([
+            'stamp_id' => $stamp->id,
+            'catalog_edition_id' => $previousEdition->id,
+            'catalog_number' => 'TEST-'.($index + 1),
+        ]);
+
+        $currentEntry = StampCatalogEntry::create([
+            'stamp_id' => $stamp->id,
+            'catalog_edition_id' => $currentEdition->id,
+            'catalog_number' => 'TEST-'.($index + 1),
+        ]);
+
+        // Registreer de oorspronkelijke waarde.
+        StampCatalogValue::create([
+            'stamp_catalog_entry_id' => $previousEntry->id,
+            'condition_id' => $condition->id,
+            'catalog_value' => $value['previous'],
+            'currency' => 'EUR',
+        ]);
+
+        // Registreer de nieuwe waarde.
+        StampCatalogValue::create([
+            'stamp_catalog_entry_id' => $currentEntry->id,
+            'condition_id' => $condition->id,
+            'catalog_value' => $value['current'],
+            'currency' => 'EUR',
+        ]);
+    }
+
+    // Vraag de vergelijking aan met procentuele stijging als sortering.
+    $response = $this->actingAs($user)->get(
+        route('backend.catalogs.editions.compare', [
+            'catalog' => $catalog,
+            'previous_edition_id' => $previousEdition->id,
+            'current_edition_id' => $currentEdition->id,
+            'sort' => 'percentage_increase',
+        ])
+    );
+
+    $response->assertOk();
+
+    // Controleer de volgorde van de procentuele stijgingen.
+    $response->assertViewHas('comparisonResults', function ($results) use ($stampIds) {
+        if (count($results) !== 3) {
+            return false;
+        }
+
+        $sortedStampIds = array_column($results, 'stamp_id');
+
+        $percentages = array_map(
+            fn ($result) => $result['conditions'][0]['percentage_change'],
+            $results
+        );
+
+        return $sortedStampIds === [
+            $stampIds[1], // 100%
+            $stampIds[0], // 50%
+            $stampIds[2], // 25%
+        ] && $percentages === [
+            100.00,
+            50.00,
+            25.00,
+        ];
+    });
+});
+test('de vergelijking sorteert op grootste procentuele daling', function () {
+    // Maak een ingelogde gebruiker aan.
+    $user = User::factory()->create([
+        'is_admin' => false,
+    ]);
+
+    // Maak een testcatalogus aan.
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus procentuele daling',
+    ]);
+
+    // Maak twee catalogusedities aan.
+    $previousEdition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2025',
+        'edition_year' => 2025,
+        'currency' => 'EUR',
+    ]);
+
+    $currentEdition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2026',
+        'edition_year' => 2026,
+        'currency' => 'EUR',
+    ]);
+
+    // Maak de waarderingscategorie Postfris aan.
+    $condition = Condition::create([
+        'slug' => 'postfris',
+        'sort_order' => 1,
+        'is_active' => true,
+    ]);
+
+    // Koppel de waarderingscategorie aan de catalogus.
+    $catalog->conditionRules()->create([
+        'condition_id' => $condition->id,
+        'sort_order' => 1,
+    ]);
+
+    // Maak drie postzegels met verschillende procentuele dalingen.
+    $values = [
+        ['previous' => 15.00, 'current' => 10.00],
+        ['previous' => 10.00, 'current' => 5.00],
+        ['previous' => 25.00, 'current' => 20.00],
+    ];
+
+    $stampIds = [];
+
+    foreach ($values as $index => $value) {
+        $stamp = Stamp::factory()->create();
+
+        $stampIds[$index] = $stamp->id;
+
+        // Koppel de postzegel aan beide catalogusedities.
+        $previousEntry = StampCatalogEntry::create([
+            'stamp_id' => $stamp->id,
+            'catalog_edition_id' => $previousEdition->id,
+            'catalog_number' => 'TEST-'.($index + 1),
+        ]);
+
+        $currentEntry = StampCatalogEntry::create([
+            'stamp_id' => $stamp->id,
+            'catalog_edition_id' => $currentEdition->id,
+            'catalog_number' => 'TEST-'.($index + 1),
+        ]);
+
+        // Registreer de oorspronkelijke cataloguswaarde.
+        StampCatalogValue::create([
+            'stamp_catalog_entry_id' => $previousEntry->id,
+            'condition_id' => $condition->id,
+            'catalog_value' => $value['previous'],
+            'currency' => 'EUR',
+        ]);
+
+        // Registreer de nieuwe cataloguswaarde.
+        StampCatalogValue::create([
+            'stamp_catalog_entry_id' => $currentEntry->id,
+            'condition_id' => $condition->id,
+            'catalog_value' => $value['current'],
+            'currency' => 'EUR',
+        ]);
+    }
+
+    // Vraag de vergelijking aan met procentuele daling als sortering.
+    $response = $this->actingAs($user)->get(
+        route('backend.catalogs.editions.compare', [
+            'catalog' => $catalog,
+            'previous_edition_id' => $previousEdition->id,
+            'current_edition_id' => $currentEdition->id,
+            'sort' => 'percentage_decrease',
+        ])
+    );
+
+    $response->assertOk();
+
+    // Controleer de volgorde van de procentuele dalingen.
+    $response->assertViewHas('comparisonResults', function ($results) use ($stampIds) {
+        if (count($results) !== 3) {
+            return false;
+        }
+
+        $sortedStampIds = array_column($results, 'stamp_id');
+
+        $percentages = array_map(
+            fn ($result) => $result['conditions'][0]['percentage_change'],
+            $results
+        );
+
+        return $sortedStampIds === [
+            $stampIds[1], // -50%
+            $stampIds[0], // -33,33%
+            $stampIds[2], // -20%
+        ] && $percentages === [
+            -50.00,
+            -33.33,
+            -20.00,
+        ];
+    });
+});
+
+test('de vergelijking weigert een ongeldige sorteeroptie', function () {
+    // Maak een ingelogde gebruiker aan.
+    $user = User::factory()->create([
+        'is_admin' => false,
+    ]);
+
+    // Maak een testcatalogus aan.
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus ongeldige sortering',
+    ]);
+
+    // Maak twee catalogusedities aan.
+    $previousEdition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2025',
+        'edition_year' => 2025,
+        'currency' => 'EUR',
+    ]);
+
+    $currentEdition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2026',
+        'edition_year' => 2026,
+        'currency' => 'EUR',
+    ]);
+
+    // Probeer een vergelijking met een ongeldige sorteeroptie.
+    $response = $this->actingAs($user)
+        ->from(route('backend.catalogs.editions.compare', $catalog))
+        ->get(route('backend.catalogs.editions.compare', [
+            'catalog' => $catalog,
+            'previous_edition_id' => $previousEdition->id,
+            'current_edition_id' => $currentEdition->id,
+            'sort' => 'ongeldige_sortering',
+        ]));
+
+    // Controleer of Laravel terugstuurt naar de vergelijkingspagina.
+    $response->assertRedirect(
+        route('backend.catalogs.editions.compare', $catalog)
+    );
+
+    // Controleer of de sorteeroptie wordt afgewezen.
+    $response->assertSessionHasErrors('sort');
+
+    // Controleer of beide catalogusedities geldig zijn.
+    $response->assertSessionDoesntHaveErrors([
+        'previous_edition_id',
+        'current_edition_id',
+    ]);
+});
+
+test('de vergelijking sorteert op grootste waardestijging', function () {
+    // Maak een ingelogde gebruiker aan.
+    $user = User::factory()->create([
+        'is_admin' => false,
+    ]);
+
+    // Maak een testcatalogus aan.
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus grootste waardestijging',
+    ]);
+
+    // Maak twee catalogusedities aan.
+    $previousEdition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2025',
+        'edition_year' => 2025,
+        'currency' => 'EUR',
+    ]);
+
+    $currentEdition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2026',
+        'edition_year' => 2026,
+        'currency' => 'EUR',
+    ]);
+
+    // Maak de waarderingscategorie Postfris aan.
+    $condition = Condition::create([
+        'slug' => 'postfris',
+        'sort_order' => 1,
+        'is_active' => true,
+    ]);
+
+    // Koppel Postfris aan de catalogus.
+    $catalog->conditionRules()->create([
+        'condition_id' => $condition->id,
+        'sort_order' => 1,
+    ]);
+
+    // Maak drie postzegels met verschillende absolute waardestijgingen.
+    $values = [
+        ['previous' => 10.00, 'current' => 15.00],
+        ['previous' => 5.00, 'current' => 20.00],
+        ['previous' => 20.00, 'current' => 28.00],
+    ];
+
+    $stampIds = [];
+
+    foreach ($values as $index => $value) {
+        $stamp = Stamp::factory()->create();
+
+        $stampIds[$index] = $stamp->id;
+
+        // Koppel de postzegel aan de vorige cataloguseditie.
+        $previousEntry = StampCatalogEntry::create([
+            'stamp_id' => $stamp->id,
+            'catalog_edition_id' => $previousEdition->id,
+            'catalog_number' => 'TEST-'.($index + 1),
+        ]);
+
+        // Koppel de postzegel aan de huidige cataloguseditie.
+        $currentEntry = StampCatalogEntry::create([
+            'stamp_id' => $stamp->id,
+            'catalog_edition_id' => $currentEdition->id,
+            'catalog_number' => 'TEST-'.($index + 1),
+        ]);
+
+        // Registreer de oorspronkelijke cataloguswaarde.
+        StampCatalogValue::create([
+            'stamp_catalog_entry_id' => $previousEntry->id,
+            'condition_id' => $condition->id,
+            'catalog_value' => $value['previous'],
+            'currency' => 'EUR',
+        ]);
+
+        // Registreer de nieuwe cataloguswaarde.
+        StampCatalogValue::create([
+            'stamp_catalog_entry_id' => $currentEntry->id,
+            'condition_id' => $condition->id,
+            'catalog_value' => $value['current'],
+            'currency' => 'EUR',
+        ]);
+    }
+
+    // Vergelijk beide edities en sorteer op grootste waardestijging.
+    $response = $this->actingAs($user)->get(
+        route('backend.catalogs.editions.compare', [
+            'catalog' => $catalog,
+            'previous_edition_id' => $previousEdition->id,
+            'current_edition_id' => $currentEdition->id,
+            'sort' => 'absolute_increase',
+        ])
+    );
+
+    // Controleer of de vergelijkingspagina succesvol wordt geopend.
+    $response->assertOk();
+
+    // Controleer of de absolute waardestijgingen correct gesorteerd zijn.
+    $response->assertViewHas('comparisonResults', function ($results) use ($stampIds) {
+        if (count($results) !== 3) {
+            return false;
+        }
+
+        $sortedStampIds = array_column($results, 'stamp_id');
+
+        $absoluteChanges = array_map(
+            fn ($result) => $result['conditions'][0]['absolute_change'],
+            $results
+        );
+
+        return $sortedStampIds === [
+            $stampIds[1], // +15,00
+            $stampIds[2], // +8,00
+            $stampIds[0], // +5,00
+        ] && $absoluteChanges === [
+            15.00,
+            8.00,
+            5.00,
+        ];
+    });
+});
+
+test('de vergelijking sorteert op grootste waardedaling', function () {
+    // Maak een ingelogde gebruiker aan.
+    $user = User::factory()->create([
+        'is_admin' => false,
+    ]);
+
+    // Maak een testcatalogus aan.
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus grootste waardedaling',
+    ]);
+
+    // Maak twee catalogusedities aan.
+    $previousEdition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2025',
+        'edition_year' => 2025,
+        'currency' => 'EUR',
+    ]);
+
+    $currentEdition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2026',
+        'edition_year' => 2026,
+        'currency' => 'EUR',
+    ]);
+
+    // Maak de waarderingscategorie Postfris aan.
+    $condition = Condition::create([
+        'slug' => 'postfris',
+        'sort_order' => 1,
+        'is_active' => true,
+    ]);
+
+    // Koppel Postfris aan de catalogus.
+    $catalog->conditionRules()->create([
+        'condition_id' => $condition->id,
+        'sort_order' => 1,
+    ]);
+
+    // Maak drie postzegels met verschillende absolute waardedalingen.
+    $values = [
+        ['previous' => 15.00, 'current' => 10.00],
+        ['previous' => 20.00, 'current' => 5.00],
+        ['previous' => 28.00, 'current' => 20.00],
+    ];
+
+    $stampIds = [];
+
+    foreach ($values as $index => $value) {
+        $stamp = Stamp::factory()->create();
+
+        $stampIds[$index] = $stamp->id;
+
+        // Koppel de postzegel aan de vorige cataloguseditie.
+        $previousEntry = StampCatalogEntry::create([
+            'stamp_id' => $stamp->id,
+            'catalog_edition_id' => $previousEdition->id,
+            'catalog_number' => 'TEST-'.($index + 1),
+        ]);
+
+        // Koppel de postzegel aan de huidige cataloguseditie.
+        $currentEntry = StampCatalogEntry::create([
+            'stamp_id' => $stamp->id,
+            'catalog_edition_id' => $currentEdition->id,
+            'catalog_number' => 'TEST-'.($index + 1),
+        ]);
+
+        // Registreer de oorspronkelijke cataloguswaarde.
+        StampCatalogValue::create([
+            'stamp_catalog_entry_id' => $previousEntry->id,
+            'condition_id' => $condition->id,
+            'catalog_value' => $value['previous'],
+            'currency' => 'EUR',
+        ]);
+
+        // Registreer de nieuwe cataloguswaarde.
+        StampCatalogValue::create([
+            'stamp_catalog_entry_id' => $currentEntry->id,
+            'condition_id' => $condition->id,
+            'catalog_value' => $value['current'],
+            'currency' => 'EUR',
+        ]);
+    }
+
+    // Vergelijk beide edities en sorteer op grootste waardedaling.
+    $response = $this->actingAs($user)->get(
+        route('backend.catalogs.editions.compare', [
+            'catalog' => $catalog,
+            'previous_edition_id' => $previousEdition->id,
+            'current_edition_id' => $currentEdition->id,
+            'sort' => 'absolute_decrease',
+        ])
+    );
+
+    // Controleer of de vergelijkingspagina succesvol wordt geopend.
+    $response->assertOk();
+
+    // Controleer of de absolute waardedalingen correct gesorteerd zijn.
+    $response->assertViewHas('comparisonResults', function ($results) use ($stampIds) {
+        if (count($results) !== 3) {
+            return false;
+        }
+
+        $sortedStampIds = array_column($results, 'stamp_id');
+
+        $absoluteChanges = array_map(
+            fn ($result) => $result['conditions'][0]['absolute_change'],
+            $results
+        );
+
+        return $sortedStampIds === [
+            $stampIds[1], // -15,00
+            $stampIds[2], // -8,00
+            $stampIds[0], // -5,00
+        ] && $absoluteChanges === [
+            -15.00,
+            -8.00,
+            -5.00,
+        ];
+    });
+});

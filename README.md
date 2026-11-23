@@ -885,27 +885,27 @@ The Excel import supports three modes:
 
 1. Create — New Catalog Edition
 
-- Create a new catalog edition from an Excel file.
-- Import the associated catalog information.
-- Validate that the edition does not already exist.
-- Prevent unintended modifications to existing editions.
+   - Create a new catalog edition from an Excel file.
+   - Import the associated catalog information.
+   - Validate that the edition does not already exist.
+   - Prevent unintended modifications to existing editions.
 
 2. Merge — Add or Update Existing Data
 
-- Import information into an existing catalog edition.
-- Add catalog records that are not yet present.
-- Update supported existing catalog information.
-- Preserve records that are not included in the Excel file.
-- Use Merge as the default option when importing into an existing edition.
+   - Import information into an existing catalog edition.
+   - Add catalog records that are not yet present.
+   - Update supported existing catalog information.
+   - Preserve records that are not included in the Excel file.
+   - Use Merge as the default option when importing into an existing edition.
 
 3. Replace — Replace Existing Catalog Data
 
-- Import the Excel data into an existing catalog edition.
-- Update existing catalog numbers and catalog values.
-- Remove catalog entries and values that are absent from the imported data.
-- Preserve the underlying postage stamp records.
-- Preserve personal collection data, images, and valuation history.
-- Require administrators to explicitly select the Replace option.
+   - Import the Excel data into an existing catalog edition.
+   - Update existing catalog numbers and catalog values.
+   - Remove catalog entries and values that are absent from the imported data.
+   - Preserve the underlying postage stamp records.
+   - Preserve personal collection data, images, and valuation history.
+   - Require administrators to explicitly select the Replace option.
 
 Data Integrity and Protection
 
@@ -970,7 +970,7 @@ Planned features:
 
 ### Part F — Catalog Edition Comparison
 
-**Status:** ⏳ Planned
+**Status:** ✅ Completed
 
 **Objective:** Compare catalog valuations between different editions of the same catalog.
 

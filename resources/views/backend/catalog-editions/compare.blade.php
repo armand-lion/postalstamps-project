@@ -180,6 +180,129 @@
                             </div>
 
                         </div>
+
+                        {{-- Filters en sortering --}}
+                        <div class="mt-6 flex flex-wrap items-end gap-6">
+
+                            <flux:field>
+                                <flux:label>
+                                    {{ __('Waarderingscategorie') }}
+                                </flux:label>
+
+                                <div x-data="{
+                                    selectedId: @js((string) request('condition_id', '')),
+                                    selectedName: @js($conditions->firstWhere('id', request('condition_id'))?->translationWithFallback()?->name ?? __('Alle waarderingscategorieën'))
+                                }">
+
+                                    <input type="hidden" name="condition_id" x-model="selectedId">
+
+                                    <flux:dropdown position="bottom" align="start">
+
+                                        <flux:button type="button" icon-trailing="chevron-down"
+                                            class="w-[320px]! max-w-full justify-between! border-theme-accent-3! bg-brown-5! text-zinc-900! hover:bg-brown-5!">
+
+                                            <span x-text="selectedName" class="truncate"></span>
+
+                                        </flux:button>
+
+                                        <flux:menu
+                                            class="max-h-80 min-w-64 overflow-y-auto border-theme-accent-3! bg-brown-6!">
+
+                                            {{-- Alle waarderingscategorieën --}}
+                                            <flux:menu.item as="button" type="button"
+                                                x-on:click="
+                                                    selectedId = '';
+                                                    selectedName = @js(__('Alle waarderingscategorieën'));
+                                                "
+                                                class="w-full cursor-pointer text-zinc-900! hover:bg-brown-5!">
+
+                                                {{ __('Alle waarderingscategorieën') }}
+
+                                            </flux:menu.item>
+
+                                            {{-- Beschikbare waarderingscategorieën --}}
+                                            @foreach ($conditions as $condition)
+                                                <flux:menu.item as="button" type="button"
+                                                    x-on:click="
+                                                        selectedId = @js((string) $condition->id);
+                                                        selectedName = @js($condition->translationWithFallback()?->name ?? $condition->slug);
+                                                    "
+                                                    class="w-full cursor-pointer text-zinc-900! hover:bg-brown-5!">
+
+                                                    {{ $condition->translationWithFallback()?->name ?? $condition->slug }}
+
+                                                </flux:menu.item>
+                                            @endforeach
+
+                                        </flux:menu>
+
+                                    </flux:dropdown>
+
+                                </div>
+
+                            </flux:field>
+
+                            {{-- Sorteren op waardeverschillen --}}
+                            <flux:field>
+                                <flux:label>
+                                    {{ __('Sorteren op') }}
+                                </flux:label>
+
+                                <div x-data="{
+                                    selectedId: @js((string) request('sort', 'default')),
+                                    selectedName: @js(
+    match (request('sort', 'default')) {
+        'absolute_increase' => __('Grootste waardestijging'),
+        'absolute_decrease' => __('Grootste waardedaling'),
+        'percentage_increase' => __('Grootste procentuele stijging'),
+        'percentage_decrease' => __('Grootste procentuele daling'),
+        default => __('Standaardvolgorde'),
+    },
+)
+                                }">
+
+                                    <input type="hidden" name="sort" x-model="selectedId">
+
+                                    <flux:dropdown position="bottom" align="start">
+
+                                        <flux:button type="button" icon-trailing="chevron-down"
+                                            class="w-[320px]! max-w-full justify-between! border-theme-accent-3! bg-brown-5! text-zinc-900! hover:bg-brown-5!">
+
+                                            <span x-text="selectedName" class="truncate"></span>
+
+                                        </flux:button>
+
+                                        <flux:menu
+                                            class="max-h-80 min-w-64 overflow-y-auto border-theme-accent-3! bg-brown-6!">
+
+                                            @foreach ([
+        'default' => __('Standaardvolgorde'),
+        'absolute_increase' => __('Grootste waardestijging'),
+        'absolute_decrease' => __('Grootste waardedaling'),
+        'percentage_increase' => __('Grootste procentuele stijging'),
+        'percentage_decrease' => __('Grootste procentuele daling'),
+    ] as $sortValue => $sortLabel)
+                                                <flux:menu.item as="button" type="button"
+                                                    x-on:click="
+                            selectedId = @js($sortValue);
+                            selectedName = @js($sortLabel);
+                        "
+                                                    class="w-full cursor-pointer text-zinc-900! hover:bg-brown-5!">
+
+                                                    {{ $sortLabel }}
+
+                                                </flux:menu.item>
+                                            @endforeach
+
+                                        </flux:menu>
+
+                                    </flux:dropdown>
+
+                                </div>
+                            </flux:field>
+
+                        </div>
+
                     </form>
                 @endif
 
