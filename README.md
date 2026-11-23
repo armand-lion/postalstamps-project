@@ -861,35 +861,103 @@ Implemented features:
 
 ### Part D — Excel Import
 
-**Status:** ⏳ Planned
+**Status:** ✅ Completed — Implemented and Tested
 
-**Objective:** Allow catalog information to be imported from external spreadsheet files.
+**Objective:** Allow administrators to import catalog information from Excel files, including the creation, updating, and replacement of catalog editions.
 
-Planned features:
+Implemented Features:
 
-- Support CSV and Excel file imports.
-- Select the destination catalog and edition.
-- Map spreadsheet columns to application fields.
-- Preview imported records before processing.
-- Validate catalog numbers and valuations.
-- Detect duplicate or conflicting records.
-- Identify missing or invalid references.
-- Allow administrators to choose how existing records are handled.
-- Prevent unintended overwriting of existing data.
-- Process large imports efficiently.
-- Display import results, including successful, skipped, and failed records.
+- Import catalog editions from Excel (.xlsx) files.
+- Validate the selected catalog and Excel file structure.
+- Verify required worksheets and imported references.
+- Import catalog editions, stamps, catalog numbers, and catalog values.
+- Import related countries, translations, conditions, stamp series, and themes.
+- Display an import preview before confirmation.
+- Support importing new catalog editions.
+- Support updating existing catalog editions.
+- Prevent duplicate catalog numbers within the same edition.
+- Restrict import functionality to administrators.
+- Use database transactions to prevent partially completed imports.
 
-**Result:** Large amounts of catalog information can be imported efficiently and safely.
+Import Modes:
+
+The Excel import supports three modes:
+
+1. Create — New Catalog Edition
+
+- Create a new catalog edition from an Excel file.
+- Import the associated catalog information.
+- Validate that the edition does not already exist.
+- Prevent unintended modifications to existing editions.
+
+2. Merge — Add or Update Existing Data
+
+- Import information into an existing catalog edition.
+- Add catalog records that are not yet present.
+- Update supported existing catalog information.
+- Preserve records that are not included in the Excel file.
+- Use Merge as the default option when importing into an existing edition.
+
+3. Replace — Replace Existing Catalog Data
+
+- Import the Excel data into an existing catalog edition.
+- Update existing catalog numbers and catalog values.
+- Remove catalog entries and values that are absent from the imported data.
+- Preserve the underlying postage stamp records.
+- Preserve personal collection data, images, and valuation history.
+- Require administrators to explicitly select the Replace option.
+
+Data Integrity and Protection
+
+- The import process includes safeguards to protect existing application data.
+- Validate catalog and edition relationships.
+- Prevent duplicate catalog numbers within the same edition.
+- Reject invalid or inconsistent Excel data.
+- Use database transactions to roll back failed imports.
+- Preserve personal stamp copies and ownership information.
+- Preserve historical valuation records.
+- Prevent unauthorized users from performing imports.
+
+Testing and Validation
+
+Automated tests cover:
+
+- Importing new catalog editions.
+- Importing related catalog information.
+- Updating existing editions using Merge.
+- Replacing existing editions using Replace.
+- Removing catalog records that are absent from the imported Excel file.
+- Preserving personal collection information.
+- Validating imported data and duplicate catalog numbers.
+- Rolling back database changes when an import fails.
+- Restricting import access to administrators.
+
+Manual browser testing confirmed:
+
+- Successful import using Merge.
+- Successful import using Replace.
+- Removal of an additional catalog entry that was not present in the Excel file.
+- Preservation of the original postage stamp.
+- Preservation of the five expected catalog entries.
+- Preservation of the twelve expected catalog values.
+
+Result
+
+Administrators can safely import new catalog editions and maintain existing editions using Merge or Replace.
+
+The import process protects personal collection data and provides validation, authorization, and transaction-based rollback to maintain database integrity.
+
+Status: ✅ Completed and successfully tested.
 
 ### Part E — Excel Export
 
-**Status:** ⏳ Planned
+**Status:** ✅ Completed
 
 **Objective:** Allow administrators to export catalog information for external processing, reporting, and backup purposes.
 
 Planned features:
 
-- Export catalog data to CSV or Excel.
+- Export catalog data to Excel.
 - Filter exports by country or territory.
 - Filter by catalog and edition.
 - Export catalog numbers and valuations.

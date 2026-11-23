@@ -586,6 +586,18 @@ test('een beheerder kan geldige tijdelijke Excel-importgegevens controleren', fu
     // Controleer of de juiste catalogus wordt doorgegeven.
     $response->assertViewHas('catalog', $catalog);
 
+    // Controleer of de bestaande cataloguseditie wordt herkend.
+    $response->assertViewHas('existingEdition', function ($existingEdition) use ($edition) {
+        return $existingEdition !== null
+            && $existingEdition->id === $edition->id;
+    });
+
+    // Controleer of Aanvullen standaard geselecteerd is.
+    $response->assertSee(
+        'name="import_mode" value="merge" checked',
+        false
+    );
+
     // Controleer de gegevens uit het Excel-bestand.
     $response->assertViewHas('preview', function ($preview) {
         return $preview['catalog_name'] === 'Testcatalogus geldige tijdelijke import'
@@ -846,4 +858,210 @@ test('een beheerder kan geen definitieve Excel-import bevestigen zonder tijdelij
             ->where('catalog_id', $catalog->id)
             ->count()
     )->toBe(0);
+});
+
+test('een beheerder kan een bestaande cataloguseditie aanvullen via HTTP', function () {
+    Storage::fake('local');
+
+    $admin = User::factory()->create([
+        'is_admin' => true,
+    ]);
+
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus HTTP aanvullen',
+    ]);
+
+    $edition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2026',
+        'edition_year' => 2026,
+    ]);
+
+    // Genereer een geldig Excel-bestand van de bestaande editie.
+    $excelContent = Excel::raw(
+        new CatalogEditionExchangeExcelExport($catalog, $edition),
+        Maatwebsite\Excel\Excel::XLSX
+    );
+
+    $filePath = 'catalog-edition-imports/http-aanvullen.xlsx';
+
+    Storage::disk('local')->put($filePath, $excelContent);
+
+    // Bevestig de import met de methode Aanvullen.
+    $response = $this
+        ->actingAs($admin)
+        ->withSession([
+            'catalog_edition_import' => [
+                'user_id' => $admin->id,
+                'catalog_id' => $catalog->id,
+                'file_path' => $filePath,
+            ],
+        ])
+        ->post(
+            route('backend.catalogs.editions.import.confirm', $catalog),
+            [
+                'import_mode' => 'merge',
+            ]
+        );
+
+    // Controleer of de bestaande editie is hergebruikt.
+    expect(
+        CatalogEdition::query()
+            ->where('catalog_id', $catalog->id)
+            ->where('edition_name', 'Editie 2026')
+            ->where('edition_year', 2026)
+            ->count()
+    )->toBe(1);
+
+    // Controleer de doorverwijzing.
+    $response->assertRedirect(
+        route('backend.catalogs.editions.show', [
+            'catalog' => $catalog,
+            'edition' => $edition,
+        ])
+    );
+
+    // Controleer de succesmelding.
+    $response->assertSessionHas(
+        'success',
+        'De cataloguseditie is succesvol geïmporteerd.'
+    );
+
+    // Controleer of het tijdelijke bestand is verwijderd.
+    Storage::disk('local')->assertMissing($filePath);
+
+    // Controleer of de importsessie is opgeruimd.
+    $response->assertSessionMissing('catalog_edition_import');
+});
+
+test('een beheerder kan een bestaande cataloguseditie vervangen via HTTP', function () {
+    Storage::fake('local');
+
+    $admin = User::factory()->create([
+        'is_admin' => true,
+    ]);
+
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus HTTP vervangen',
+    ]);
+
+    $edition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2026',
+        'edition_year' => 2026,
+    ]);
+
+    // Genereer een geldig Excel-bestand van de bestaande editie.
+    $excelContent = Excel::raw(
+        new CatalogEditionExchangeExcelExport($catalog, $edition),
+        Maatwebsite\Excel\Excel::XLSX
+    );
+
+    $filePath = 'catalog-edition-imports/http-vervangen.xlsx';
+
+    Storage::disk('local')->put($filePath, $excelContent);
+
+    // Bevestig de import met de methode Vervangen.
+    $response = $this
+        ->actingAs($admin)
+        ->withSession([
+            'catalog_edition_import' => [
+                'user_id' => $admin->id,
+                'catalog_id' => $catalog->id,
+                'file_path' => $filePath,
+            ],
+        ])
+        ->post(
+            route('backend.catalogs.editions.import.confirm', $catalog),
+            [
+                'import_mode' => 'replace',
+            ]
+        );
+
+    // Controleer dat de bestaande editie behouden blijft.
+    expect(
+        CatalogEdition::query()
+            ->where('catalog_id', $catalog->id)
+            ->where('edition_name', 'Editie 2026')
+            ->where('edition_year', 2026)
+            ->count()
+    )->toBe(1);
+
+    // Controleer de doorverwijzing.
+    $response->assertRedirect(
+        route('backend.catalogs.editions.show', [
+            'catalog' => $catalog,
+            'edition' => $edition,
+        ])
+    );
+
+    // Controleer de succesmelding.
+    $response->assertSessionHas(
+        'success',
+        'De cataloguseditie is succesvol geïmporteerd.'
+    );
+
+    // Controleer of het tijdelijke bestand is verwijderd.
+    Storage::disk('local')->assertMissing($filePath);
+
+    // Controleer of de importsessie is opgeruimd.
+    $response->assertSessionMissing('catalog_edition_import');
+});
+
+test('een beheerder kan geen ongeldige importmethode gebruiken', function () {
+    Storage::fake('local');
+
+    $admin = User::factory()->create([
+        'is_admin' => true,
+    ]);
+
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus ongeldige importmethode',
+    ]);
+
+    $edition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2026',
+        'edition_year' => 2026,
+    ]);
+
+    $excelContent = Excel::raw(
+        new CatalogEditionExchangeExcelExport($catalog, $edition),
+        Maatwebsite\Excel\Excel::XLSX
+    );
+
+    $filePath = 'catalog-edition-imports/ongeldige-importmethode.xlsx';
+
+    Storage::disk('local')->put($filePath, $excelContent);
+
+    $response = $this
+        ->actingAs($admin)
+        ->withSession([
+            'catalog_edition_import' => [
+                'user_id' => $admin->id,
+                'catalog_id' => $catalog->id,
+                'file_path' => $filePath,
+            ],
+        ])
+        ->post(
+            route('backend.catalogs.editions.import.confirm', $catalog),
+            [
+                'import_mode' => 'delete_all',
+            ]
+        );
+
+    // De controller moet de ongeldige importmethode weigeren.
+    $response->assertSessionHasErrors('import_mode');
+
+    // De bestaande cataloguseditie blijft behouden.
+    expect(
+        CatalogEdition::query()
+            ->where('catalog_id', $catalog->id)
+            ->where('edition_name', 'Editie 2026')
+            ->where('edition_year', 2026)
+            ->count()
+    )->toBe(1);
+
+    // Het tijdelijke Excel-bestand blijft beschikbaar.
+    Storage::disk('local')->assertExists($filePath);
 });

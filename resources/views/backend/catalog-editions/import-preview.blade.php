@@ -91,6 +91,33 @@
 
         </div>
 
+        {{-- Controle bestaande cataloguseditie --}}
+        @if ($existingEdition)
+            <div class="rounded-lg border border-amber-500 bg-amber-50 p-5">
+
+                <flux:heading size="lg" class="text-amber-900!">
+                    {{ __('Deze cataloguseditie bestaat al') }}
+                </flux:heading>
+
+                <flux:text class="mt-2 text-amber-900!">
+                    {{ __('De cataloguseditie uit het Excel-bestand is al aanwezig in de database.') }}
+                </flux:text>
+
+                <div class="mt-3 text-sm text-amber-900">
+                    <span class="font-semibold">
+                        {{ $existingEdition->edition_name }}
+                    </span>
+
+                    ({{ $existingEdition->edition_year }})
+                </div>
+
+                <flux:text class="mt-3 text-amber-900!">
+                    {{ __('Je kunt straks kiezen om de bestaande cataloguseditie aan te vullen of te vervangen.') }}
+                </flux:text>
+
+            </div>
+        @endif
+
         {{-- Overzicht van de gegevens in het Excel-bestand --}}
         <div class="rounded-lg border border-theme-accent-1 bg-brown-6 p-5">
 
@@ -168,11 +195,85 @@
 
                 @csrf
 
+                {{-- Importstrategie voor bestaande catalogusedities --}}
+                @if ($existingEdition)
+                    <div class="mb-6">
+
+                        <flux:heading size="sm">
+                            {{ __('Importmethode') }}
+                        </flux:heading>
+
+                        <flux:text class="mt-2">
+                            {{ __('Kies hoe je de bestaande cataloguseditie wilt importeren.') }}
+                        </flux:text>
+
+                        <div class="mt-4">
+
+                            <div class="flex flex-col gap-4">
+
+                                {{-- Aanvullen --}}
+                                <label class="flex cursor-pointer items-start gap-3">
+
+                                    <input type="radio" name="import_mode" value="merge" checked
+                                        class="peer sr-only">
+
+                                    <span
+                                        class="mt-1 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-theme-accent-3 bg-brown-5
+                                            peer-checked:[&>span]:block
+                                            peer-focus-visible:ring-2 peer-focus-visible:ring-theme-accent-3">
+
+                                        <span class="hidden h-2 w-2 rounded-full bg-theme-accent-1"></span>
+
+                                    </span>
+
+                                    <span>
+                                        <span class="block font-medium text-zinc-900">
+                                            {{ __('Aanvullen') }}
+                                        </span>
+
+                                        <span class="block text-sm text-zinc-700">
+                                            {{ __('Bestaande gegevens behouden en ontbrekende gegevens toevoegen.') }}
+                                        </span>
+                                    </span>
+
+                                </label>
+
+                                {{-- Vervangen --}}
+                                <label class="flex cursor-pointer items-start gap-3">
+
+                                    <input type="radio" name="import_mode" value="replace" class="peer sr-only">
+
+                                    <span
+                                        class="mt-1 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-theme-accent-3 bg-brown-5
+                                            peer-checked:[&>span]:block
+                                            peer-focus-visible:ring-2 peer-focus-visible:ring-theme-accent-3">
+
+                                        <span class="hidden h-2 w-2 rounded-full bg-theme-accent-1"></span>
+
+                                    </span>
+
+                                    <span>
+                                        <span class="block font-medium text-zinc-900">
+                                            {{ __('Vervangen') }}
+                                        </span>
+
+                                        <span class="block text-sm text-zinc-700">
+                                            {{ __('Bestaande catalogusgegevens worden bijgewerkt met de gegevens uit het Excel-bestand. Catalogusvermeldingen en cataloguswaarden die ontbreken in het Excel-bestand, worden uit deze editie verwijderd. Persoonlijke verzamelgegevens, afbeeldingen en waarderingshistorie blijven behouden.') }}
+                                        </span>
+                                    </span>
+
+                                </label>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+                @endif
+
                 <flux:button type="submit" icon="check"
                     class="border border-theme-accent-3! bg-brown-5! text-zinc-900! hover:bg-brown-6!">
-
                     {{ __('Import bevestigen') }}
-
                 </flux:button>
 
             </form>

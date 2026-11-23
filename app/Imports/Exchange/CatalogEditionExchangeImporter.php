@@ -11,6 +11,7 @@ use App\Models\Country;
 use App\Models\CountryTranslation;
 use App\Models\SeriesCatalogValue;
 use App\Models\Stamp;
+use App\Models\StampCatalogEntry;
 use App\Models\StampCatalogValue;
 use App\Models\StampSeries;
 use App\Models\StampSeriesTranslation;
@@ -110,17 +111,28 @@ class CatalogEditionExchangeImporter
      */
     public function importEdition(
         string $filePath,
-        Catalog $catalog
+        Catalog $catalog,
+        string $importMode = 'create'
     ): CatalogEdition {
+
+        // Controleer of de gekozen importmethode wordt ondersteund.
+        if (! in_array($importMode, ['create', 'merge', 'replace'], true)) {
+            throw new RuntimeException(
+                'Ongeldige importmethode: '.$importMode
+            );
+        }
+
         // Valideer eerst het volledige Excel-uitwisselingsbestand.
         app(CatalogEditionExchangeValidator::class)->validate($filePath);
 
         // Controleer of het bestand bij de geselecteerde catalogus hoort.
         $this->validateCatalog($filePath, $catalog);
 
-        return DB::transaction(function () use ($filePath, $catalog) {
-            // Controleer of de cataloguseditie nog niet bestaat.
-            $this->validateEditionDoesNotExist($filePath, $catalog);
+        return DB::transaction(function () use ($filePath, $catalog, $importMode) {
+            // Controleer bij een nieuwe import of de cataloguseditie al bestaat.
+            if ($importMode === 'create') {
+                $this->validateEditionDoesNotExist($filePath, $catalog);
+            }
 
             // Open het Excel-bestand.
             $spreadsheet = IOFactory::load($filePath);
@@ -148,15 +160,37 @@ class CatalogEditionExchangeImporter
                     (string) $editionSheet->getCell('E2')->getValue()
                 );
 
-                // Maak de nieuwe cataloguseditie aan.
-                $importedEdition = CatalogEdition::create([
-                    'catalog_id' => $catalog->id,
-                    'edition_name' => $editionName,
-                    'edition_year' => $editionYear,
-                    'publication_date' => $publicationDate !== '' ? $publicationDate : null,
-                    'currency' => $currency !== '' ? $currency : null,
-                    'notes' => $notes !== '' ? $notes : null,
-                ]);
+                // Zoek een bestaande cataloguseditie binnen de geselecteerde catalogus.
+                $existingEdition = CatalogEdition::query()
+                    ->where('catalog_id', $catalog->id)
+                    ->where('edition_name', $editionName)
+                    ->where('edition_year', $editionYear)
+                    ->first();
+
+                // Aanvullen en vervangen vereisen een bestaande cataloguseditie.
+                if (
+                    in_array($importMode, ['merge', 'replace'], true)
+                    && $existingEdition === null
+                ) {
+                    throw new RuntimeException(
+                        'De cataloguseditie bestaat niet. Aanvullen of vervangen is daarom niet mogelijk.'
+                    );
+                }
+
+                // Gebruik bij aanvullen of vervangen de bestaande cataloguseditie.
+                // Maak uitsluitend bij een nieuwe import een cataloguseditie aan.
+                if ($importMode === 'create') {
+                    $importedEdition = CatalogEdition::create([
+                        'catalog_id' => $catalog->id,
+                        'edition_name' => $editionName,
+                        'edition_year' => $editionYear,
+                        'publication_date' => $publicationDate !== '' ? $publicationDate : null,
+                        'currency' => $currency !== '' ? $currency : null,
+                        'notes' => $notes !== '' ? $notes : null,
+                    ]);
+                } else {
+                    $importedEdition = $existingEdition;
+                }
 
                 // Koppeling tussen Excel-serie-ID's en lokale database-ID's.
                 $seriesIdMap = [];
@@ -182,21 +216,27 @@ class CatalogEditionExchangeImporter
                 // Koppeling tussen Excel-postzegel-ID's en catalogusvermelding-ID's.
                 $catalogEntryIdMap = [];
 
+                // Houd bij welke postzegels tijdens deze import nieuw worden aangemaakt.
+                $newStampIds = [];
+
                 // Importeer de postzegels en hun catalogusvermeldingen.
                 $this->importStamps(
                     $spreadsheet,
                     $importedEdition,
                     $seriesIdMap,
                     $stampIdMap,
-                    $catalogEntryIdMap
+                    $catalogEntryIdMap,
+                    $newStampIds,
+                    $importMode
                 );
-
                 // Importeer bovenliggende postzegels die niet in deze
                 // cataloguseditie voorkomen en herstel hun ouder-kindrelaties.
                 $this->importParentStamps(
                     $spreadsheet,
                     $seriesIdMap,
-                    $stampIdMap
+                    $stampIdMap,
+                    $newStampIds,
+                    $importMode
                 );
 
                 // Importeer de vertalingen van de postzegels.
@@ -210,15 +250,26 @@ class CatalogEditionExchangeImporter
                 // Importeer de cataloguswaarden van de postzegels.
                 $this->importCatalogValues(
                     $spreadsheet,
-                    $catalogEntryIdMap
+                    $catalogEntryIdMap,
+                    $importMode
                 );
 
                 // Importeer de cataloguswaarden van de postzegelseries.
                 $this->importSeriesCatalogValues(
                     $spreadsheet,
                     $importedEdition,
-                    $seriesIdMap
+                    $seriesIdMap,
+                    $importMode
                 );
+
+                // Verwijder bij Vervangen de catalogusvermeldingen
+                // die niet meer in het Excel-bestand voorkomen.
+                if ($importMode === 'replace') {
+                    $this->removeMissingCatalogEntries(
+                        $importedEdition,
+                        $catalogEntryIdMap
+                    );
+                }
 
                 // Geef de geïmporteerde cataloguseditie terug.
                 return $importedEdition;
@@ -900,7 +951,9 @@ class CatalogEditionExchangeImporter
         CatalogEdition $importedEdition,
         array $seriesIdMap,
         array &$stampIdMap,
-        array &$catalogEntryIdMap
+        array &$catalogEntryIdMap,
+        array &$newStampIds,
+        string $importMode = 'create'
     ): void {
 
         // Controleer of het werkblad Postzegels aanwezig is.
@@ -914,6 +967,9 @@ class CatalogEditionExchangeImporter
 
         // Houd bij welke Excel-identificaties al zijn verwerkt.
         $processedExchangeStampIds = [];
+
+        // Houd bij welke catalogusnummers al zijn verwerkt.
+        $processedCatalogNumbers = [];
 
         // Bewaar tijdelijk de ouder-kindrelaties uit Excel.
         // Deze worden hersteld nadat alle postzegels zijn geïmporteerd.
@@ -1031,6 +1087,19 @@ class CatalogEditionExchangeImporter
                 );
             }
 
+            // Controleer of het catalogusnummer uniek is binnen het Excel-bestand.
+            if (isset($processedCatalogNumbers[$catalogNumber])) {
+                throw new RuntimeException(
+                    'Dubbel catalogusnummer '.$catalogNumber.
+                    ' in tabblad Postzegels, rij '.$row.
+                    '. Dit catalogusnummer komt al voor op rij '.
+                    $processedCatalogNumbers[$catalogNumber].'.'
+                );
+            }
+
+            // Registreer het catalogusnummer en het bijbehorende rijnummer.
+            $processedCatalogNumbers[$catalogNumber] = $row;
+
             // Controleer de naam van de postzegel.
             if ($name === '' || mb_strlen($name) > 200) {
                 throw new RuntimeException(
@@ -1099,6 +1168,91 @@ class CatalogEditionExchangeImporter
                 }
             }
 
+            // Zoek bij Aanvullen of Vervangen naar een bestaande
+            // catalogusvermelding binnen dezelfde cataloguseditie.
+            $existingCatalogEntry = null;
+
+            if (in_array($importMode, ['merge', 'replace'], true)) {
+                $existingCatalogEntry = StampCatalogEntry::query()
+                    ->where('catalog_edition_id', $importedEdition->id)
+                    ->where('catalog_number', $catalogNumber)
+                    ->first();
+            }
+
+            // Hergebruik een bestaande catalogusvermelding bij Aanvullen of Vervangen.
+            if ($existingCatalogEntry !== null) {
+
+                // Controleer of de gekoppelde postzegel nog bestaat.
+                $existingStamp = $existingCatalogEntry->stamp;
+
+                if ($existingStamp === null) {
+                    throw new RuntimeException(
+                        'Geen postzegel gevonden bij catalogusnummer '.
+                        $catalogNumber.'.'
+                    );
+                }
+
+                // Koppel de Excel-identificatie aan de bestaande postzegel.
+                $stampIdMap[$exchangeStampId] = $existingStamp->id;
+
+                // Koppel de Excel-identificatie aan de bestaande catalogusvermelding.
+                $catalogEntryIdMap[$exchangeStampId] = $existingCatalogEntry->id;
+
+                // Sla het aanmaken van een nieuwe postzegel over.
+                continue;
+            }
+
+            // Zoek hetzelfde catalogusnummer in andere edities
+            // van dezelfde catalogus.
+            $existingStampIds = StampCatalogEntry::query()
+                ->where('catalog_number', $catalogNumber)
+                ->whereHas('catalogEdition', function ($query) use ($importedEdition) {
+                    $query->where('catalog_id', $importedEdition->catalog_id)
+                        ->where('id', '!=', $importedEdition->id);
+                })
+                ->distinct()
+                ->pluck('stamp_id');
+
+            // Eén catalogusnummer mag binnen dezelfde catalogus
+            // niet naar verschillende postzegels verwijzen.
+            if ($existingStampIds->count() > 1) {
+                throw new RuntimeException(
+                    'Catalogusnummer '.$catalogNumber.
+                    ' verwijst naar verschillende postzegels binnen dezelfde catalogus'.
+                    ' in tabblad Postzegels, rij '.$row.'.'
+                );
+            }
+
+            // Hergebruik de bestaande postzegel wanneer deze
+            // in een eerdere cataloguseditie voorkomt.
+            if ($existingStampIds->count() === 1) {
+                $existingStamp = Stamp::query()->find($existingStampIds->first());
+
+                if ($existingStamp === null) {
+                    throw new RuntimeException(
+                        'Bestaande postzegel niet gevonden bij catalogusnummer '.
+                        $catalogNumber.'.'
+                    );
+                }
+
+                // Koppel de Excel-identificatie aan de bestaande postzegel.
+                $stampIdMap[$exchangeStampId] = $existingStamp->id;
+
+                // Maak uitsluitend een nieuwe catalogusvermelding aan.
+                $catalogEntry = $existingStamp->catalogEntries()->create([
+                    'catalog_edition_id' => $importedEdition->id,
+                    'catalog_number' => $catalogNumber,
+                    'notes' => $catalogEntryNotes === null || $catalogEntryNotes === ''
+                        ? null
+                        : $catalogEntryNotes,
+                ]);
+
+                $catalogEntryIdMap[$exchangeStampId] = $catalogEntry->id;
+
+                // Bestaande postzegelgegevens blijven ongewijzigd.
+                continue;
+            }
+
             // Maak de nieuwe postzegel aan.
             $stamp = Stamp::create([
                 'country_id' => $country->id,
@@ -1125,6 +1279,9 @@ class CatalogEditionExchangeImporter
                     ? null
                     : $notes,
             ]);
+
+            // Registreer dat deze postzegel tijdens de huidige import is aangemaakt.
+            $newStampIds[] = $stamp->id;
 
             // Bewaar de koppeling tussen de Excel-identificatie
             // en de database-ID van de nieuwe postzegel.
@@ -1188,8 +1345,11 @@ class CatalogEditionExchangeImporter
     private function importParentStamps(
         Spreadsheet $spreadsheet,
         array $seriesIdMap,
-        array &$stampIdMap
+        array &$stampIdMap,
+        array $newStampIds,
+        string $importMode = 'create'
     ): void {
+
         $parentStampsSheet = $spreadsheet->getSheetByName('BovenliggendePostzegels');
 
         if ($parentStampsSheet === null) {
@@ -1200,6 +1360,47 @@ class CatalogEditionExchangeImporter
 
         // Koppeling tussen Excel-hoofdpostzegel-ID's en nieuwe database-ID's.
         $parentIdMap = [];
+
+        // Verzamel bestaande hoofdpostzegels bij alle importmethoden.
+        // Ook een nieuwe cataloguseditie kan bestaande varianten bevatten.
+        if (in_array($importMode, ['create', 'merge', 'replace'], true)) {
+            for ($row = 2; $row <= $parentStampsSheet->getHighestDataRow(); $row++) {
+                $parentExchangeId = trim(
+                    (string) $parentStampsSheet->getCell('A'.$row)->getValue()
+                );
+
+                $childExchangeId = trim(
+                    (string) $parentStampsSheet->getCell('B'.$row)->getValue()
+                );
+
+                $childStampId = $stampIdMap[$childExchangeId] ?? null;
+
+                if ($childStampId === null || in_array($childStampId, $newStampIds, true)) {
+                    continue;
+                }
+
+                $existingChildStamp = Stamp::query()->find($childStampId);
+
+                if ($existingChildStamp === null || $existingChildStamp->parent_stamp_id === null) {
+                    continue;
+                }
+
+                $existingParentId = $existingChildStamp->parent_stamp_id;
+
+                if (
+                    isset($parentIdMap[$parentExchangeId]) &&
+                    $parentIdMap[$parentExchangeId] !== $existingParentId
+                ) {
+                    throw new RuntimeException(
+                        'Conflicterende bovenliggende postzegels voor parent_exchange_id '.
+                        $parentExchangeId.' in tabblad BovenliggendePostzegels, rij '.$row.'.'
+                    );
+                }
+
+                $parentIdMap[$parentExchangeId] = $existingParentId;
+                $stampIdMap[$parentExchangeId] = $existingParentId;
+            }
+        }
 
         for ($row = 2; $row <= $parentStampsSheet->getHighestDataRow(); $row++) {
             $parentExchangeId = trim((string) $parentStampsSheet->getCell('A'.$row)->getValue());
@@ -1246,6 +1447,84 @@ class CatalogEditionExchangeImporter
                     'Onbekende child_exchange_stamp_id '.$childExchangeId.
                     ' in tabblad BovenliggendePostzegels, rij '.$row
                 );
+            }
+
+            // Controleer of de variant tijdens deze import is aangemaakt.
+            $isNewChildStamp = in_array($childStampId, $newStampIds, true);
+
+            // Controleer bij alle importmethoden of de variant
+            // al aan een bestaande hoofdpostzegel is gekoppeld.
+            $existingChildStamp = null;
+            $existingParentStamp = null;
+
+            if (in_array($importMode, ['create', 'merge', 'replace'], true)) {
+                $existingChildStamp = Stamp::query()->find($childStampId);
+
+                if ($existingChildStamp !== null && $existingChildStamp->parent_stamp_id !== null) {
+                    $existingParentStamp = Stamp::query()
+                        ->find($existingChildStamp->parent_stamp_id);
+                }
+            }
+
+            // Voorkom dat een bestaande variant zonder hoofdpostzegel
+            // automatisch aan een nieuwe hoofdpostzegel wordt gekoppeld.
+            if (
+                in_array($importMode, ['create', 'merge', 'replace'], true) &&
+                ! $isNewChildStamp &&
+                $existingParentStamp === null
+            ) {
+                throw new RuntimeException(
+                    'Bestaande variant zonder bovenliggende postzegel: '.
+                    $childExchangeId.
+                    ' in tabblad BovenliggendePostzegels, rij '.$row.'.'
+                );
+            }
+
+            // Hergebruik een bestaande hoofdpostzegel bij Aanvullen of Vervangen.
+            if ($existingParentStamp !== null) {
+                if (
+                    isset($parentIdMap[$parentExchangeId]) &&
+                    $parentIdMap[$parentExchangeId] !== $existingParentStamp->id
+                ) {
+                    throw new RuntimeException(
+                        'Conflicterende bovenliggende postzegel voor parent_exchange_id '.
+                        $parentExchangeId.' in rij '.$row
+                    );
+                }
+
+                $parentIdMap[$parentExchangeId] = $existingParentStamp->id;
+                $stampIdMap[$parentExchangeId] = $existingParentStamp->id;
+            }
+
+            // Hergebruik een bestaande hoofdpostzegel bij alle importmethoden.
+            if (
+                in_array($importMode, ['create', 'merge', 'replace'], true) &&
+                isset($parentIdMap[$parentExchangeId])
+            ) {
+                $existingParent = Stamp::query()->find($parentIdMap[$parentExchangeId]);
+
+                if ($existingParent === null) {
+                    throw new RuntimeException(
+                        'Bovenliggende postzegel niet gevonden voor parent_exchange_id '.
+                        $parentExchangeId.' in tabblad BovenliggendePostzegels, rij '.$row.'.'
+                    );
+                }
+
+                $existingParentCountry = Country::query()->find($existingParent->country_id);
+
+                if (
+                    $existingParentCountry === null ||
+                    $existingParentCountry->slug !== $countrySlug ||
+                    $existingParent->name !== $name ||
+                    (int) $existingParent->issue_year !== (int) $issueYear ||
+                    $existingParent->stamp_series_id !== $parentSeriesId
+                ) {
+                    throw new RuntimeException(
+                        'Gegevens van bestaande bovenliggende postzegel komen niet overeen met Excel '.
+                        'voor parent_exchange_id '.$parentExchangeId.
+                        ' in tabblad BovenliggendePostzegels, rij '.$row.'.'
+                    );
+                }
             }
 
             // Maak dezelfde hoofdpostzegel niet meerdere keren aan.
@@ -1445,8 +1724,14 @@ class CatalogEditionExchangeImporter
      */
     private function importCatalogValues(
         Spreadsheet $spreadsheet,
-        array $catalogEntryIdMap
+        array $catalogEntryIdMap,
+        string $importMode = 'create'
     ): void {
+
+        // Houd bij welke cataloguswaarden in Excel voorkomen.
+        // Bij Vervangen gebruiken we deze ID's om ontbrekende waarden te verwijderen.
+        $retainedCatalogValueIds = [];
+
         // Controleer of het werkblad Cataloguswaarden aanwezig is.
         $catalogValuesSheet = $spreadsheet->getSheetByName('Cataloguswaarden');
 
@@ -1509,8 +1794,40 @@ class CatalogEditionExchangeImporter
                 );
             }
 
+            // Zoek bij Aanvullen of Vervangen naar een bestaande cataloguswaarde.
+            $existingCatalogValue = null;
+
+            if (in_array($importMode, ['merge', 'replace'], true)) {
+                $existingCatalogValue = StampCatalogValue::query()
+                    ->where('stamp_catalog_entry_id', $catalogEntryId)
+                    ->where('condition_id', $condition->id)
+                    ->first();
+            }
+
+            // Behoud bestaande cataloguswaarden bij Aanvullen.
+            if ($importMode === 'merge' && $existingCatalogValue !== null) {
+                continue;
+            }
+
+            // Werk bestaande cataloguswaarden bij wanneer Vervangen is gekozen.
+            if ($importMode === 'replace' && $existingCatalogValue !== null) {
+                $existingCatalogValue->update([
+                    'catalog_value' => $catalogValue !== '' ? $catalogValue : null,
+                    'currency' => $currency !== '' ? $currency : null,
+                    'notes' => $notes === null || $notes === ''
+                        ? null
+                        : $notes,
+                    'needs_review' => (bool) $needsReview,
+                ]);
+
+                // Registreer de bestaande cataloguswaarde als aanwezig in Excel.
+                $retainedCatalogValueIds[] = $existingCatalogValue->id;
+
+                continue;
+            }
+
             // Maak de cataloguswaarde aan.
-            StampCatalogValue::create([
+            $newCatalogValue = StampCatalogValue::create([
                 'stamp_catalog_entry_id' => $catalogEntryId,
                 'condition_id' => $condition->id,
                 'catalog_value' => $catalogValue !== '' ? $catalogValue : null,
@@ -1520,6 +1837,30 @@ class CatalogEditionExchangeImporter
                     : $notes,
                 'needs_review' => (bool) $needsReview,
             ]);
+
+            // Registreer de nieuwe cataloguswaarde als aanwezig in Excel.
+            $retainedCatalogValueIds[] = $newCatalogValue->id;
+        }
+
+        // Verwijder bij Vervangen de cataloguswaarden
+        // die niet meer in Excel voorkomen.
+        if ($importMode === 'replace') {
+            // Beperk de verwijdering tot catalogusvermeldingen
+            // die tijdens deze import zijn verwerkt.
+            $catalogEntryIds = array_values($catalogEntryIdMap);
+
+            if ($catalogEntryIds !== []) {
+                $query = StampCatalogValue::query()
+                    ->whereIn('stamp_catalog_entry_id', $catalogEntryIds);
+
+                // Behoud de cataloguswaarden die in Excel voorkomen.
+                if ($retainedCatalogValueIds !== []) {
+                    $query->whereNotIn('id', $retainedCatalogValueIds);
+                }
+
+                // Verwijder uitsluitend de ontbrekende cataloguswaarden.
+                $query->delete();
+            }
         }
     }
 
@@ -1535,7 +1876,8 @@ class CatalogEditionExchangeImporter
     private function importSeriesCatalogValues(
         Spreadsheet $spreadsheet,
         CatalogEdition $edition,
-        array $seriesIdMap
+        array $seriesIdMap,
+        string $importMode = 'create'
     ): void {
         // Controleer of het werkblad Seriecataloguswaarden aanwezig is.
         $seriesValuesSheet = $spreadsheet->getSheetByName('Seriecataloguswaarden');
@@ -1546,9 +1888,11 @@ class CatalogEditionExchangeImporter
             );
         }
 
+        // Houd bij welke seriecataloguswaarden in Excel voorkomen.
+        $retainedSeriesCatalogValueIds = [];
+
         // Doorloop alle seriecataloguswaarden vanaf rij 2.
         for ($row = 2; $row <= $seriesValuesSheet->getHighestDataRow(); $row++) {
-
             // Lees de identificatie van de postzegelserie.
             $exchangeSeriesId = (int) $seriesValuesSheet->getCell('A'.$row)->getValue();
 
@@ -1603,8 +1947,41 @@ class CatalogEditionExchangeImporter
             // Lees de optionele opmerkingen.
             $notes = $seriesValuesSheet->getCell('F'.$row)->getValue();
 
+            // Zoek bij Aanvullen of Vervangen naar een bestaande seriecataloguswaarde.
+            $existingSeriesCatalogValue = null;
+
+            if (in_array($importMode, ['merge', 'replace'], true)) {
+                $existingSeriesCatalogValue = SeriesCatalogValue::query()
+                    ->where('catalog_edition_id', $edition->id)
+                    ->where('stamp_series_id', $seriesId)
+                    ->where('condition_id', $conditionId)
+                    ->first();
+            }
+
+            // Behoud bestaande seriecataloguswaarden bij Aanvullen.
+            if ($importMode === 'merge' && $existingSeriesCatalogValue !== null) {
+                continue;
+            }
+
+            // Werk bestaande seriecataloguswaarden bij wanneer Vervangen is gekozen.
+            if ($importMode === 'replace' && $existingSeriesCatalogValue !== null) {
+                $existingSeriesCatalogValue->update([
+                    'catalog_number' => $catalogNumber !== '' ? $catalogNumber : null,
+                    'catalog_value' => $catalogValue !== '' ? $catalogValue : null,
+                    'currency' => $currency !== '' ? $currency : null,
+                    'notes' => $notes === null || $notes === ''
+                        ? null
+                        : $notes,
+                ]);
+
+                // Registreer de bestaande seriecataloguswaarde als aanwezig in Excel.
+                $retainedSeriesCatalogValueIds[] = $existingSeriesCatalogValue->id;
+
+                continue;
+            }
+
             // Maak de seriecataloguswaarde aan.
-            SeriesCatalogValue::create([
+            $newSeriesCatalogValue = SeriesCatalogValue::create([
                 'catalog_edition_id' => $edition->id,
                 'stamp_series_id' => $seriesId,
                 'condition_id' => $conditionId,
@@ -1615,6 +1992,62 @@ class CatalogEditionExchangeImporter
                     ? null
                     : $notes,
             ]);
+
+            // Registreer de nieuwe seriecataloguswaarde als aanwezig in Excel.
+            $retainedSeriesCatalogValueIds[] = $newSeriesCatalogValue->id;
+        }
+
+        // Verwijder bij Vervangen de seriecataloguswaarden
+        // die niet meer in Excel voorkomen.
+        if ($importMode === 'replace') {
+
+            // Zoek uitsluitend seriecataloguswaarden
+            // van de geselecteerde cataloguseditie.
+            $query = SeriesCatalogValue::query()
+                ->where('catalog_edition_id', $edition->id);
+
+            // Behoud de seriecataloguswaarden die in Excel voorkomen.
+            if ($retainedSeriesCatalogValueIds !== []) {
+                $query->whereNotIn('id', $retainedSeriesCatalogValueIds);
+            }
+
+            // Verwijder uitsluitend de ontbrekende seriecataloguswaarden.
+            $query->delete();
+        }
+    }
+
+    /**
+     * Verwijder catalogusvermeldingen die ontbreken in het Excel-bestand.
+     *
+     * De postzegels zelf blijven behouden, omdat deze ook in andere
+     * catalogusedities of persoonlijke verzamelingen kunnen voorkomen.
+     *
+     * @param  array<string, int>  $catalogEntryIdMap
+     */
+    private function removeMissingCatalogEntries(
+        CatalogEdition $edition,
+        array $catalogEntryIdMap
+    ): void {
+        // Database-ID's van catalogusvermeldingen die in Excel voorkomen.
+        $retainedEntryIds = array_values($catalogEntryIdMap);
+
+        // Zoek uitsluitend catalogusvermeldingen van deze editie.
+        $query = StampCatalogEntry::query()
+            ->where('catalog_edition_id', $edition->id);
+
+        // Sluit de vermeldingen uit die in Excel voorkomen.
+        if ($retainedEntryIds !== []) {
+            $query->whereNotIn('id', $retainedEntryIds);
+        }
+
+        // Verwijder uitsluitend de ontbrekende catalogusvermeldingen.
+        foreach ($query->get() as $entry) {
+            // Eerst de bijbehorende cataloguswaarden verwijderen.
+            // De database gebruikt hiervoor restrictOnDelete().
+            $entry->values()->delete();
+
+            // Daarna de catalogusvermelding verwijderen.
+            $entry->delete();
         }
     }
 }

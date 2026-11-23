@@ -30,13 +30,22 @@
                     class="bg-brown-1 hover:bg-brown-2" variant="primary" icon="plus">
                     {{ __('Editie toevoegen') }}
                 </flux:button>
+
                 {{-- Excel-import --}}
                 <flux:button :href="route('backend.catalogs.editions.import.create', $catalog)" icon="arrow-down-tray"
                     class="border border-theme-accent-3! bg-brown-6! text-zinc-900! hover:bg-brown-5!">
-
                     {{ __('Excel importeren') }}
-
                 </flux:button>
+
+                {{-- Catalogusedities vergelijken --}}
+                @if ($editions->count() >= 2)
+                    <flux:button :href="route('backend.catalogs.editions.compare', $catalog)" icon="arrows-right-left"
+                        class="border border-theme-accent-3! bg-brown-6! text-zinc-900! hover:bg-brown-5!">
+
+                        {{ __('Catalogusedities vergelijken') }}
+
+                    </flux:button>
+                @endif
 
             </div>
 

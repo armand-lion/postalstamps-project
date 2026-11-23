@@ -109,10 +109,17 @@ class CatalogEditionImportController extends Controller
             Storage::disk('local')->path($import['file_path'])
         );
 
+        // Controleer of de cataloguseditie al bestaat.
+        $existingEdition = $catalog->editions()
+            ->where('edition_name', $preview['edition_name'])
+            ->where('edition_year', $preview['edition_year'])
+            ->first();
+
         // Toon de Excel-voorbeeldpagina.
         return view('backend.catalog-editions.import-preview', [
             'catalog' => $catalog,
             'preview' => $preview,
+            'existingEdition' => $existingEdition,
         ]);
     }
 
@@ -148,14 +155,24 @@ class CatalogEditionImportController extends Controller
                 ]);
         }
 
+        // Controleer de gekozen importmethode.
+        $validated = $request->validate([
+            'import_mode' => [
+                'nullable',
+                'in:create,merge,replace',
+            ],
+        ]);
+
+        $importMode = $validated['import_mode'] ?? 'create';
+
         // Bepaal het volledige pad van het tijdelijke Excel-bestand.
         $filePath = Storage::disk('local')->path($import['file_path']);
 
         try {
-            // Voer de definitieve import uit.
             $importedEdition = $importer->importEdition(
                 $filePath,
-                $catalog
+                $catalog,
+                $importMode
             );
         } catch (RuntimeException $exception) {
             // Toon de foutmelding zonder de tijdelijke import te verwijderen.

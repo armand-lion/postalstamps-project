@@ -13,11 +13,18 @@ use App\Models\SeriesCatalogValue;
 use App\Models\Stamp;
 use App\Models\StampCatalogEntry;
 use App\Models\StampCatalogValue;
+use App\Models\StampCopy;
+use App\Models\StampCopyImage;
+use App\Models\StampCopyTranslation;
+use App\Models\StampCopyValuation;
+use App\Models\StampImage;
 use App\Models\StampSeries;
 use App\Models\StampSeriesTranslation;
 use App\Models\StampTranslation;
+use App\Models\StampValuation;
 use App\Models\Theme;
 use App\Models\ThemeTranslation;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Facades\Excel;
@@ -11692,6 +11699,121 @@ test('dubbele postzegel-themakoppelingen worden afgewezen tijdens Excel-import',
     }
 });
 
+test('dubbele catalogusnummers in Excel worden geweigerd', function () {
+    // Maak een testcatalogus en cataloguseditie aan.
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus dubbele catalogusnummers',
+    ]);
+
+    $edition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2026',
+        'edition_year' => 2026,
+    ]);
+
+    // Maak een testland aan.
+    $country = Country::create([
+        'slug' => 'testland-dubbele-catalogusnummers',
+        'iso_code' => 'TDC',
+        'name' => 'Testland dubbele catalogusnummers',
+    ]);
+
+    // Maak twee verschillende postzegels aan.
+    $stampA = Stamp::create([
+        'country_id' => $country->id,
+        'name' => 'Testpostzegel A',
+        'issue_year' => 2026,
+    ]);
+
+    $stampB = Stamp::create([
+        'country_id' => $country->id,
+        'name' => 'Testpostzegel B',
+        'issue_year' => 2026,
+    ]);
+
+    // Geef beide postzegels een uniek catalogusnummer.
+    StampCatalogEntry::create([
+        'catalog_edition_id' => $edition->id,
+        'stamp_id' => $stampA->id,
+        'catalog_number' => '100',
+    ]);
+
+    StampCatalogEntry::create([
+        'catalog_edition_id' => $edition->id,
+        'stamp_id' => $stampB->id,
+        'catalog_number' => '101',
+    ]);
+
+    // Exporteer de cataloguseditie naar Excel.
+    $excelContent = Excel::raw(
+        new CatalogEditionExchangeExcelExport($catalog, $edition),
+        Xlsx::class
+    );
+
+    $filePath = tempnam(sys_get_temp_dir(), 'catalog_duplicate_');
+
+    if ($filePath === false) {
+        throw new RuntimeException(
+            'Kan tijdelijk Excel-bestand niet aanmaken.'
+        );
+    }
+
+    $spreadsheet = null;
+
+    try {
+        file_put_contents($filePath, $excelContent);
+
+        // Open het Excel-bestand.
+        $spreadsheet = IOFactory::load($filePath);
+
+        $stampsSheet = $spreadsheet->getSheetByName('Postzegels');
+
+        // Geef beide postzegels hetzelfde catalogusnummer.
+        $stampsSheet->setCellValue('C3', '100');
+
+        // Sla het gewijzigde Excel-bestand op.
+        $writer = new Xlsx($spreadsheet);
+        $writer->save($filePath);
+
+        $spreadsheet->disconnectWorksheets();
+        $spreadsheet = null;
+
+        // Verwijder de oorspronkelijke cataloguseditie.
+        // Hierdoor kan de importer de Excel-gegevens opnieuw verwerken.
+        StampCatalogEntry::query()
+            ->where('catalog_edition_id', $edition->id)
+            ->delete();
+
+        $edition->delete();
+
+        // Controleer dat de importer dubbele catalogusnummers weigert.
+        expect(
+            fn () => app(CatalogEditionExchangeImporter::class)
+                ->importEdition($filePath, $catalog)
+        )->toThrow(
+            RuntimeException::class,
+            'Dubbel catalogusnummer 100'
+        );
+
+        // Controleer dat de import geen nieuwe editie heeft achtergelaten.
+        expect(
+            CatalogEdition::query()
+                ->where('catalog_id', $catalog->id)
+                ->where('edition_name', 'Editie 2026')
+                ->exists()
+        )->toBeFalse();
+
+    } finally {
+        if ($spreadsheet !== null) {
+            $spreadsheet->disconnectWorksheets();
+        }
+
+        if (file_exists($filePath)) {
+            unlink($filePath);
+        }
+    }
+});
+
 test('een postzegel met serie en catalogusvermelding blijft behouden na Excel round trip', function () {
     // Maak een testcatalogus aan.
     $catalog = Catalog::create([
@@ -15317,6 +15439,4527 @@ test('oud Excel-bestand zonder exchange_series_id blijft importeerbaar', functio
         }
 
         // Verwijder het tijdelijke Excel-bestand.
+        unlink($filePath);
+    }
+});
+
+test('importmethode aanvullen is beschikbaar en valideert het Excel-bestand', function () {
+    // Maak een testcatalogus aan.
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus aanvullen',
+        'abbreviation' => 'TCA',
+    ]);
+
+    // Controleer dat Aanvullen de normale Excel-validatie bereikt.
+    expect(
+        fn () => app(CatalogEditionExchangeImporter::class)
+            ->importEdition('', $catalog, 'merge')
+    )->toThrow(
+        RuntimeException::class,
+        'Het Excel-bestand kan niet worden geopend.'
+    );
+});
+
+test('importmethode vervangen is beschikbaar en valideert het Excel-bestand', function () {
+    // Maak een testcatalogus aan.
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus vervangen',
+        'abbreviation' => 'TCV',
+    ]);
+
+    // Controleer dat Vervangen de normale Excel-validatie bereikt.
+    expect(
+        fn () => app(CatalogEditionExchangeImporter::class)
+            ->importEdition('', $catalog, 'replace')
+    )->toThrow(
+        RuntimeException::class,
+        'Het Excel-bestand kan niet worden geopend.'
+    );
+});
+
+test('importmethode aanvullen hergebruikt een bestaande cataloguseditie', function () {
+    // Maak een testcatalogus aan.
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus aanvullen bestaande editie',
+        'abbreviation' => 'TCABE',
+    ]);
+
+    // Maak een bestaande cataloguseditie aan.
+    $edition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2026',
+        'edition_year' => 2026,
+        'publication_date' => '2026-01-15',
+        'currency' => 'EUR',
+        'notes' => 'Bestaande cataloguseditie',
+    ]);
+
+    // Genereer een geldig Excel-uitwisselingsbestand.
+    $excelContent = Excel::raw(
+        new CatalogEditionExchangeExcelExport($catalog, $edition),
+        Xlsx::class
+    );
+
+    // Maak een tijdelijk Excel-bestand aan.
+    $filePath = tempnam(sys_get_temp_dir(), 'catalog_exchange_');
+
+    if ($filePath === false) {
+        throw new RuntimeException(
+            'Kan tijdelijk Excel-bestand niet aanmaken.'
+        );
+    }
+
+    try {
+        file_put_contents($filePath, $excelContent);
+
+        // Voer de importmethode uitsluitend binnen deze test uit.
+        $importer = new CatalogEditionExchangeImporter;
+
+        $importedEdition = $importer->importEdition(
+            $filePath,
+            $catalog,
+            'merge'
+        );
+
+        // Controleer dat dezelfde cataloguseditie wordt hergebruikt.
+        expect($importedEdition->id)->toBe($edition->id)
+            ->and($importedEdition->catalog_id)->toBe($catalog->id)
+            ->and($importedEdition->edition_name)->toBe('Editie 2026')
+            ->and($importedEdition->edition_year)->toBe(2026);
+
+        // Controleer dat er geen dubbele cataloguseditie is aangemaakt.
+        expect(
+            CatalogEdition::query()
+                ->where('catalog_id', $catalog->id)
+                ->where('edition_name', 'Editie 2026')
+                ->where('edition_year', 2026)
+                ->count()
+        )->toBe(1);
+    } finally {
+        // Verwijder het tijdelijke Excel-bestand.
+        unlink($filePath);
+    }
+});
+
+test('importmethode aanvullen weigert een ontbrekende cataloguseditie', function () {
+    // Maak een testcatalogus aan.
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus aanvullen ontbrekende editie',
+        'abbreviation' => 'TCAOE',
+    ]);
+
+    // Maak een cataloguseditie aan voor het Excel-bestand.
+    $edition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2026',
+        'edition_year' => 2026,
+    ]);
+
+    // Genereer een geldig Excel-uitwisselingsbestand.
+    $excelContent = Excel::raw(
+        new CatalogEditionExchangeExcelExport($catalog, $edition),
+        Xlsx::class
+    );
+
+    // Maak een tijdelijk Excel-bestand aan.
+    $filePath = tempnam(sys_get_temp_dir(), 'catalog_exchange_');
+
+    if ($filePath === false) {
+        throw new RuntimeException(
+            'Kan tijdelijk Excel-bestand niet aanmaken.'
+        );
+    }
+
+    try {
+        file_put_contents($filePath, $excelContent);
+
+        // Verwijder de editie nadat het Excel-bestand is aangemaakt.
+        $edition->delete();
+
+        // Controleer dat de cataloguseditie niet meer bestaat.
+        expect(
+            CatalogEdition::query()
+                ->where('catalog_id', $catalog->id)
+                ->where('edition_name', 'Editie 2026')
+                ->where('edition_year', 2026)
+                ->exists()
+        )->toBeFalse();
+
+        // Sta de importmethode uitsluitend binnen deze test toe.
+        $importer = new CatalogEditionExchangeImporter;
+
+        // Aanvullen moet worden geweigerd wanneer de editie ontbreekt.
+        expect(
+            fn () => $importer->importEdition(
+                $filePath,
+                $catalog,
+                'merge'
+            )
+        )->toThrow(
+            RuntimeException::class,
+            'De cataloguseditie bestaat niet. Aanvullen of vervangen is daarom niet mogelijk.'
+        );
+
+        // Controleer dat de geweigerde import geen editie heeft aangemaakt.
+        expect(
+            CatalogEdition::query()
+                ->where('catalog_id', $catalog->id)
+                ->where('edition_name', 'Editie 2026')
+                ->where('edition_year', 2026)
+                ->exists()
+        )->toBeFalse();
+    } finally {
+        // Verwijder het tijdelijke Excel-bestand.
+        unlink($filePath);
+    }
+});
+
+test('importmethode aanvullen hergebruikt een bestaande postzegel', function () {
+    // Maak een testcatalogus aan.
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus aanvullen bestaande postzegel',
+        'abbreviation' => 'TCABP',
+    ]);
+
+    // Maak een bestaande cataloguseditie aan.
+    $edition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2026',
+        'edition_year' => 2026,
+    ]);
+
+    // Maak een land aan.
+    $country = Country::create([
+        'slug' => 'testland-aanvullen-postzegel',
+        'iso_code' => 'TAP',
+        'name' => 'Testland aanvullen',
+    ]);
+
+    // Maak een bestaande postzegel aan.
+    $stamp = Stamp::create([
+        'country_id' => $country->id,
+        'name' => 'Bestaande postzegel',
+        'issue_year' => 2026,
+        'face_value' => '1/2',
+        'currency' => 'EUR',
+    ]);
+
+    // Koppel de postzegel aan de cataloguseditie.
+    $entry = StampCatalogEntry::create([
+        'stamp_id' => $stamp->id,
+        'catalog_edition_id' => $edition->id,
+        'catalog_number' => '100',
+        'notes' => 'Bestaande catalogusopmerking',
+    ]);
+
+    // Exporteer de bestaande cataloguseditie.
+    $excelContent = Excel::raw(
+        new CatalogEditionExchangeExcelExport($catalog, $edition),
+        Xlsx::class
+    );
+
+    // Maak een tijdelijk Excel-bestand aan.
+    $filePath = tempnam(sys_get_temp_dir(), 'catalog_exchange_');
+
+    if ($filePath === false) {
+        throw new RuntimeException(
+            'Kan tijdelijk Excel-bestand niet aanmaken.'
+        );
+    }
+
+    try {
+        file_put_contents($filePath, $excelContent);
+
+        // Gebruik de importmethode.
+        $importer = new CatalogEditionExchangeImporter;
+
+        // Open het Excel-bestand en wijzig bewust de postzegelnaam.
+        $spreadsheet = IOFactory::load($filePath);
+
+        try {
+            $stampsSheet = $spreadsheet->getSheetByName('Postzegels');
+
+            // Kolom G bevat de naam van de postzegel.
+            $stampsSheet->setCellValue(
+                'G2',
+                'Gewijzigde postzegel vanuit Excel'
+            );
+
+            // Sla het gewijzigde Excel-bestand op.
+            $writer = new Xlsx($spreadsheet);
+            $writer->save($filePath);
+        } finally {
+            $spreadsheet->disconnectWorksheets();
+        }
+
+        $importedEdition = $importer->importEdition(
+            $filePath,
+            $catalog,
+            'merge'
+        );
+
+        // Controleer dat de bestaande editie wordt hergebruikt.
+        expect($importedEdition->id)->toBe($edition->id);
+
+        // Controleer dat de bestaande postzegel behouden blijft.
+        expect(Stamp::query()->whereKey($stamp->id)->exists())->toBeTrue();
+
+        // Controleer dat er geen extra postzegel is aangemaakt.
+        expect(Stamp::query()->count())->toBe(1);
+
+        // Controleer dat de bestaande catalogusvermelding behouden blijft.
+        $importedEntry = StampCatalogEntry::query()
+            ->where('catalog_edition_id', $edition->id)
+            ->where('catalog_number', '100')
+            ->first();
+
+        expect($importedEntry)->not->toBeNull();
+
+        expect($importedEntry->id)->toBe($entry->id)
+            ->and($importedEntry->stamp_id)->toBe($stamp->id)
+            ->and($importedEntry->notes)->toBe('Bestaande catalogusopmerking');
+
+        // Controleer dat de oorspronkelijke postzegelgegevens behouden blijven.
+        $stamp->refresh();
+
+        expect($stamp->name)->toBe('Bestaande postzegel')
+            ->and($stamp->face_value)->toBe('1/2')
+            ->and($stamp->currency)->toBe('EUR');
+
+    } finally {
+        // Verwijder het tijdelijke Excel-bestand.
+        unlink($filePath);
+    }
+});
+
+test('importmethode aanvullen voegt een nieuwe postzegel toe', function () {
+    // Maak een testcatalogus en bestaande cataloguseditie aan.
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus aanvullen nieuwe postzegel',
+        'abbreviation' => 'TCANP',
+    ]);
+
+    $edition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2026',
+        'edition_year' => 2026,
+    ]);
+
+    // Maak een land aan.
+    $country = Country::create([
+        'slug' => 'testland-aanvullen-nieuw',
+        'iso_code' => 'TAN',
+        'name' => 'Testland aanvullen nieuw',
+    ]);
+
+    // Maak een bestaande postzegel aan.
+    $existingStamp = Stamp::create([
+        'country_id' => $country->id,
+        'name' => 'Bestaande postzegel',
+        'issue_year' => 2026,
+        'face_value' => '1/2',
+        'currency' => 'EUR',
+    ]);
+
+    // Koppel de bestaande postzegel aan de cataloguseditie.
+    $existingEntry = StampCatalogEntry::create([
+        'stamp_id' => $existingStamp->id,
+        'catalog_edition_id' => $edition->id,
+        'catalog_number' => '100',
+    ]);
+
+    // Exporteer de bestaande cataloguseditie.
+    $excelContent = Excel::raw(
+        new CatalogEditionExchangeExcelExport($catalog, $edition),
+        Xlsx::class
+    );
+
+    $filePath = tempnam(sys_get_temp_dir(), 'catalog_exchange_');
+
+    if ($filePath === false) {
+        throw new RuntimeException(
+            'Kan tijdelijk Excel-bestand niet aanmaken.'
+        );
+    }
+
+    $spreadsheet = null;
+
+    try {
+        file_put_contents($filePath, $excelContent);
+
+        // Open het Excel-bestand.
+        $spreadsheet = IOFactory::load($filePath);
+
+        $stampsSheet = $spreadsheet->getSheetByName('Postzegels');
+
+        // Voeg een nieuwe postzegel toe op rij 3.
+        $stampsSheet->setCellValue('A3', 'nieuwe-postzegel-200');
+        $stampsSheet->setCellValue('C3', '200');
+        $stampsSheet->setCellValue('E3', $country->slug);
+        $stampsSheet->setCellValue('F3', $country->iso_code);
+        $stampsSheet->setCellValue('G3', 'Nieuwe postzegel');
+        $stampsSheet->setCellValue('I3', 2026);
+        $stampsSheet->setCellValue('K3', '1');
+        $stampsSheet->setCellValue('L3', 'EUR');
+        $stampsSheet->setCellValue('Q3', 'Nieuwe catalogusvermelding');
+
+        // Sla het gewijzigde Excel-bestand op.
+        $writer = new Xlsx($spreadsheet);
+        $writer->save($filePath);
+
+        $spreadsheet->disconnectWorksheets();
+        $spreadsheet = null;
+
+        // Controleer de situatie vóór het importeren.
+        expect(Stamp::query()->count())->toBe(1);
+
+        expect(StampCatalogEntry::query()
+            ->where('catalog_edition_id', $edition->id)
+            ->count())->toBe(1);
+
+        // Importeer met de methode Aanvullen.
+        $importer = new CatalogEditionExchangeImporter;
+
+        $importedEdition = $importer->importEdition(
+            $filePath,
+            $catalog,
+            'merge'
+        );
+
+        // De bestaande cataloguseditie blijft behouden.
+        expect($importedEdition->id)->toBe($edition->id);
+
+        // Er moeten nu twee postzegels bestaan.
+        expect(Stamp::query()->count())->toBe(2);
+
+        // Zoek de nieuw geïmporteerde postzegel.
+        $newStamp = Stamp::query()
+            ->where('name', 'Nieuwe postzegel')
+            ->first();
+
+        expect($newStamp)->not->toBeNull();
+
+        expect($newStamp->country_id)->toBe($country->id)
+            ->and($newStamp->issue_year)->toBe(2026)
+            ->and($newStamp->face_value)->toBe('1')
+            ->and($newStamp->currency)->toBe('EUR');
+
+        // Controleer de nieuwe catalogusvermelding.
+        $newEntry = StampCatalogEntry::query()
+            ->where('catalog_edition_id', $edition->id)
+            ->where('catalog_number', '200')
+            ->first();
+
+        expect($newEntry)->not->toBeNull();
+
+        expect($newEntry->stamp_id)->toBe($newStamp->id)
+            ->and($newEntry->notes)->toBe('Nieuwe catalogusvermelding');
+
+        // De bestaande postzegel en catalogusvermelding blijven behouden.
+        expect(Stamp::query()->whereKey($existingStamp->id)->exists())
+            ->toBeTrue();
+
+        expect(StampCatalogEntry::query()
+            ->whereKey($existingEntry->id)
+            ->exists())->toBeTrue();
+
+        // Er zijn precies twee catalogusvermeldingen.
+        expect(StampCatalogEntry::query()
+            ->where('catalog_edition_id', $edition->id)
+            ->count())->toBe(2);
+
+    } finally {
+        if ($spreadsheet !== null) {
+            $spreadsheet->disconnectWorksheets();
+        }
+
+        unlink($filePath);
+    }
+});
+
+test('importmethode aanvullen behoudt een bestaande cataloguswaarde', function () {
+    // Maak een testcatalogus aan.
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus aanvullen bestaande cataloguswaarde',
+        'abbreviation' => 'TCABC',
+    ]);
+
+    // Maak een bestaande cataloguseditie aan.
+    $edition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2026',
+        'edition_year' => 2026,
+    ]);
+
+    // Maak een land aan.
+    $country = Country::create([
+        'slug' => 'testland-aanvullen-cataloguswaarde',
+        'iso_code' => 'TAC',
+        'name' => 'Testland aanvullen cataloguswaarde',
+    ]);
+
+    // Maak een waarderingscategorie aan.
+    $condition = Condition::create([
+        'slug' => 'postfris',
+        'sort_order' => 1,
+        'is_active' => true,
+    ]);
+
+    // Maak een bestaande postzegel aan.
+    $stamp = Stamp::create([
+        'country_id' => $country->id,
+        'name' => 'Postzegel bestaande cataloguswaarde',
+        'issue_year' => 2026,
+    ]);
+
+    // Maak de bestaande catalogusvermelding aan.
+    $entry = StampCatalogEntry::create([
+        'stamp_id' => $stamp->id,
+        'catalog_edition_id' => $edition->id,
+        'catalog_number' => '100',
+    ]);
+
+    // Maak een bestaande cataloguswaarde aan.
+    $existingValue = StampCatalogValue::create([
+        'stamp_catalog_entry_id' => $entry->id,
+        'condition_id' => $condition->id,
+        'catalog_value' => '25.50',
+        'currency' => 'EUR',
+        'notes' => 'Bestaande waarde',
+        'needs_review' => false,
+    ]);
+
+    // Exporteer de bestaande cataloguseditie.
+    $excelContent = Excel::raw(
+        new CatalogEditionExchangeExcelExport($catalog, $edition),
+        Xlsx::class
+    );
+
+    $filePath = tempnam(sys_get_temp_dir(), 'catalog_exchange_');
+
+    if ($filePath === false) {
+        throw new RuntimeException(
+            'Kan tijdelijk Excel-bestand niet aanmaken.'
+        );
+    }
+
+    $spreadsheet = null;
+
+    try {
+        file_put_contents($filePath, $excelContent);
+
+        // Open het Excel-bestand.
+        $spreadsheet = IOFactory::load($filePath);
+
+        $catalogValuesSheet = $spreadsheet->getSheetByName('Cataloguswaarden');
+
+        // Wijzig bewust de bestaande cataloguswaarde in Excel.
+        $catalogValuesSheet->setCellValue('D2', '50.00');
+        $catalogValuesSheet->setCellValue('E2', 'EUR');
+        $catalogValuesSheet->setCellValue('F2', 'Gewijzigde waarde');
+        $catalogValuesSheet->setCellValue('G2', 1);
+
+        // Sla het gewijzigde Excel-bestand op.
+        $writer = new Xlsx($spreadsheet);
+        $writer->save($filePath);
+
+        $spreadsheet->disconnectWorksheets();
+        $spreadsheet = null;
+
+        // Importeer met de methode Aanvullen.
+        $importer = new CatalogEditionExchangeImporter;
+
+        $importedEdition = $importer->importEdition(
+            $filePath,
+            $catalog,
+            'merge'
+        );
+
+        // Controleer dat de bestaande editie behouden blijft.
+        expect($importedEdition->id)->toBe($edition->id);
+
+        // Haal de oorspronkelijke cataloguswaarde opnieuw op.
+        $existingValue->refresh();
+
+        // Controleer dat alle oorspronkelijke gegevens behouden blijven.
+        expect($existingValue->catalog_value)->toBe('25.50')
+            ->and($existingValue->currency)->toBe('EUR')
+            ->and($existingValue->notes)->toBe('Bestaande waarde')
+            ->and($existingValue->needs_review)->toBeFalse();
+
+        // Controleer dat de oorspronkelijke database-ID behouden blijft.
+        expect(
+            StampCatalogValue::query()
+                ->where('stamp_catalog_entry_id', $entry->id)
+                ->where('condition_id', $condition->id)
+                ->first()?->id
+        )->toBe($existingValue->id);
+
+        // Controleer dat er geen dubbele cataloguswaarde is aangemaakt.
+        expect(
+            StampCatalogValue::query()
+                ->where('stamp_catalog_entry_id', $entry->id)
+                ->where('condition_id', $condition->id)
+                ->count()
+        )->toBe(1);
+
+    } finally {
+        if ($spreadsheet !== null) {
+            $spreadsheet->disconnectWorksheets();
+        }
+
+        unlink($filePath);
+    }
+});
+
+test('importmethode aanvullen voegt een ontbrekende cataloguswaarde toe', function () {
+    // Maak een testcatalogus en bestaande cataloguseditie aan.
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus aanvullen ontbrekende cataloguswaarde',
+        'abbreviation' => 'TCAOC',
+    ]);
+
+    $edition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2026',
+        'edition_year' => 2026,
+    ]);
+
+    // Maak een land aan.
+    $country = Country::create([
+        'slug' => 'testland-aanvullen-ontbrekende-waarde',
+        'iso_code' => 'TAO',
+        'name' => 'Testland aanvullen ontbrekende waarde',
+    ]);
+
+    // Maak twee waarderingscategorieën aan.
+    $postfris = Condition::create([
+        'slug' => 'postfris',
+        'sort_order' => 1,
+        'is_active' => true,
+    ]);
+
+    $gestempeld = Condition::create([
+        'slug' => 'gestempeld',
+        'sort_order' => 2,
+        'is_active' => true,
+    ]);
+
+    // Maak een bestaande postzegel aan.
+    $stamp = Stamp::create([
+        'country_id' => $country->id,
+        'name' => 'Postzegel ontbrekende cataloguswaarde',
+        'issue_year' => 2026,
+    ]);
+
+    // Maak de catalogusvermelding aan.
+    $entry = StampCatalogEntry::create([
+        'stamp_id' => $stamp->id,
+        'catalog_edition_id' => $edition->id,
+        'catalog_number' => '100',
+    ]);
+
+    // Maak uitsluitend de cataloguswaarde voor postfris aan.
+    $existingValue = StampCatalogValue::create([
+        'stamp_catalog_entry_id' => $entry->id,
+        'condition_id' => $postfris->id,
+        'catalog_value' => '25.50',
+        'currency' => 'EUR',
+        'notes' => 'Bestaande waarde postfris',
+        'needs_review' => false,
+    ]);
+
+    // Exporteer de bestaande cataloguseditie.
+    $excelContent = Excel::raw(
+        new CatalogEditionExchangeExcelExport($catalog, $edition),
+        Xlsx::class
+    );
+
+    $filePath = tempnam(sys_get_temp_dir(), 'catalog_exchange_');
+
+    if ($filePath === false) {
+        throw new RuntimeException(
+            'Kan tijdelijk Excel-bestand niet aanmaken.'
+        );
+    }
+
+    $spreadsheet = null;
+
+    try {
+        file_put_contents($filePath, $excelContent);
+
+        // Open het Excel-bestand.
+        $spreadsheet = IOFactory::load($filePath);
+
+        // Voeg de ontbrekende waarderingscategorie toe aan Excel.
+        $conditionsSheet = $spreadsheet->getSheetByName('Waarderingscategorieen');
+
+        $conditionsSheet->setCellValue('A3', $gestempeld->slug);
+
+        // Open het tabblad met cataloguswaarden.
+        $catalogValuesSheet = $spreadsheet->getSheetByName('Cataloguswaarden');
+
+        // Voeg een ontbrekende cataloguswaarde voor gestempeld toe.
+        // Gebruik dezelfde exchange_stamp_id als de bestaande postfriswaarde.
+        $exchangeStampId = $catalogValuesSheet->getCell('A2')->getValue();
+
+        $catalogValuesSheet->setCellValue('A3', $exchangeStampId);
+        $catalogValuesSheet->setCellValue('B3', '100');
+        $catalogValuesSheet->setCellValue('C3', $gestempeld->slug);
+        $catalogValuesSheet->setCellValue('D3', '12.50');
+        $catalogValuesSheet->setCellValue('E3', 'EUR');
+        $catalogValuesSheet->setCellValue('F3', 'Nieuwe waarde gestempeld');
+        $catalogValuesSheet->setCellValue('G3', 1);
+
+        // Sla het gewijzigde Excel-bestand op.
+        $writer = new Xlsx($spreadsheet);
+        $writer->save($filePath);
+
+        $spreadsheet->disconnectWorksheets();
+        $spreadsheet = null;
+
+        // Controleer dat vóór import slechts één cataloguswaarde bestaat.
+        expect(
+            StampCatalogValue::query()
+                ->where('stamp_catalog_entry_id', $entry->id)
+                ->count()
+        )->toBe(1);
+
+        // Importeer met de methode Aanvullen.
+        $importer = new CatalogEditionExchangeImporter;
+
+        $importedEdition = $importer->importEdition(
+            $filePath,
+            $catalog,
+            'merge'
+        );
+
+        // Controleer dat de bestaande cataloguseditie behouden blijft.
+        expect($importedEdition->id)->toBe($edition->id);
+
+        // Controleer dat de bestaande postfriswaarde behouden blijft.
+        $existingValue->refresh();
+
+        expect($existingValue->catalog_value)->toBe('25.50')
+            ->and($existingValue->currency)->toBe('EUR')
+            ->and($existingValue->notes)->toBe('Bestaande waarde postfris')
+            ->and($existingValue->needs_review)->toBeFalse();
+
+        // Zoek de nieuwe cataloguswaarde voor gestempeld.
+        $newValue = StampCatalogValue::query()
+            ->where('stamp_catalog_entry_id', $entry->id)
+            ->where('condition_id', $gestempeld->id)
+            ->first();
+
+        expect($newValue)->not->toBeNull();
+
+        // Controleer de geïmporteerde gegevens.
+        expect($newValue->catalog_value)->toBe('12.50')
+            ->and($newValue->currency)->toBe('EUR')
+            ->and($newValue->notes)->toBe('Nieuwe waarde gestempeld')
+            ->and($newValue->needs_review)->toBeTrue();
+
+        // Controleer dat er precies twee cataloguswaarden bestaan.
+        expect(
+            StampCatalogValue::query()
+                ->where('stamp_catalog_entry_id', $entry->id)
+                ->count()
+        )->toBe(2);
+
+        // Controleer dat er geen extra postzegel is aangemaakt.
+        expect(Stamp::query()->count())->toBe(1);
+
+        // Controleer dat er geen extra catalogusvermelding is aangemaakt.
+        expect(
+            StampCatalogEntry::query()
+                ->where('catalog_edition_id', $edition->id)
+                ->count()
+        )->toBe(1);
+
+    } finally {
+        if ($spreadsheet !== null) {
+            $spreadsheet->disconnectWorksheets();
+        }
+
+        unlink($filePath);
+    }
+});
+
+test('importmethode vervangen werkt een bestaande cataloguswaarde bij', function () {
+    // Maak een testcatalogus aan.
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus vervangen bestaande cataloguswaarde',
+        'abbreviation' => 'TCVBC',
+    ]);
+
+    // Maak een bestaande cataloguseditie aan.
+    $edition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2026',
+        'edition_year' => 2026,
+    ]);
+
+    // Maak een land aan.
+    $country = Country::create([
+        'slug' => 'testland-vervangen-cataloguswaarde',
+        'iso_code' => 'TVC',
+        'name' => 'Testland vervangen cataloguswaarde',
+    ]);
+
+    // Maak een waarderingscategorie aan.
+    $condition = Condition::create([
+        'slug' => 'postfris',
+        'sort_order' => 1,
+        'is_active' => true,
+    ]);
+
+    // Maak een bestaande postzegel aan.
+    $stamp = Stamp::create([
+        'country_id' => $country->id,
+        'name' => 'Postzegel vervangen cataloguswaarde',
+        'issue_year' => 2026,
+    ]);
+
+    // Maak een bestaande catalogusvermelding aan.
+    $entry = StampCatalogEntry::create([
+        'stamp_id' => $stamp->id,
+        'catalog_edition_id' => $edition->id,
+        'catalog_number' => '100',
+    ]);
+
+    // Maak de oorspronkelijke cataloguswaarde aan.
+    $existingValue = StampCatalogValue::create([
+        'stamp_catalog_entry_id' => $entry->id,
+        'condition_id' => $condition->id,
+        'catalog_value' => '25.50',
+        'currency' => 'EUR',
+        'notes' => 'Bestaande waarde',
+        'needs_review' => false,
+    ]);
+
+    // Bewaar de oorspronkelijke database-ID.
+    $originalValueId = $existingValue->id;
+
+    // Exporteer de bestaande cataloguseditie.
+    $excelContent = Excel::raw(
+        new CatalogEditionExchangeExcelExport($catalog, $edition),
+        Xlsx::class
+    );
+
+    $filePath = tempnam(sys_get_temp_dir(), 'catalog_exchange_');
+
+    if ($filePath === false) {
+        throw new RuntimeException(
+            'Kan tijdelijk Excel-bestand niet aanmaken.'
+        );
+    }
+
+    $spreadsheet = null;
+
+    try {
+        file_put_contents($filePath, $excelContent);
+
+        // Open het Excel-bestand.
+        $spreadsheet = IOFactory::load($filePath);
+
+        $catalogValuesSheet = $spreadsheet->getSheetByName('Cataloguswaarden');
+
+        // Wijzig de bestaande cataloguswaarde in Excel.
+        $catalogValuesSheet->setCellValue('D2', '50.00');
+        $catalogValuesSheet->setCellValue('E2', 'USD');
+        $catalogValuesSheet->setCellValue('F2', 'Gewijzigde waarde');
+        $catalogValuesSheet->setCellValue('G2', 1);
+
+        // Sla het gewijzigde Excel-bestand op.
+        $writer = new Xlsx($spreadsheet);
+        $writer->save($filePath);
+
+        $spreadsheet->disconnectWorksheets();
+        $spreadsheet = null;
+
+        // Voer de importmethode Vervangen uit.
+        $importer = new CatalogEditionExchangeImporter;
+
+        $importedEdition = $importer->importEdition(
+            $filePath,
+            $catalog,
+            'replace'
+        );
+
+        // Controleer dat dezelfde cataloguseditie wordt gebruikt.
+        expect($importedEdition->id)->toBe($edition->id);
+
+        // Haal de cataloguswaarde opnieuw op uit de database.
+        $existingValue->refresh();
+
+        // Controleer dat de gegevens zijn vervangen.
+        expect($existingValue->catalog_value)->toBe('50.00')
+            ->and($existingValue->currency)->toBe('USD')
+            ->and($existingValue->notes)->toBe('Gewijzigde waarde')
+            ->and($existingValue->needs_review)->toBeTrue();
+
+        // Controleer dat de oorspronkelijke database-ID behouden blijft.
+        expect($existingValue->id)->toBe($originalValueId);
+
+        // Controleer dat er geen dubbele cataloguswaarde is aangemaakt.
+        expect(
+            StampCatalogValue::query()
+                ->where('stamp_catalog_entry_id', $entry->id)
+                ->where('condition_id', $condition->id)
+                ->count()
+        )->toBe(1);
+
+        // Controleer dat er geen extra postzegel is aangemaakt.
+        expect(Stamp::query()->count())->toBe(1);
+
+        // Controleer dat er geen extra catalogusvermelding is aangemaakt.
+        expect(
+            StampCatalogEntry::query()
+                ->where('catalog_edition_id', $edition->id)
+                ->count()
+        )->toBe(1);
+
+    } finally {
+        if ($spreadsheet !== null) {
+            $spreadsheet->disconnectWorksheets();
+        }
+
+        unlink($filePath);
+    }
+});
+
+test('importmethode vervangen voegt een ontbrekende cataloguswaarde toe', function () {
+    // Maak een testcatalogus en bestaande cataloguseditie aan.
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus vervangen ontbrekende cataloguswaarde',
+        'abbreviation' => 'TCVOC',
+    ]);
+
+    $edition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2026',
+        'edition_year' => 2026,
+    ]);
+
+    // Maak een land aan.
+    $country = Country::create([
+        'slug' => 'testland-vervangen-ontbrekende-waarde',
+        'iso_code' => 'TVO',
+        'name' => 'Testland vervangen ontbrekende waarde',
+    ]);
+
+    // Maak twee waarderingscategorieën aan.
+    $postfris = Condition::create([
+        'slug' => 'postfris',
+        'sort_order' => 1,
+        'is_active' => true,
+    ]);
+
+    $gestempeld = Condition::create([
+        'slug' => 'gestempeld',
+        'sort_order' => 2,
+        'is_active' => true,
+    ]);
+
+    // Maak een bestaande postzegel aan.
+    $stamp = Stamp::create([
+        'country_id' => $country->id,
+        'name' => 'Postzegel vervangen ontbrekende cataloguswaarde',
+        'issue_year' => 2026,
+    ]);
+
+    // Maak de bestaande catalogusvermelding aan.
+    $entry = StampCatalogEntry::create([
+        'stamp_id' => $stamp->id,
+        'catalog_edition_id' => $edition->id,
+        'catalog_number' => '100',
+    ]);
+
+    // Maak uitsluitend de cataloguswaarde voor postfris aan.
+    $existingValue = StampCatalogValue::create([
+        'stamp_catalog_entry_id' => $entry->id,
+        'condition_id' => $postfris->id,
+        'catalog_value' => '25.50',
+        'currency' => 'EUR',
+        'notes' => 'Bestaande waarde postfris',
+        'needs_review' => false,
+    ]);
+
+    // Bewaar de oorspronkelijke database-ID.
+    $originalValueId = $existingValue->id;
+
+    // Exporteer de bestaande cataloguseditie.
+    $excelContent = Excel::raw(
+        new CatalogEditionExchangeExcelExport($catalog, $edition),
+        Xlsx::class
+    );
+
+    $filePath = tempnam(sys_get_temp_dir(), 'catalog_exchange_');
+
+    if ($filePath === false) {
+        throw new RuntimeException(
+            'Kan tijdelijk Excel-bestand niet aanmaken.'
+        );
+    }
+
+    $spreadsheet = null;
+
+    try {
+        file_put_contents($filePath, $excelContent);
+
+        // Open het Excel-bestand.
+        $spreadsheet = IOFactory::load($filePath);
+
+        // Voeg de ontbrekende waarderingscategorie toe aan Excel.
+        $conditionsSheet = $spreadsheet->getSheetByName('Waarderingscategorieen');
+
+        $conditionsSheet->setCellValue('A3', $gestempeld->slug);
+
+        // Open het tabblad met cataloguswaarden.
+        $catalogValuesSheet = $spreadsheet->getSheetByName('Cataloguswaarden');
+
+        // Gebruik dezelfde exchange_stamp_id als de bestaande postfriswaarde.
+        $exchangeStampId = $catalogValuesSheet->getCell('A2')->getValue();
+
+        // Voeg de ontbrekende cataloguswaarde voor gestempeld toe.
+        $catalogValuesSheet->setCellValue('A3', $exchangeStampId);
+        $catalogValuesSheet->setCellValue('B3', '100');
+        $catalogValuesSheet->setCellValue('C3', $gestempeld->slug);
+        $catalogValuesSheet->setCellValue('D3', '12.50');
+        $catalogValuesSheet->setCellValue('E3', 'EUR');
+        $catalogValuesSheet->setCellValue('F3', 'Nieuwe waarde gestempeld');
+        $catalogValuesSheet->setCellValue('G3', 1);
+
+        // Sla het gewijzigde Excel-bestand op.
+        $writer = new Xlsx($spreadsheet);
+        $writer->save($filePath);
+
+        $spreadsheet->disconnectWorksheets();
+        $spreadsheet = null;
+
+        // Controleer dat vóór import slechts één cataloguswaarde bestaat.
+        expect(
+            StampCatalogValue::query()
+                ->where('stamp_catalog_entry_id', $entry->id)
+                ->count()
+        )->toBe(1);
+
+        // Voer de importmethode Vervangen uit.
+        $importer = new CatalogEditionExchangeImporter;
+
+        $importedEdition = $importer->importEdition(
+            $filePath,
+            $catalog,
+            'replace'
+        );
+
+        // Controleer dat dezelfde cataloguseditie behouden blijft.
+        expect($importedEdition->id)->toBe($edition->id);
+
+        // Controleer dat de bestaande postfriswaarde correct blijft.
+        $existingValue->refresh();
+
+        expect($existingValue->id)->toBe($originalValueId)
+            ->and($existingValue->catalog_value)->toBe('25.50')
+            ->and($existingValue->currency)->toBe('EUR')
+            ->and($existingValue->notes)->toBe('Bestaande waarde postfris')
+            ->and($existingValue->needs_review)->toBeFalse();
+
+        // Zoek de nieuwe cataloguswaarde voor gestempeld.
+        $newValue = StampCatalogValue::query()
+            ->where('stamp_catalog_entry_id', $entry->id)
+            ->where('condition_id', $gestempeld->id)
+            ->first();
+
+        expect($newValue)->not->toBeNull();
+
+        // Controleer de nieuwe cataloguswaarde.
+        expect($newValue->catalog_value)->toBe('12.50')
+            ->and($newValue->currency)->toBe('EUR')
+            ->and($newValue->notes)->toBe('Nieuwe waarde gestempeld')
+            ->and($newValue->needs_review)->toBeTrue();
+
+        // Controleer dat er precies twee cataloguswaarden bestaan.
+        expect(
+            StampCatalogValue::query()
+                ->where('stamp_catalog_entry_id', $entry->id)
+                ->count()
+        )->toBe(2);
+
+        // Controleer dat er geen extra postzegel is aangemaakt.
+        expect(Stamp::query()->count())->toBe(1);
+
+        // Controleer dat er geen extra catalogusvermelding is aangemaakt.
+        expect(
+            StampCatalogEntry::query()
+                ->where('catalog_edition_id', $edition->id)
+                ->count()
+        )->toBe(1);
+
+    } finally {
+        if ($spreadsheet !== null) {
+            $spreadsheet->disconnectWorksheets();
+        }
+
+        unlink($filePath);
+    }
+});
+
+test('importmethode vervangen hergebruikt een bestaande postzegel', function () {
+    // Maak een testcatalogus aan.
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus vervangen bestaande postzegel',
+        'abbreviation' => 'TCVBP',
+    ]);
+
+    // Maak een bestaande cataloguseditie aan.
+    $edition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2026',
+        'edition_year' => 2026,
+    ]);
+
+    // Maak een land aan.
+    $country = Country::create([
+        'slug' => 'testland-vervangen-postzegel',
+        'iso_code' => 'TVP',
+        'name' => 'Testland vervangen',
+    ]);
+
+    // Maak een bestaande postzegel aan.
+    $stamp = Stamp::create([
+        'country_id' => $country->id,
+        'name' => 'Bestaande postzegel',
+        'issue_year' => 2026,
+        'face_value' => '1/2',
+        'currency' => 'EUR',
+    ]);
+
+    // Koppel de postzegel aan de cataloguseditie.
+    $entry = StampCatalogEntry::create([
+        'stamp_id' => $stamp->id,
+        'catalog_edition_id' => $edition->id,
+        'catalog_number' => '100',
+        'notes' => 'Bestaande catalogusopmerking',
+    ]);
+
+    // Exporteer de bestaande cataloguseditie.
+    $excelContent = Excel::raw(
+        new CatalogEditionExchangeExcelExport($catalog, $edition),
+        Xlsx::class
+    );
+
+    // Maak een tijdelijk Excel-bestand aan.
+    $filePath = tempnam(sys_get_temp_dir(), 'catalog_exchange_');
+
+    if ($filePath === false) {
+        throw new RuntimeException(
+            'Kan tijdelijk Excel-bestand niet aanmaken.'
+        );
+    }
+
+    try {
+        file_put_contents($filePath, $excelContent);
+
+        // Gebruik de importmethode.
+        $importer = new CatalogEditionExchangeImporter;
+
+        // Open het Excel-bestand en wijzig bewust de postzegelgegevens.
+        $spreadsheet = IOFactory::load($filePath);
+
+        try {
+            $stampsSheet = $spreadsheet->getSheetByName('Postzegels');
+
+            // Wijzig de naam, nominale waarde en valuta.
+            $stampsSheet->setCellValue(
+                'G2',
+                'Gewijzigde postzegel vanuit Excel'
+            );
+
+            $stampsSheet->setCellValue('K2', '2/3');
+            $stampsSheet->setCellValue('L2', 'USD');
+
+            // Wijzig ook de catalogusopmerking.
+            $stampsSheet->setCellValue(
+                'Q2',
+                'Gewijzigde catalogusopmerking'
+            );
+
+            // Sla het gewijzigde Excel-bestand op.
+            $writer = new Xlsx($spreadsheet);
+            $writer->save($filePath);
+        } finally {
+            $spreadsheet->disconnectWorksheets();
+        }
+
+        // Importeer met de methode Vervangen.
+        $importedEdition = $importer->importEdition(
+            $filePath,
+            $catalog,
+            'replace'
+        );
+
+        // Controleer dat de bestaande editie wordt hergebruikt.
+        expect($importedEdition->id)->toBe($edition->id);
+
+        // Controleer dat er geen extra postzegel is aangemaakt.
+        expect(Stamp::query()->count())->toBe(1);
+
+        // Controleer dat de bestaande catalogusvermelding behouden blijft.
+        $importedEntry = StampCatalogEntry::query()
+            ->where('catalog_edition_id', $edition->id)
+            ->where('catalog_number', '100')
+            ->first();
+
+        expect($importedEntry)->not->toBeNull();
+
+        expect($importedEntry->id)->toBe($entry->id)
+            ->and($importedEntry->stamp_id)->toBe($stamp->id)
+            ->and($importedEntry->notes)->toBe('Bestaande catalogusopmerking');
+
+        // Controleer dat de oorspronkelijke postzegelgegevens behouden blijven.
+        $stamp->refresh();
+
+        expect($stamp->name)->toBe('Bestaande postzegel')
+            ->and($stamp->face_value)->toBe('1/2')
+            ->and($stamp->currency)->toBe('EUR');
+
+        // Controleer dat er geen extra catalogusvermelding is aangemaakt.
+        expect(StampCatalogEntry::query()->count())->toBe(1);
+
+    } finally {
+        // Verwijder het tijdelijke Excel-bestand.
+        unlink($filePath);
+    }
+});
+
+test('importmethode vervangen voegt een nieuwe postzegel toe', function () {
+    // Maak een testcatalogus en bestaande cataloguseditie aan.
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus vervangen nieuwe postzegel',
+        'abbreviation' => 'TCVNP',
+    ]);
+
+    $edition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2026',
+        'edition_year' => 2026,
+    ]);
+
+    // Maak een land aan.
+    $country = Country::create([
+        'slug' => 'testland-vervangen-nieuw',
+        'iso_code' => 'TVN',
+        'name' => 'Testland vervangen nieuw',
+    ]);
+
+    // Maak een bestaande postzegel aan.
+    $existingStamp = Stamp::create([
+        'country_id' => $country->id,
+        'name' => 'Bestaande postzegel',
+        'issue_year' => 2026,
+        'face_value' => '1/2',
+        'currency' => 'EUR',
+    ]);
+
+    // Koppel de bestaande postzegel aan de cataloguseditie.
+    $existingEntry = StampCatalogEntry::create([
+        'stamp_id' => $existingStamp->id,
+        'catalog_edition_id' => $edition->id,
+        'catalog_number' => '100',
+    ]);
+
+    // Exporteer de bestaande cataloguseditie.
+    $excelContent = Excel::raw(
+        new CatalogEditionExchangeExcelExport($catalog, $edition),
+        Xlsx::class
+    );
+
+    // Maak een tijdelijk Excel-bestand aan.
+    $filePath = tempnam(sys_get_temp_dir(), 'catalog_exchange_');
+
+    if ($filePath === false) {
+        throw new RuntimeException(
+            'Kan tijdelijk Excel-bestand niet aanmaken.'
+        );
+    }
+
+    $spreadsheet = null;
+
+    try {
+        file_put_contents($filePath, $excelContent);
+
+        // Open het Excel-bestand.
+        $spreadsheet = IOFactory::load($filePath);
+
+        $stampsSheet = $spreadsheet->getSheetByName('Postzegels');
+
+        // Voeg een nieuwe postzegel toe op rij 3.
+        $stampsSheet->setCellValue('A3', 'nieuwe-postzegel-200');
+        $stampsSheet->setCellValue('C3', '200');
+        $stampsSheet->setCellValue('E3', $country->slug);
+        $stampsSheet->setCellValue('F3', $country->iso_code);
+        $stampsSheet->setCellValue('G3', 'Nieuwe postzegel');
+        $stampsSheet->setCellValue('I3', 2026);
+        $stampsSheet->setCellValue('K3', '1');
+        $stampsSheet->setCellValue('L3', 'EUR');
+        $stampsSheet->setCellValue('Q3', 'Nieuwe catalogusvermelding');
+
+        // Sla het gewijzigde Excel-bestand op.
+        $writer = new Xlsx($spreadsheet);
+        $writer->save($filePath);
+
+        $spreadsheet->disconnectWorksheets();
+        $spreadsheet = null;
+
+        // Controleer de situatie vóór het importeren.
+        expect(Stamp::query()->count())->toBe(1);
+
+        expect(StampCatalogEntry::query()
+            ->where('catalog_edition_id', $edition->id)
+            ->count())->toBe(1);
+
+        // Gebruik de importmethode.
+        $importer = new CatalogEditionExchangeImporter;
+
+        // Importeer met de methode Vervangen.
+        $importedEdition = $importer->importEdition(
+            $filePath,
+            $catalog,
+            'replace'
+        );
+
+        // Controleer dat de bestaande cataloguseditie behouden blijft.
+        expect($importedEdition->id)->toBe($edition->id);
+
+        // Er moeten nu twee postzegels bestaan.
+        expect(Stamp::query()->count())->toBe(2);
+
+        // Zoek de nieuw geïmporteerde postzegel.
+        $newStamp = Stamp::query()
+            ->where('name', 'Nieuwe postzegel')
+            ->first();
+
+        expect($newStamp)->not->toBeNull();
+
+        // Controleer de gegevens van de nieuwe postzegel.
+        expect($newStamp->country_id)->toBe($country->id)
+            ->and($newStamp->issue_year)->toBe(2026)
+            ->and($newStamp->face_value)->toBe('1')
+            ->and($newStamp->currency)->toBe('EUR');
+
+        // Controleer de nieuwe catalogusvermelding.
+        $newEntry = StampCatalogEntry::query()
+            ->where('catalog_edition_id', $edition->id)
+            ->where('catalog_number', '200')
+            ->first();
+
+        expect($newEntry)->not->toBeNull();
+
+        expect($newEntry->stamp_id)->toBe($newStamp->id)
+            ->and($newEntry->notes)->toBe('Nieuwe catalogusvermelding');
+
+        // Controleer dat de bestaande postzegel behouden blijft.
+        $existingStamp->refresh();
+
+        expect($existingStamp->name)->toBe('Bestaande postzegel')
+            ->and($existingStamp->face_value)->toBe('1/2')
+            ->and($existingStamp->currency)->toBe('EUR');
+
+        // Controleer dat de bestaande catalogusvermelding behouden blijft.
+        expect(StampCatalogEntry::query()
+            ->whereKey($existingEntry->id)
+            ->where('stamp_id', $existingStamp->id)
+            ->exists())->toBeTrue();
+
+        // Er mogen precies twee catalogusvermeldingen bestaan.
+        expect(StampCatalogEntry::query()
+            ->where('catalog_edition_id', $edition->id)
+            ->count())->toBe(2);
+
+    } finally {
+        // Ruim het tijdelijke Excel-bestand op.
+        if ($spreadsheet !== null) {
+            $spreadsheet->disconnectWorksheets();
+        }
+
+        unlink($filePath);
+    }
+});
+
+test('importmethode aanvullen behoudt een bestaande seriecataloguswaarde', function () {
+    // Maak een testcatalogus aan.
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus aanvullen bestaande seriecataloguswaarde',
+        'abbreviation' => 'TCASW',
+    ]);
+
+    // Maak een bestaande cataloguseditie aan.
+    $edition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2026',
+        'edition_year' => 2026,
+    ]);
+
+    // Maak een land aan.
+    $country = Country::create([
+        'slug' => 'testland-aanvullen-seriewaarde',
+        'iso_code' => 'TAS',
+        'name' => 'Testland aanvullen seriewaarde',
+    ]);
+
+    // Maak een waarderingscategorie aan.
+    $condition = Condition::create([
+        'slug' => 'postfris',
+        'sort_order' => 1,
+        'is_active' => true,
+    ]);
+
+    // Maak een bestaande postzegelserie aan.
+    $series = StampSeries::create([
+        'country_id' => $country->id,
+        'name' => 'Bestaande postzegelserie',
+        'issue_year' => 2026,
+    ]);
+
+    // Maak een bestaande seriecataloguswaarde aan.
+    $seriesValue = SeriesCatalogValue::create([
+        'catalog_edition_id' => $edition->id,
+        'stamp_series_id' => $series->id,
+        'condition_id' => $condition->id,
+        'catalog_number' => 'SER-100',
+        'catalog_value' => '125.50',
+        'currency' => 'EUR',
+        'notes' => 'Bestaande seriecataloguswaarde',
+    ]);
+
+    // Exporteer de bestaande cataloguseditie.
+    $excelContent = Excel::raw(
+        new CatalogEditionExchangeExcelExport($catalog, $edition),
+        Xlsx::class
+    );
+
+    // Maak een tijdelijk Excel-bestand aan.
+    $filePath = tempnam(sys_get_temp_dir(), 'catalog_exchange_');
+
+    if ($filePath === false) {
+        throw new RuntimeException(
+            'Kan tijdelijk Excel-bestand niet aanmaken.'
+        );
+    }
+
+    $spreadsheet = null;
+
+    try {
+        file_put_contents($filePath, $excelContent);
+
+        // Open het Excel-bestand.
+        $spreadsheet = IOFactory::load($filePath);
+
+        // Wijzig bewust de bestaande seriecataloguswaarde in Excel.
+        $seriesValuesSheet = $spreadsheet->getSheetByName('Seriecataloguswaarden');
+
+        $seriesValuesSheet->setCellValue('C2', 'SER-200');
+        $seriesValuesSheet->setCellValue('D2', '250.00');
+        $seriesValuesSheet->setCellValue('E2', 'USD');
+        $seriesValuesSheet->setCellValue(
+            'F2',
+            'Gewijzigde seriecataloguswaarde vanuit Excel'
+        );
+
+        // Sla het gewijzigde Excel-bestand op.
+        $writer = new Xlsx($spreadsheet);
+        $writer->save($filePath);
+
+        $spreadsheet->disconnectWorksheets();
+        $spreadsheet = null;
+
+        // Controleer dat er vooraf één seriecataloguswaarde bestaat.
+        expect(SeriesCatalogValue::query()->count())->toBe(1);
+
+        // Gebruik de importmethode.
+        $importer = new CatalogEditionExchangeImporter;
+
+        // Importeer met Aanvullen.
+        $importedEdition = $importer->importEdition(
+            $filePath,
+            $catalog,
+            'merge'
+        );
+
+        // Controleer dat de bestaande cataloguseditie behouden blijft.
+        expect($importedEdition->id)->toBe($edition->id);
+
+        // Controleer dat de bestaande seriecataloguswaarde behouden blijft.
+        $seriesValue->refresh();
+
+        expect($seriesValue->catalog_edition_id)->toBe($edition->id)
+            ->and($seriesValue->stamp_series_id)->toBe($series->id)
+            ->and($seriesValue->condition_id)->toBe($condition->id)
+            ->and($seriesValue->catalog_number)->toBe('SER-100')
+            ->and($seriesValue->catalog_value)->toBe('125.50')
+            ->and($seriesValue->currency)->toBe('EUR')
+            ->and($seriesValue->notes)->toBe('Bestaande seriecataloguswaarde');
+
+        // Controleer dat het oorspronkelijke database-ID behouden blijft.
+        $importedSeriesValue = SeriesCatalogValue::query()
+            ->where('catalog_edition_id', $edition->id)
+            ->where('stamp_series_id', $series->id)
+            ->where('condition_id', $condition->id)
+            ->first();
+
+        expect($importedSeriesValue)->not->toBeNull();
+
+        expect($importedSeriesValue->id)->toBe($seriesValue->id);
+
+        // Controleer dat er geen dubbele seriecataloguswaarde is aangemaakt.
+        expect(SeriesCatalogValue::query()->count())->toBe(1);
+
+        // Controleer dat er geen extra postzegelserie is aangemaakt.
+        expect(StampSeries::query()->count())->toBe(1);
+
+    } finally {
+        // Ruim het tijdelijke Excel-bestand op.
+        if ($spreadsheet !== null) {
+            $spreadsheet->disconnectWorksheets();
+        }
+
+        unlink($filePath);
+    }
+});
+
+test('importmethode aanvullen voegt een ontbrekende seriecataloguswaarde toe', function () {
+    // Maak een testcatalogus aan.
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus aanvullen ontbrekende seriecataloguswaarde',
+    ]);
+
+    // Maak een bestaande cataloguseditie aan.
+    $edition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2026',
+        'edition_year' => 2026,
+    ]);
+
+    // Maak een land aan.
+    $country = Country::create([
+        'slug' => 'testland-aanvullen-ontbrekende-seriewaarde',
+        'iso_code' => 'TOS',
+        'name' => 'Testland aanvullen ontbrekende seriewaarde',
+    ]);
+
+    // Maak twee waarderingscategorieën aan.
+    $postfris = Condition::create([
+        'slug' => 'postfris',
+        'sort_order' => 1,
+        'is_active' => true,
+    ]);
+
+    $gestempeld = Condition::create([
+        'slug' => 'gestempeld',
+        'sort_order' => 2,
+        'is_active' => true,
+    ]);
+
+    // Maak een bestaande postzegelserie aan.
+    $series = StampSeries::create([
+        'country_id' => $country->id,
+        'name' => 'Bestaande postzegelserie',
+        'issue_year' => 2026,
+    ]);
+
+    // Maak uitsluitend de seriecataloguswaarde voor postfris aan.
+    $existingValue = SeriesCatalogValue::create([
+        'catalog_edition_id' => $edition->id,
+        'stamp_series_id' => $series->id,
+        'condition_id' => $postfris->id,
+        'catalog_number' => 'SER-100',
+        'catalog_value' => '125.50',
+        'currency' => 'EUR',
+        'notes' => 'Bestaande waarde postfris',
+    ]);
+
+    // Exporteer de bestaande cataloguseditie.
+    $excelContent = Excel::raw(
+        new CatalogEditionExchangeExcelExport($catalog, $edition),
+        Xlsx::class
+    );
+
+    $filePath = tempnam(sys_get_temp_dir(), 'catalog_exchange_');
+
+    if ($filePath === false) {
+        throw new RuntimeException(
+            'Kan tijdelijk Excel-bestand niet aanmaken.'
+        );
+    }
+
+    $spreadsheet = null;
+
+    try {
+        file_put_contents($filePath, $excelContent);
+
+        // Open het Excel-bestand.
+        $spreadsheet = IOFactory::load($filePath);
+
+        // Voeg de ontbrekende waarderingscategorie toe aan Excel.
+        $conditionsSheet = $spreadsheet->getSheetByName('Waarderingscategorieen');
+
+        $conditionsSheet->setCellValue('A3', $gestempeld->slug);
+
+        // Voeg een nieuwe seriecataloguswaarde voor gestempeld toe.
+        $seriesValuesSheet = $spreadsheet->getSheetByName('Seriecataloguswaarden');
+
+        // Gebruik dezelfde exchange_series_id als de bestaande waarde.
+        $exchangeSeriesId = $seriesValuesSheet->getCell('A2')->getValue();
+
+        $seriesValuesSheet->setCellValue('A3', $exchangeSeriesId);
+        $seriesValuesSheet->setCellValue('B3', $gestempeld->slug);
+        $seriesValuesSheet->setCellValue('C3', 'SER-100');
+        $seriesValuesSheet->setCellValue('D3', '75.00');
+        $seriesValuesSheet->setCellValue('E3', 'EUR');
+        $seriesValuesSheet->setCellValue('F3', 'Nieuwe waarde gestempeld');
+
+        // Sla het gewijzigde Excel-bestand op.
+        $writer = new Xlsx($spreadsheet);
+        $writer->save($filePath);
+
+        $spreadsheet->disconnectWorksheets();
+        $spreadsheet = null;
+
+        // Controleer de uitgangssituatie.
+        expect(SeriesCatalogValue::query()->count())->toBe(1);
+
+        // Gebruik de importmethode.
+        $importer = new CatalogEditionExchangeImporter;
+
+        // Importeer met Aanvullen.
+        $importedEdition = $importer->importEdition(
+            $filePath,
+            $catalog,
+            'merge'
+        );
+
+        // Controleer dat de bestaande cataloguseditie behouden blijft.
+        expect($importedEdition->id)->toBe($edition->id);
+
+        // Controleer dat de bestaande postfris-waarde behouden blijft.
+        $existingValue->refresh();
+
+        expect($existingValue->catalog_number)->toBe('SER-100')
+            ->and($existingValue->catalog_value)->toBe('125.50')
+            ->and($existingValue->currency)->toBe('EUR')
+            ->and($existingValue->notes)->toBe('Bestaande waarde postfris');
+
+        // Controleer dat de nieuwe gestempeld-waarde is toegevoegd.
+        $newValue = SeriesCatalogValue::query()
+            ->where('catalog_edition_id', $edition->id)
+            ->where('stamp_series_id', $series->id)
+            ->where('condition_id', $gestempeld->id)
+            ->first();
+
+        expect($newValue)->not->toBeNull();
+
+        expect($newValue->catalog_number)->toBe('SER-100')
+            ->and($newValue->catalog_value)->toBe('75.00')
+            ->and($newValue->currency)->toBe('EUR')
+            ->and($newValue->notes)->toBe('Nieuwe waarde gestempeld');
+
+        // Controleer dat de bestaande waarde haar database-ID behoudt.
+        expect(
+            SeriesCatalogValue::query()
+                ->where('condition_id', $postfris->id)
+                ->first()
+                ->id
+        )->toBe($existingValue->id);
+
+        // Controleer dat er precies twee seriecataloguswaarden bestaan.
+        expect(SeriesCatalogValue::query()->count())->toBe(2);
+
+        // Controleer dat er geen extra postzegelserie is aangemaakt.
+        expect(StampSeries::query()->count())->toBe(1);
+
+    } finally {
+        // Ruim het tijdelijke Excel-bestand op.
+        if ($spreadsheet !== null) {
+            $spreadsheet->disconnectWorksheets();
+        }
+
+        unlink($filePath);
+    }
+});
+
+test('importmethode vervangen werkt een bestaande seriecataloguswaarde bij', function () {
+    // Maak een testcatalogus aan.
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus vervangen bestaande seriecataloguswaarde',
+        'abbreviation' => 'TCVSW',
+    ]);
+
+    // Maak een bestaande cataloguseditie aan.
+    $edition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2026',
+        'edition_year' => 2026,
+    ]);
+
+    // Maak een land aan.
+    $country = Country::create([
+        'slug' => 'testland-vervangen-seriewaarde',
+        'iso_code' => 'TVS',
+        'name' => 'Testland vervangen seriewaarde',
+    ]);
+
+    // Maak een waarderingscategorie aan.
+    $condition = Condition::create([
+        'slug' => 'postfris',
+        'sort_order' => 1,
+        'is_active' => true,
+    ]);
+
+    // Maak een bestaande postzegelserie aan.
+    $series = StampSeries::create([
+        'country_id' => $country->id,
+        'name' => 'Bestaande postzegelserie',
+        'issue_year' => 2026,
+    ]);
+
+    // Maak een bestaande seriecataloguswaarde aan.
+    $existingValue = SeriesCatalogValue::create([
+        'catalog_edition_id' => $edition->id,
+        'stamp_series_id' => $series->id,
+        'condition_id' => $condition->id,
+        'catalog_number' => 'SER-100',
+        'catalog_value' => '125.50',
+        'currency' => 'EUR',
+        'notes' => 'Bestaande seriecataloguswaarde',
+    ]);
+
+    // Bewaar het oorspronkelijke database-ID.
+    $originalValueId = $existingValue->id;
+
+    // Exporteer de bestaande cataloguseditie.
+    $excelContent = Excel::raw(
+        new CatalogEditionExchangeExcelExport($catalog, $edition),
+        Xlsx::class
+    );
+
+    $filePath = tempnam(sys_get_temp_dir(), 'catalog_exchange_');
+
+    if ($filePath === false) {
+        throw new RuntimeException(
+            'Kan tijdelijk Excel-bestand niet aanmaken.'
+        );
+    }
+
+    $spreadsheet = null;
+
+    try {
+        file_put_contents($filePath, $excelContent);
+
+        // Open het Excel-bestand.
+        $spreadsheet = IOFactory::load($filePath);
+
+        // Wijzig de bestaande seriecataloguswaarde in Excel.
+        $seriesValuesSheet = $spreadsheet->getSheetByName('Seriecataloguswaarden');
+
+        $seriesValuesSheet->setCellValue('C2', 'SER-200');
+        $seriesValuesSheet->setCellValue('D2', '250.00');
+        $seriesValuesSheet->setCellValue('E2', 'USD');
+        $seriesValuesSheet->setCellValue(
+            'F2',
+            'Gewijzigde seriecataloguswaarde'
+        );
+
+        // Sla het gewijzigde Excel-bestand op.
+        $writer = new Xlsx($spreadsheet);
+        $writer->save($filePath);
+
+        $spreadsheet->disconnectWorksheets();
+        $spreadsheet = null;
+
+        // Voer de importmethode Vervangen uit.
+        $importer = new CatalogEditionExchangeImporter;
+
+        $importedEdition = $importer->importEdition(
+            $filePath,
+            $catalog,
+            'replace'
+        );
+
+        // Controleer dat dezelfde cataloguseditie wordt gebruikt.
+        expect($importedEdition->id)->toBe($edition->id);
+
+        // Haal de seriecataloguswaarde opnieuw op uit de database.
+        $existingValue->refresh();
+
+        // Controleer dat alle gewijzigde gegevens zijn vervangen.
+        expect($existingValue->catalog_number)->toBe('SER-200')
+            ->and($existingValue->catalog_value)->toBe('250.00')
+            ->and($existingValue->currency)->toBe('USD')
+            ->and($existingValue->notes)->toBe('Gewijzigde seriecataloguswaarde');
+
+        // Controleer dat het oorspronkelijke database-ID behouden blijft.
+        expect($existingValue->id)->toBe($originalValueId);
+
+        // Controleer dat de koppelingen behouden blijven.
+        expect($existingValue->catalog_edition_id)->toBe($edition->id)
+            ->and($existingValue->stamp_series_id)->toBe($series->id)
+            ->and($existingValue->condition_id)->toBe($condition->id);
+
+        // Controleer dat er geen dubbele seriecataloguswaarde is aangemaakt.
+        expect(SeriesCatalogValue::query()->count())->toBe(1);
+
+        // Controleer dat er geen extra postzegelserie is aangemaakt.
+        expect(StampSeries::query()->count())->toBe(1);
+
+    } finally {
+        // Ruim het tijdelijke Excel-bestand op.
+        if ($spreadsheet !== null) {
+            $spreadsheet->disconnectWorksheets();
+        }
+
+        unlink($filePath);
+    }
+});
+
+test('importmethode vervangen voegt een ontbrekende seriecataloguswaarde toe', function () {
+    // Maak een testcatalogus en bestaande cataloguseditie aan.
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus vervangen ontbrekende seriecataloguswaarde',
+        'abbreviation' => 'TCVOS',
+    ]);
+
+    $edition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2026',
+        'edition_year' => 2026,
+    ]);
+
+    // Maak een land aan.
+    $country = Country::create([
+        'slug' => 'testland-vervangen-ontbrekende-seriewaarde',
+        'iso_code' => 'TOV',
+        'name' => 'Testland vervangen ontbrekende seriewaarde',
+    ]);
+
+    // Maak twee waarderingscategorieën aan.
+    $postfris = Condition::create([
+        'slug' => 'postfris',
+        'sort_order' => 1,
+        'is_active' => true,
+    ]);
+
+    $gestempeld = Condition::create([
+        'slug' => 'gestempeld',
+        'sort_order' => 2,
+        'is_active' => true,
+    ]);
+
+    // Maak een bestaande postzegelserie aan.
+    $series = StampSeries::create([
+        'country_id' => $country->id,
+        'name' => 'Bestaande postzegelserie',
+        'issue_year' => 2026,
+    ]);
+
+    // Maak uitsluitend de seriecataloguswaarde voor postfris aan.
+    $existingValue = SeriesCatalogValue::create([
+        'catalog_edition_id' => $edition->id,
+        'stamp_series_id' => $series->id,
+        'condition_id' => $postfris->id,
+        'catalog_number' => 'SER-100',
+        'catalog_value' => '125.50',
+        'currency' => 'EUR',
+        'notes' => 'Bestaande waarde postfris',
+    ]);
+
+    // Bewaar het oorspronkelijke database-ID.
+    $originalValueId = $existingValue->id;
+
+    // Exporteer de bestaande cataloguseditie.
+    $excelContent = Excel::raw(
+        new CatalogEditionExchangeExcelExport($catalog, $edition),
+        Xlsx::class
+    );
+
+    $filePath = tempnam(sys_get_temp_dir(), 'catalog_exchange_');
+
+    if ($filePath === false) {
+        throw new RuntimeException(
+            'Kan tijdelijk Excel-bestand niet aanmaken.'
+        );
+    }
+
+    $spreadsheet = null;
+
+    try {
+        file_put_contents($filePath, $excelContent);
+
+        // Open het Excel-bestand.
+        $spreadsheet = IOFactory::load($filePath);
+
+        // Voeg de ontbrekende waarderingscategorie toe aan Excel.
+        $conditionsSheet = $spreadsheet->getSheetByName('Waarderingscategorieen');
+
+        $conditionsSheet->setCellValue('A3', $gestempeld->slug);
+
+        // Open het tabblad met seriecataloguswaarden.
+        $seriesValuesSheet = $spreadsheet->getSheetByName('Seriecataloguswaarden');
+
+        // Gebruik dezelfde exchange_series_id als de bestaande waarde.
+        $exchangeSeriesId = $seriesValuesSheet->getCell('A2')->getValue();
+
+        // Wijzig de bestaande seriecataloguswaarde voor postfris.
+        $seriesValuesSheet->setCellValue('C2', 'SER-200');
+        $seriesValuesSheet->setCellValue('D2', '150.00');
+        $seriesValuesSheet->setCellValue('E2', 'EUR');
+        $seriesValuesSheet->setCellValue('F2', 'Gewijzigde waarde postfris');
+
+        // Voeg de ontbrekende seriecataloguswaarde voor gestempeld toe.
+        $seriesValuesSheet->setCellValue('A3', $exchangeSeriesId);
+        $seriesValuesSheet->setCellValue('B3', $gestempeld->slug);
+        $seriesValuesSheet->setCellValue('C3', 'SER-200');
+        $seriesValuesSheet->setCellValue('D3', '75.00');
+        $seriesValuesSheet->setCellValue('E3', 'EUR');
+        $seriesValuesSheet->setCellValue('F3', 'Nieuwe waarde gestempeld');
+
+        // Sla het gewijzigde Excel-bestand op.
+        $writer = new Xlsx($spreadsheet);
+        $writer->save($filePath);
+
+        $spreadsheet->disconnectWorksheets();
+        $spreadsheet = null;
+
+        // Controleer dat vóór import één seriecataloguswaarde bestaat.
+        expect(
+            SeriesCatalogValue::query()
+                ->where('catalog_edition_id', $edition->id)
+                ->where('stamp_series_id', $series->id)
+                ->count()
+        )->toBe(1);
+
+        // Voer de importmethode Vervangen uit.
+        $importer = new CatalogEditionExchangeImporter;
+
+        $importedEdition = $importer->importEdition(
+            $filePath,
+            $catalog,
+            'replace'
+        );
+
+        // Controleer dat dezelfde cataloguseditie behouden blijft.
+        expect($importedEdition->id)->toBe($edition->id);
+
+        // Haal de bestaande seriecataloguswaarde opnieuw op.
+        $existingValue->refresh();
+
+        // Controleer dat de bestaande postfriswaarde is bijgewerkt.
+        expect($existingValue->id)->toBe($originalValueId)
+            ->and($existingValue->catalog_number)->toBe('SER-200')
+            ->and($existingValue->catalog_value)->toBe('150.00')
+            ->and($existingValue->currency)->toBe('EUR')
+            ->and($existingValue->notes)->toBe('Gewijzigde waarde postfris');
+
+        // Zoek de nieuwe seriecataloguswaarde voor gestempeld.
+        $newValue = SeriesCatalogValue::query()
+            ->where('catalog_edition_id', $edition->id)
+            ->where('stamp_series_id', $series->id)
+            ->where('condition_id', $gestempeld->id)
+            ->first();
+
+        expect($newValue)->not->toBeNull();
+
+        // Controleer de nieuwe seriecataloguswaarde.
+        expect($newValue->catalog_number)->toBe('SER-200')
+            ->and($newValue->catalog_value)->toBe('75.00')
+            ->and($newValue->currency)->toBe('EUR')
+            ->and($newValue->notes)->toBe('Nieuwe waarde gestempeld');
+
+        // Controleer dat beide waarden aan dezelfde serie gekoppeld zijn.
+        expect($newValue->stamp_series_id)->toBe($series->id)
+            ->and($newValue->catalog_edition_id)->toBe($edition->id);
+
+        // Controleer dat er precies twee seriecataloguswaarden bestaan.
+        expect(
+            SeriesCatalogValue::query()
+                ->where('catalog_edition_id', $edition->id)
+                ->where('stamp_series_id', $series->id)
+                ->count()
+        )->toBe(2);
+
+        // Controleer dat er geen extra postzegelserie is aangemaakt.
+        expect(StampSeries::query()->count())->toBe(1);
+
+    } finally {
+        // Ruim het tijdelijke Excel-bestand op.
+        if ($spreadsheet !== null) {
+            $spreadsheet->disconnectWorksheets();
+        }
+
+        unlink($filePath);
+    }
+});
+
+test('importmethode vervangen draait gewijzigde seriecataloguswaarden terug bij een fout', function () {
+    // Maak een catalogus en bestaande cataloguseditie aan.
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus rollback vervangen seriecataloguswaarden',
+        'abbreviation' => 'TCRVS',
+    ]);
+
+    $edition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2026',
+        'edition_year' => 2026,
+    ]);
+
+    // Maak een land aan.
+    $country = Country::create([
+        'slug' => 'testland-rollback-vervangen-seriewaarden',
+        'iso_code' => 'RVS',
+        'name' => 'Testland rollback vervangen seriewaarden',
+    ]);
+
+    // Maak twee waarderingscategorieën aan.
+    $postfris = Condition::create([
+        'slug' => 'postfris',
+        'sort_order' => 1,
+        'is_active' => true,
+    ]);
+
+    $gestempeld = Condition::create([
+        'slug' => 'gestempeld',
+        'sort_order' => 2,
+        'is_active' => true,
+    ]);
+
+    // Maak een bestaande postzegelserie aan.
+    $series = StampSeries::create([
+        'country_id' => $country->id,
+        'name' => 'Postzegelserie rollback vervangen',
+        'issue_year' => 2026,
+    ]);
+
+    // Maak uitsluitend de oorspronkelijke postfriswaarde aan.
+    $existingValue = SeriesCatalogValue::create([
+        'catalog_edition_id' => $edition->id,
+        'stamp_series_id' => $series->id,
+        'condition_id' => $postfris->id,
+        'catalog_number' => 'SER-100',
+        'catalog_value' => '125.50',
+        'currency' => 'EUR',
+        'notes' => 'Oorspronkelijke seriecataloguswaarde',
+    ]);
+
+    $originalValueId = $existingValue->id;
+
+    // Exporteer de bestaande cataloguseditie.
+    $excelContent = Excel::raw(
+        new CatalogEditionExchangeExcelExport($catalog, $edition),
+        Xlsx::class
+    );
+
+    $filePath = tempnam(sys_get_temp_dir(), 'catalog_exchange_');
+
+    if ($filePath === false) {
+        throw new RuntimeException(
+            'Kan tijdelijk Excel-bestand niet aanmaken.'
+        );
+    }
+
+    $spreadsheet = null;
+
+    try {
+        file_put_contents($filePath, $excelContent);
+
+        // Open het Excel-bestand.
+        $spreadsheet = IOFactory::load($filePath);
+
+        // Voeg de tweede waarderingscategorie toe.
+        $conditionsSheet = $spreadsheet->getSheetByName('Waarderingscategorieen');
+
+        $conditionsSheet->setCellValue('A3', $gestempeld->slug);
+
+        // Open het tabblad met seriecataloguswaarden.
+        $seriesValuesSheet = $spreadsheet->getSheetByName('Seriecataloguswaarden');
+
+        $exchangeSeriesId = $seriesValuesSheet->getCell('A2')->getValue();
+
+        // Wijzig de bestaande postfriswaarde.
+        $seriesValuesSheet->setCellValue('C2', 'SER-200');
+        $seriesValuesSheet->setCellValue('D2', '250.00');
+        $seriesValuesSheet->setCellValue('E2', 'USD');
+        $seriesValuesSheet->setCellValue('F2', 'Gewijzigde seriecataloguswaarde');
+
+        // Voeg een nieuwe gestempeldwaarde toe.
+        $seriesValuesSheet->setCellValue('A3', $exchangeSeriesId);
+        $seriesValuesSheet->setCellValue('B3', $gestempeld->slug);
+        $seriesValuesSheet->setCellValue('C3', 'SER-200');
+        $seriesValuesSheet->setCellValue('D3', '75.00');
+        $seriesValuesSheet->setCellValue('E3', 'EUR');
+        $seriesValuesSheet->setCellValue('F3', 'Nieuwe seriecataloguswaarde gestempeld');
+
+        // Sla het gewijzigde Excel-bestand op.
+        $writer = new Xlsx($spreadsheet);
+        $writer->save($filePath);
+
+        $spreadsheet->disconnectWorksheets();
+        $spreadsheet = null;
+
+        // Bewaar de oorspronkelijke Eloquent-event-dispatcher.
+        $originalDispatcher = SeriesCatalogValue::getEventDispatcher();
+
+        // Gebruik een afzonderlijke dispatcher voor deze test.
+        $testDispatcher = clone $originalDispatcher;
+
+        SeriesCatalogValue::setEventDispatcher($testDispatcher);
+
+        // Simuleer een fout bij het aanmaken van de gestempeldwaarde.
+        SeriesCatalogValue::creating(
+            function (SeriesCatalogValue $value) use ($gestempeld) {
+                if ($value->condition_id === $gestempeld->id) {
+                    throw new RuntimeException(
+                        'Gesimuleerde fout tijdens vervangen seriecataloguswaarden.'
+                    );
+                }
+            }
+        );
+
+        // Voer de importmethode Vervangen uit.
+        $importer = new CatalogEditionExchangeImporter;
+
+        // De import moet mislukken tijdens de databasetransactie.
+        expect(
+            fn () => $importer->importEdition(
+                $filePath,
+                $catalog,
+                'replace'
+            )
+        )->toThrow(
+            RuntimeException::class,
+            'Gesimuleerde fout tijdens vervangen seriecataloguswaarden.'
+        );
+
+        // Haal de bestaande seriecataloguswaarde opnieuw op.
+        $existingValue->refresh();
+
+        // Controleer dat alle oorspronkelijke gegevens zijn hersteld.
+        expect($existingValue->id)->toBe($originalValueId)
+            ->and($existingValue->catalog_number)->toBe('SER-100')
+            ->and($existingValue->catalog_value)->toBe('125.50')
+            ->and($existingValue->currency)->toBe('EUR')
+            ->and($existingValue->notes)->toBe('Oorspronkelijke seriecataloguswaarde');
+
+        // Controleer dat de nieuwe gestempeldwaarde niet bestaat.
+        expect(
+            SeriesCatalogValue::query()
+                ->where('catalog_edition_id', $edition->id)
+                ->where('stamp_series_id', $series->id)
+                ->where('condition_id', $gestempeld->id)
+                ->exists()
+        )->toBeFalse();
+
+        // Controleer dat er nog precies één seriecataloguswaarde bestaat.
+        expect(
+            SeriesCatalogValue::query()
+                ->where('catalog_edition_id', $edition->id)
+                ->where('stamp_series_id', $series->id)
+                ->count()
+        )->toBe(1);
+
+        // Controleer dat de bestaande cataloguseditie behouden blijft.
+        expect(
+            CatalogEdition::query()
+                ->whereKey($edition->id)
+                ->exists()
+        )->toBeTrue();
+
+        // Controleer dat de bestaande postzegelserie behouden blijft.
+        expect(
+            StampSeries::query()
+                ->whereKey($series->id)
+                ->exists()
+        )->toBeTrue();
+
+    } finally {
+        // Herstel de oorspronkelijke Eloquent-event-dispatcher.
+        if (isset($originalDispatcher)) {
+            SeriesCatalogValue::setEventDispatcher($originalDispatcher);
+        }
+
+        // Maak het spreadsheet vrij.
+        if ($spreadsheet !== null) {
+            $spreadsheet->disconnectWorksheets();
+        }
+
+        // Verwijder het tijdelijke Excel-bestand.
+        unlink($filePath);
+    }
+});
+
+test('importmethode vervangen draait gewijzigde cataloguswaarden terug bij een fout', function () {
+    // Maak een catalogus en bestaande cataloguseditie aan.
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus rollback vervangen cataloguswaarden',
+        'abbreviation' => 'TCRVC',
+    ]);
+
+    $edition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2026',
+        'edition_year' => 2026,
+    ]);
+
+    // Maak een land aan.
+    $country = Country::create([
+        'slug' => 'testland-rollback-vervangen-cataloguswaarden',
+        'iso_code' => 'RVC',
+        'name' => 'Testland rollback vervangen cataloguswaarden',
+    ]);
+
+    // Maak twee waarderingscategorieën aan.
+    $postfris = Condition::create([
+        'slug' => 'postfris',
+        'sort_order' => 1,
+        'is_active' => true,
+    ]);
+
+    $gestempeld = Condition::create([
+        'slug' => 'gestempeld',
+        'sort_order' => 2,
+        'is_active' => true,
+    ]);
+
+    // Maak een bestaande postzegel aan.
+    $stamp = Stamp::create([
+        'country_id' => $country->id,
+        'name' => 'Postzegel rollback vervangen',
+        'issue_year' => 2026,
+    ]);
+
+    // Maak een bestaande catalogusvermelding aan.
+    $entry = StampCatalogEntry::create([
+        'stamp_id' => $stamp->id,
+        'catalog_edition_id' => $edition->id,
+        'catalog_number' => '100',
+    ]);
+
+    // Maak uitsluitend de oorspronkelijke postfriswaarde aan.
+    $existingValue = StampCatalogValue::create([
+        'stamp_catalog_entry_id' => $entry->id,
+        'condition_id' => $postfris->id,
+        'catalog_value' => '25.50',
+        'currency' => 'EUR',
+        'notes' => 'Oorspronkelijke cataloguswaarde',
+        'needs_review' => false,
+    ]);
+
+    $originalValueId = $existingValue->id;
+
+    // Exporteer de bestaande cataloguseditie.
+    $excelContent = Excel::raw(
+        new CatalogEditionExchangeExcelExport($catalog, $edition),
+        Xlsx::class
+    );
+
+    $filePath = tempnam(sys_get_temp_dir(), 'catalog_exchange_');
+
+    if ($filePath === false) {
+        throw new RuntimeException(
+            'Kan tijdelijk Excel-bestand niet aanmaken.'
+        );
+    }
+
+    $spreadsheet = null;
+
+    try {
+        file_put_contents($filePath, $excelContent);
+
+        // Open het Excel-bestand.
+        $spreadsheet = IOFactory::load($filePath);
+
+        // Voeg de tweede waarderingscategorie toe.
+        $conditionsSheet = $spreadsheet->getSheetByName('Waarderingscategorieen');
+
+        $conditionsSheet->setCellValue('A3', $gestempeld->slug);
+
+        // Open het tabblad met cataloguswaarden.
+        $catalogValuesSheet = $spreadsheet->getSheetByName('Cataloguswaarden');
+
+        $exchangeStampId = $catalogValuesSheet->getCell('A2')->getValue();
+        $catalogNumber = $catalogValuesSheet->getCell('B2')->getValue();
+
+        // Wijzig de bestaande postfriswaarde.
+        $catalogValuesSheet->setCellValue('D2', '50.00');
+        $catalogValuesSheet->setCellValue('E2', 'USD');
+        $catalogValuesSheet->setCellValue('F2', 'Gewijzigde cataloguswaarde');
+        $catalogValuesSheet->setCellValue('G2', 1);
+
+        // Voeg een nieuwe gestempeldwaarde toe.
+        $catalogValuesSheet->setCellValue('A3', $exchangeStampId);
+        $catalogValuesSheet->setCellValue('B3', $catalogNumber);
+        $catalogValuesSheet->setCellValue('C3', $gestempeld->slug);
+        $catalogValuesSheet->setCellValue('D3', '12.75');
+        $catalogValuesSheet->setCellValue('E3', 'EUR');
+        $catalogValuesSheet->setCellValue('F3', 'Nieuwe cataloguswaarde gestempeld');
+        $catalogValuesSheet->setCellValue('G3', 1);
+
+        // Sla het gewijzigde Excel-bestand op.
+        $writer = new Xlsx($spreadsheet);
+        $writer->save($filePath);
+
+        $spreadsheet->disconnectWorksheets();
+        $spreadsheet = null;
+
+        // Bewaar de oorspronkelijke Eloquent-event-dispatcher.
+        $originalDispatcher = StampCatalogValue::getEventDispatcher();
+
+        // Gebruik een afzonderlijke dispatcher voor deze test.
+        $testDispatcher = clone $originalDispatcher;
+
+        StampCatalogValue::setEventDispatcher($testDispatcher);
+
+        // Simuleer een fout bij het aanmaken van de gestempeldwaarde.
+        StampCatalogValue::creating(
+            function (StampCatalogValue $value) use ($gestempeld) {
+                if ($value->condition_id === $gestempeld->id) {
+                    throw new RuntimeException(
+                        'Gesimuleerde fout tijdens vervangen cataloguswaarden.'
+                    );
+                }
+            }
+        );
+
+        // Voer de importmethode Vervangen uit.
+        $importer = new CatalogEditionExchangeImporter;
+
+        // De import moet mislukken tijdens de databasetransactie.
+        expect(
+            fn () => $importer->importEdition(
+                $filePath,
+                $catalog,
+                'replace'
+            )
+        )->toThrow(
+            RuntimeException::class,
+            'Gesimuleerde fout tijdens vervangen cataloguswaarden.'
+        );
+
+        // Haal de bestaande cataloguswaarde opnieuw op.
+        $existingValue->refresh();
+
+        // Controleer dat alle oorspronkelijke gegevens zijn hersteld.
+        expect($existingValue->id)->toBe($originalValueId)
+            ->and($existingValue->catalog_value)->toBe('25.50')
+            ->and($existingValue->currency)->toBe('EUR')
+            ->and($existingValue->notes)->toBe('Oorspronkelijke cataloguswaarde')
+            ->and($existingValue->needs_review)->toBeFalse();
+
+        // Controleer dat de nieuwe gestempeldwaarde niet bestaat.
+        expect(
+            StampCatalogValue::query()
+                ->where('stamp_catalog_entry_id', $entry->id)
+                ->where('condition_id', $gestempeld->id)
+                ->exists()
+        )->toBeFalse();
+
+        // Controleer dat er nog precies één cataloguswaarde bestaat.
+        expect(
+            StampCatalogValue::query()
+                ->where('stamp_catalog_entry_id', $entry->id)
+                ->count()
+        )->toBe(1);
+
+        // Controleer dat de bestaande cataloguseditie behouden blijft.
+        expect(
+            CatalogEdition::query()
+                ->whereKey($edition->id)
+                ->exists()
+        )->toBeTrue();
+
+        // Controleer dat de bestaande postzegel behouden blijft.
+        expect(
+            Stamp::query()
+                ->whereKey($stamp->id)
+                ->exists()
+        )->toBeTrue();
+
+        // Controleer dat de catalogusvermelding behouden blijft.
+        expect(
+            StampCatalogEntry::query()
+                ->whereKey($entry->id)
+                ->exists()
+        )->toBeTrue();
+
+    } finally {
+        // Herstel de oorspronkelijke Eloquent-event-dispatcher.
+        if (isset($originalDispatcher)) {
+            StampCatalogValue::setEventDispatcher($originalDispatcher);
+        }
+
+        // Maak het spreadsheet vrij.
+        if ($spreadsheet !== null) {
+            $spreadsheet->disconnectWorksheets();
+        }
+
+        // Verwijder het tijdelijke Excel-bestand.
+        unlink($filePath);
+    }
+});
+
+test('importmethode vervangen verwijdert catalogusvermeldingen die ontbreken in Excel', function () {
+    // Maak een catalogus en cataloguseditie aan.
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus vervangen ontbrekende vermeldingen',
+        'abbreviation' => 'TCVOV',
+    ]);
+
+    $edition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2026',
+        'edition_year' => 2026,
+    ]);
+
+    // Maak een land en waarderingscategorie aan.
+    $country = Country::create([
+        'slug' => 'testland-vervangen-ontbrekende-vermeldingen',
+        'iso_code' => 'TOV',
+        'name' => 'Testland ontbrekende vermeldingen',
+    ]);
+
+    $condition = Condition::create([
+        'slug' => 'postfris',
+        'sort_order' => 1,
+        'is_active' => true,
+    ]);
+
+    // Maak de postzegel aan die in Excel moet blijven staan.
+    $retainedStamp = Stamp::create([
+        'country_id' => $country->id,
+        'name' => 'Postzegel behouden',
+        'issue_year' => 2026,
+    ]);
+
+    $retainedEntry = StampCatalogEntry::create([
+        'stamp_id' => $retainedStamp->id,
+        'catalog_edition_id' => $edition->id,
+        'catalog_number' => '100',
+    ]);
+
+    // Exporteer de editie met uitsluitend catalogusnummer 100.
+    $excelContent = Excel::raw(
+        new CatalogEditionExchangeExcelExport($catalog, $edition),
+        Xlsx::class
+    );
+
+    $filePath = tempnam(sys_get_temp_dir(), 'catalog_exchange_');
+
+    if ($filePath === false) {
+        throw new RuntimeException(
+            'Kan tijdelijk Excel-bestand niet aanmaken.'
+        );
+    }
+
+    try {
+        file_put_contents($filePath, $excelContent);
+
+        // Voeg na het exporteren een tweede postzegel toe.
+        // Deze komt dus niet in Excel voor.
+        $missingStamp = Stamp::create([
+            'country_id' => $country->id,
+            'name' => 'Postzegel ontbreekt in Excel',
+            'issue_year' => 2026,
+        ]);
+
+        $missingEntry = StampCatalogEntry::create([
+            'stamp_id' => $missingStamp->id,
+            'catalog_edition_id' => $edition->id,
+            'catalog_number' => '200',
+        ]);
+
+        // Koppel een cataloguswaarde aan de ontbrekende vermelding.
+        $missingValue = StampCatalogValue::create([
+            'stamp_catalog_entry_id' => $missingEntry->id,
+            'condition_id' => $condition->id,
+            'catalog_value' => '25.50',
+            'currency' => 'EUR',
+            'needs_review' => false,
+        ]);
+
+        // Controleer de situatie vóór het importeren.
+        expect(StampCatalogEntry::query()
+            ->where('catalog_edition_id', $edition->id)
+            ->count())->toBe(2);
+
+        expect(StampCatalogValue::query()
+            ->whereKey($missingValue->id)
+            ->exists())->toBeTrue();
+
+        // Gebruik de importmethode.
+        $importer = new CatalogEditionExchangeImporter;
+
+        $importedEdition = $importer->importEdition(
+            $filePath,
+            $catalog,
+            'replace'
+        );
+
+        // De bestaande cataloguseditie blijft behouden.
+        expect($importedEdition->id)->toBe($edition->id);
+
+        // Catalogusnummer 100 blijft behouden.
+        expect(StampCatalogEntry::query()
+            ->whereKey($retainedEntry->id)
+            ->exists())->toBeTrue();
+
+        // Catalogusnummer 200 wordt verwijderd.
+        expect(StampCatalogEntry::query()
+            ->whereKey($missingEntry->id)
+            ->exists())->toBeFalse();
+
+        // De bijbehorende cataloguswaarde wordt ook verwijderd.
+        expect(StampCatalogValue::query()
+            ->whereKey($missingValue->id)
+            ->exists())->toBeFalse();
+
+        // Beide postzegels blijven bestaan.
+        expect(Stamp::query()
+            ->whereKey($retainedStamp->id)
+            ->exists())->toBeTrue();
+
+        expect(Stamp::query()
+            ->whereKey($missingStamp->id)
+            ->exists())->toBeTrue();
+
+        // De editie bevat nog precies één catalogusvermelding.
+        expect(StampCatalogEntry::query()
+            ->where('catalog_edition_id', $edition->id)
+            ->count())->toBe(1);
+
+    } finally {
+        // Verwijder het tijdelijke Excel-bestand.
+        unlink($filePath);
+    }
+});
+
+test('importmethode vervangen verwijdert cataloguswaarden die ontbreken in Excel', function () {
+    // Maak een catalogus en bestaande cataloguseditie aan.
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus vervangen ontbrekende waarden',
+        'abbreviation' => 'TCVOW',
+    ]);
+
+    $edition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2026',
+        'edition_year' => 2026,
+    ]);
+
+    // Maak een land aan.
+    $country = Country::create([
+        'slug' => 'testland-vervangen-ontbrekende-waarden',
+        'iso_code' => 'TOW',
+        'name' => 'Testland ontbrekende waarden',
+    ]);
+
+    // Maak twee waarderingscategorieën aan.
+    $postfris = Condition::create([
+        'slug' => 'postfris',
+        'sort_order' => 1,
+        'is_active' => true,
+    ]);
+
+    $gestempeld = Condition::create([
+        'slug' => 'gestempeld',
+        'sort_order' => 2,
+        'is_active' => true,
+    ]);
+
+    // Maak een bestaande postzegel aan.
+    $stamp = Stamp::create([
+        'country_id' => $country->id,
+        'name' => 'Postzegel met twee waarderingen',
+        'issue_year' => 2026,
+    ]);
+
+    // Koppel de postzegel aan de cataloguseditie.
+    $entry = StampCatalogEntry::create([
+        'stamp_id' => $stamp->id,
+        'catalog_edition_id' => $edition->id,
+        'catalog_number' => '100',
+    ]);
+
+    // Maak de cataloguswaarde die in Excel moet blijven staan.
+    $retainedValue = StampCatalogValue::create([
+        'stamp_catalog_entry_id' => $entry->id,
+        'condition_id' => $postfris->id,
+        'catalog_value' => '25.50',
+        'currency' => 'EUR',
+        'needs_review' => false,
+    ]);
+
+    // Exporteer de cataloguseditie met uitsluitend de waarde Postfris.
+    $excelContent = Excel::raw(
+        new CatalogEditionExchangeExcelExport($catalog, $edition),
+        Xlsx::class
+    );
+
+    $filePath = tempnam(sys_get_temp_dir(), 'catalog_exchange_');
+
+    if ($filePath === false) {
+        throw new RuntimeException(
+            'Kan tijdelijk Excel-bestand niet aanmaken.'
+        );
+    }
+
+    try {
+        file_put_contents($filePath, $excelContent);
+
+        // Voeg na het exporteren een tweede cataloguswaarde toe.
+        // Deze waarde komt dus niet in Excel voor.
+        $missingValue = StampCatalogValue::create([
+            'stamp_catalog_entry_id' => $entry->id,
+            'condition_id' => $gestempeld->id,
+            'catalog_value' => '10.00',
+            'currency' => 'EUR',
+            'needs_review' => false,
+        ]);
+
+        // Controleer de situatie vóór het importeren.
+        expect(StampCatalogValue::query()
+            ->where('stamp_catalog_entry_id', $entry->id)
+            ->count())->toBe(2);
+
+        // Gebruik de importmethode.
+        $importer = new CatalogEditionExchangeImporter;
+
+        // Importeer met de methode Vervangen.
+        $importedEdition = $importer->importEdition(
+            $filePath,
+            $catalog,
+            'replace'
+        );
+
+        // De bestaande cataloguseditie blijft behouden.
+        expect($importedEdition->id)->toBe($edition->id);
+
+        // De oorspronkelijke cataloguswaarde blijft behouden.
+        expect(StampCatalogValue::query()
+            ->whereKey($retainedValue->id)
+            ->exists())->toBeTrue();
+
+        // De cataloguswaarde die ontbreekt in Excel wordt verwijderd.
+        expect(StampCatalogValue::query()
+            ->whereKey($missingValue->id)
+            ->exists())->toBeFalse();
+
+        // Er blijft precies één cataloguswaarde over.
+        expect(StampCatalogValue::query()
+            ->where('stamp_catalog_entry_id', $entry->id)
+            ->count())->toBe(1);
+
+        // De catalogusvermelding blijft behouden.
+        expect(StampCatalogEntry::query()
+            ->whereKey($entry->id)
+            ->exists())->toBeTrue();
+
+        // De postzegel blijft behouden.
+        expect(Stamp::query()
+            ->whereKey($stamp->id)
+            ->exists())->toBeTrue();
+
+    } finally {
+        // Verwijder het tijdelijke Excel-bestand.
+        unlink($filePath);
+    }
+});
+
+test('importmethode vervangen verwijdert seriecataloguswaarden die ontbreken in Excel', function () {
+    // Maak een catalogus en bestaande cataloguseditie aan.
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus vervangen ontbrekende seriewaarden',
+        'abbreviation' => 'TCVOS',
+    ]);
+
+    $edition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2026',
+        'edition_year' => 2026,
+    ]);
+
+    // Maak een land aan.
+    $country = Country::create([
+        'slug' => 'testland-vervangen-ontbrekende-seriewaarden',
+        'iso_code' => 'TOS',
+        'name' => 'Testland ontbrekende seriewaarden',
+    ]);
+
+    // Maak twee waarderingscategorieën aan.
+    $postfris = Condition::create([
+        'slug' => 'postfris',
+        'sort_order' => 1,
+        'is_active' => true,
+    ]);
+
+    $gestempeld = Condition::create([
+        'slug' => 'gestempeld',
+        'sort_order' => 2,
+        'is_active' => true,
+    ]);
+
+    // Maak een bestaande postzegelserie aan.
+    $series = StampSeries::create([
+        'country_id' => $country->id,
+        'name' => 'Postzegelserie met twee waarderingen',
+        'issue_year' => 2026,
+    ]);
+
+    // Maak de seriecataloguswaarde die in Excel moet blijven staan.
+    $retainedValue = SeriesCatalogValue::create([
+        'catalog_edition_id' => $edition->id,
+        'stamp_series_id' => $series->id,
+        'condition_id' => $postfris->id,
+        'catalog_number' => 'SER-100',
+        'catalog_value' => '125.50',
+        'currency' => 'EUR',
+        'notes' => 'Bestaande seriecataloguswaarde',
+    ]);
+
+    // Exporteer de cataloguseditie met uitsluitend de waarde Postfris.
+    $excelContent = Excel::raw(
+        new CatalogEditionExchangeExcelExport($catalog, $edition),
+        Xlsx::class
+    );
+
+    $filePath = tempnam(sys_get_temp_dir(), 'catalog_exchange_');
+
+    if ($filePath === false) {
+        throw new RuntimeException(
+            'Kan tijdelijk Excel-bestand niet aanmaken.'
+        );
+    }
+
+    try {
+        file_put_contents($filePath, $excelContent);
+
+        // Voeg na het exporteren een tweede seriecataloguswaarde toe.
+        // Deze waarde komt dus niet in Excel voor.
+        $missingValue = SeriesCatalogValue::create([
+            'catalog_edition_id' => $edition->id,
+            'stamp_series_id' => $series->id,
+            'condition_id' => $gestempeld->id,
+            'catalog_number' => 'SER-200',
+            'catalog_value' => '50.00',
+            'currency' => 'EUR',
+            'notes' => 'Ontbrekende seriecataloguswaarde',
+        ]);
+
+        // Controleer de situatie vóór het importeren.
+        expect(SeriesCatalogValue::query()
+            ->where('catalog_edition_id', $edition->id)
+            ->count())->toBe(2);
+
+        // Gebruik de importmethode.
+        $importer = new CatalogEditionExchangeImporter;
+
+        // Importeer met de methode Vervangen.
+        $importedEdition = $importer->importEdition(
+            $filePath,
+            $catalog,
+            'replace'
+        );
+
+        // De bestaande cataloguseditie blijft behouden.
+        expect($importedEdition->id)->toBe($edition->id);
+
+        // De oorspronkelijke seriecataloguswaarde blijft behouden.
+        expect(SeriesCatalogValue::query()
+            ->whereKey($retainedValue->id)
+            ->exists())->toBeTrue();
+
+        // De seriecataloguswaarde die ontbreekt in Excel wordt verwijderd.
+        expect(SeriesCatalogValue::query()
+            ->whereKey($missingValue->id)
+            ->exists())->toBeFalse();
+
+        // Er blijft precies één seriecataloguswaarde over.
+        expect(SeriesCatalogValue::query()
+            ->where('catalog_edition_id', $edition->id)
+            ->count())->toBe(1);
+
+        // De postzegelserie zelf blijft behouden.
+        expect(StampSeries::query()
+            ->whereKey($series->id)
+            ->exists())->toBeTrue();
+
+    } finally {
+        // Verwijder het tijdelijke Excel-bestand.
+        unlink($filePath);
+    }
+});
+
+test('importmethode vervangen behoudt seriecataloguswaarden van andere catalogusedities', function () {
+    // Maak een catalogus aan.
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus bescherming andere serie-edities',
+        'abbreviation' => 'TCBSE',
+    ]);
+
+    // Maak de cataloguseditie die vervangen wordt.
+    $edition2026 = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2026',
+        'edition_year' => 2026,
+    ]);
+
+    // Maak een tweede cataloguseditie die beschermd moet blijven.
+    $edition2025 = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2025',
+        'edition_year' => 2025,
+    ]);
+
+    // Maak een land aan.
+    $country = Country::create([
+        'slug' => 'testland-bescherming-serie-edities',
+        'iso_code' => 'TBE',
+        'name' => 'Testland bescherming serie-edities',
+    ]);
+
+    // Maak twee waarderingscategorieën aan.
+    $postfris = Condition::create([
+        'slug' => 'postfris',
+        'sort_order' => 1,
+        'is_active' => true,
+    ]);
+
+    $gestempeld = Condition::create([
+        'slug' => 'gestempeld',
+        'sort_order' => 2,
+        'is_active' => true,
+    ]);
+
+    // Maak een postzegelserie aan die door beide edities wordt gebruikt.
+    $series = StampSeries::create([
+        'country_id' => $country->id,
+        'name' => 'Postzegelserie gedeeld door twee edities',
+        'issue_year' => 2025,
+    ]);
+
+    // Deze waarde staat in Excel en moet behouden blijven.
+    $retainedValue = SeriesCatalogValue::create([
+        'catalog_edition_id' => $edition2026->id,
+        'stamp_series_id' => $series->id,
+        'condition_id' => $postfris->id,
+        'catalog_number' => 'SER-2026-100',
+        'catalog_value' => '125.50',
+        'currency' => 'EUR',
+        'notes' => 'Waarde editie 2026',
+    ]);
+
+    // Exporteer uitsluitend editie 2026.
+    $excelContent = Excel::raw(
+        new CatalogEditionExchangeExcelExport($catalog, $edition2026),
+        Xlsx::class
+    );
+
+    $filePath = tempnam(sys_get_temp_dir(), 'catalog_exchange_');
+
+    if ($filePath === false) {
+        throw new RuntimeException(
+            'Kan tijdelijk Excel-bestand niet aanmaken.'
+        );
+    }
+
+    try {
+        file_put_contents($filePath, $excelContent);
+
+        // Voeg na de export een extra waarde toe aan editie 2026.
+        // Deze ontbreekt dus in Excel en moet worden verwijderd.
+        $missingValue = SeriesCatalogValue::create([
+            'catalog_edition_id' => $edition2026->id,
+            'stamp_series_id' => $series->id,
+            'condition_id' => $gestempeld->id,
+            'catalog_number' => 'SER-2026-200',
+            'catalog_value' => '50.00',
+            'currency' => 'EUR',
+            'notes' => 'Ontbrekende waarde editie 2026',
+        ]);
+
+        // Maak een seriecataloguswaarde voor editie 2025.
+        // Deze mag niet worden gewijzigd of verwijderd.
+        $protectedValue = SeriesCatalogValue::create([
+            'catalog_edition_id' => $edition2025->id,
+            'stamp_series_id' => $series->id,
+            'condition_id' => $postfris->id,
+            'catalog_number' => 'SER-2025-100',
+            'catalog_value' => '75.00',
+            'currency' => 'EUR',
+            'notes' => 'Beschermde waarde editie 2025',
+        ]);
+
+        // Controleer de uitgangssituatie.
+        expect(SeriesCatalogValue::query()->count())->toBe(3);
+
+        // Voer Vervangen uit voor uitsluitend editie 2026.
+        $importer = new CatalogEditionExchangeImporter;
+
+        $importedEdition = $importer->importEdition(
+            $filePath,
+            $catalog,
+            'replace'
+        );
+
+        // Controleer dat de juiste editie is vervangen.
+        expect($importedEdition->id)->toBe($edition2026->id);
+
+        // De waarde die in Excel voorkomt, blijft behouden.
+        expect(SeriesCatalogValue::query()
+            ->whereKey($retainedValue->id)
+            ->exists())->toBeTrue();
+
+        // De ontbrekende waarde van editie 2026 wordt verwijderd.
+        expect(SeriesCatalogValue::query()
+            ->whereKey($missingValue->id)
+            ->exists())->toBeFalse();
+
+        // De waarde van editie 2025 blijft behouden.
+        expect(SeriesCatalogValue::query()
+            ->whereKey($protectedValue->id)
+            ->exists())->toBeTrue();
+
+        // Controleer dat de beschermde waarde niet is gewijzigd.
+        $protectedValue->refresh();
+
+        expect($protectedValue->catalog_edition_id)->toBe($edition2025->id)
+            ->and($protectedValue->stamp_series_id)->toBe($series->id)
+            ->and($protectedValue->condition_id)->toBe($postfris->id)
+            ->and($protectedValue->catalog_number)->toBe('SER-2025-100')
+            ->and($protectedValue->catalog_value)->toBe('75.00')
+            ->and($protectedValue->currency)->toBe('EUR')
+            ->and($protectedValue->notes)->toBe('Beschermde waarde editie 2025');
+
+        // Controleer de aantallen per cataloguseditie.
+        expect(SeriesCatalogValue::query()
+            ->where('catalog_edition_id', $edition2026->id)
+            ->count())->toBe(1);
+
+        expect(SeriesCatalogValue::query()
+            ->where('catalog_edition_id', $edition2025->id)
+            ->count())->toBe(1);
+
+        // De gedeelde postzegelserie blijft behouden.
+        expect(StampSeries::query()
+            ->whereKey($series->id)
+            ->exists())->toBeTrue();
+
+        // Beide catalogusedities blijven bestaan.
+        expect(CatalogEdition::query()
+            ->whereKey($edition2026->id)
+            ->exists())->toBeTrue();
+
+        expect(CatalogEdition::query()
+            ->whereKey($edition2025->id)
+            ->exists())->toBeTrue();
+
+    } finally {
+        // Verwijder het tijdelijke Excel-bestand.
+        unlink($filePath);
+    }
+});
+
+test('importmethode vervangen behoudt bestaande postzegelthemas die ontbreken in Excel', function () {
+    // Maak een catalogus met twee edities.
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus bescherming postzegelthemas',
+    ]);
+
+    $edition2026 = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2026',
+        'edition_year' => 2026,
+    ]);
+
+    $edition2025 = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2025',
+        'edition_year' => 2025,
+    ]);
+
+    // Maak een land en een postzegel aan.
+    $country = Country::create([
+        'slug' => 'testland-bescherming-postzegelthemas',
+        'iso_code' => 'TBP',
+        'name' => 'Testland bescherming postzegelthemas',
+    ]);
+
+    $stamp = Stamp::create([
+        'country_id' => $country->id,
+        'name' => 'Postzegel gedeeld door twee catalogusedities',
+        'issue_year' => 2026,
+    ]);
+
+    // Koppel dezelfde postzegel aan beide edities.
+    $entry2026 = StampCatalogEntry::create([
+        'catalog_edition_id' => $edition2026->id,
+        'stamp_id' => $stamp->id,
+        'catalog_number' => '100',
+    ]);
+
+    $entry2025 = StampCatalogEntry::create([
+        'catalog_edition_id' => $edition2025->id,
+        'stamp_id' => $stamp->id,
+        'catalog_number' => '200',
+    ]);
+
+    // Maak twee thema's aan.
+    $themeAnimals = Theme::create([
+        'slug' => 'bescherming-thema-dieren',
+        'name' => 'Dieren',
+    ]);
+
+    $themeFlowers = Theme::create([
+        'slug' => 'bescherming-thema-bloemen',
+        'name' => 'Bloemen',
+    ]);
+
+    // Koppel aanvankelijk alleen het eerste thema.
+    $stamp->themes()->attach($themeAnimals->id);
+
+    // Exporteer uitsluitend cataloguseditie 2026.
+    $excelContent = Excel::raw(
+        new CatalogEditionExchangeExcelExport($catalog, $edition2026),
+        Xlsx::class
+    );
+
+    $filePath = tempnam(sys_get_temp_dir(), 'stamp_themes_replace_');
+
+    if ($filePath === false) {
+        throw new RuntimeException(
+            'Kan tijdelijk Excel-bestand niet aanmaken.'
+        );
+    }
+
+    try {
+        file_put_contents($filePath, $excelContent);
+
+        // Voeg na de export een tweede themakoppeling toe.
+        // Dit thema ontbreekt dus in Excel.
+        $stamp->themes()->attach($themeFlowers->id);
+
+        expect($stamp->themes()->count())->toBe(2);
+
+        // Vervang uitsluitend cataloguseditie 2026.
+        $importer = new CatalogEditionExchangeImporter;
+
+        $importedEdition = $importer->importEdition(
+            $filePath,
+            $catalog,
+            'replace'
+        );
+
+        // Controleer dat de juiste editie is vervangen.
+        expect($importedEdition->id)->toBe($edition2026->id);
+
+        // Beide bestaande themakoppelingen moeten behouden blijven.
+        expect($stamp->themes()
+            ->whereKey($themeAnimals->id)
+            ->exists())->toBeTrue();
+
+        expect($stamp->themes()
+            ->whereKey($themeFlowers->id)
+            ->exists())->toBeTrue();
+
+        expect($stamp->themes()->count())->toBe(2);
+
+        // De gedeelde postzegel moet behouden blijven.
+        expect(Stamp::query()
+            ->whereKey($stamp->id)
+            ->exists())->toBeTrue();
+
+        // Beide catalogusvermeldingen moeten behouden blijven.
+        expect(StampCatalogEntry::query()
+            ->whereKey($entry2026->id)
+            ->exists())->toBeTrue();
+
+        expect(StampCatalogEntry::query()
+            ->whereKey($entry2025->id)
+            ->exists())->toBeTrue();
+
+        // Beide catalogusedities moeten behouden blijven.
+        expect(CatalogEdition::query()
+            ->whereKey($edition2026->id)
+            ->exists())->toBeTrue();
+
+        expect(CatalogEdition::query()
+            ->whereKey($edition2025->id)
+            ->exists())->toBeTrue();
+
+    } finally {
+        // Verwijder het tijdelijke Excel-bestand.
+        unlink($filePath);
+    }
+});
+
+test('importmethode vervangen behoudt persoonlijke postzegelexemplaren bij ontbrekende catalogusvermelding', function () {
+    // Maak een catalogus en cataloguseditie aan.
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus bescherming persoonlijke exemplaren',
+    ]);
+
+    $edition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2026',
+        'edition_year' => 2026,
+    ]);
+
+    // Maak een land en conditie aan.
+    $country = Country::create([
+        'slug' => 'testland-bescherming-persoonlijke-exemplaren',
+        'iso_code' => 'TPE',
+        'name' => 'Testland persoonlijke exemplaren',
+    ]);
+
+    $condition = Condition::create([
+        'slug' => 'postfris',
+        'sort_order' => 1,
+        'is_active' => true,
+    ]);
+
+    // Maak een testgebruiker aan.
+    $user = User::factory()->create();
+
+    // Maak een postzegel aan die in Excel behouden blijft.
+    $retainedStamp = Stamp::create([
+        'country_id' => $country->id,
+        'name' => 'Postzegel behouden in Excel',
+        'issue_year' => 2026,
+    ]);
+
+    $retainedEntry = StampCatalogEntry::create([
+        'stamp_id' => $retainedStamp->id,
+        'catalog_edition_id' => $edition->id,
+        'catalog_number' => '100',
+    ]);
+
+    // Exporteer de cataloguseditie met uitsluitend catalogusnummer 100.
+    $excelContent = Excel::raw(
+        new CatalogEditionExchangeExcelExport($catalog, $edition),
+        Xlsx::class
+    );
+
+    $filePath = tempnam(sys_get_temp_dir(), 'stamp_copies_replace_');
+
+    if ($filePath === false) {
+        throw new RuntimeException(
+            'Kan tijdelijk Excel-bestand niet aanmaken.'
+        );
+    }
+
+    try {
+        file_put_contents($filePath, $excelContent);
+
+        // Voeg na de export een tweede postzegel toe.
+        // Deze ontbreekt dus in Excel.
+        $missingStamp = Stamp::create([
+            'country_id' => $country->id,
+            'name' => 'Postzegel met persoonlijk exemplaar',
+            'issue_year' => 2026,
+        ]);
+
+        $missingEntry = StampCatalogEntry::create([
+            'stamp_id' => $missingStamp->id,
+            'catalog_edition_id' => $edition->id,
+            'catalog_number' => '200',
+        ]);
+
+        // Maak een persoonlijk exemplaar van de ontbrekende postzegel.
+        $stampCopy = StampCopy::create([
+            'user_id' => $user->id,
+            'stamp_id' => $missingStamp->id,
+            'condition_id' => $condition->id,
+            'quantity' => 3,
+            'acquisition_date' => '2026-10-15',
+            'purchase_price' => '45.75',
+            'purchase_currency' => 'EUR',
+            'acquisition_method' => 'purchase',
+            'is_variant' => true,
+            'variant_description' => 'Bijzondere kleurafwijking',
+            'notes' => 'Persoonlijk verzamelexemplaar behouden',
+        ]);
+
+        // Controleer de uitgangssituatie.
+        expect(StampCatalogEntry::query()
+            ->where('catalog_edition_id', $edition->id)
+            ->count())->toBe(2);
+
+        expect(StampCopy::query()
+            ->whereKey($stampCopy->id)
+            ->exists())->toBeTrue();
+
+        // Vervang de bestaande cataloguseditie.
+        $importer = new CatalogEditionExchangeImporter;
+
+        $importedEdition = $importer->importEdition(
+            $filePath,
+            $catalog,
+            'replace'
+        );
+
+        // De oorspronkelijke cataloguseditie blijft bestaan.
+        expect($importedEdition->id)->toBe($edition->id);
+
+        // Catalogusnummer 100 blijft behouden.
+        expect(StampCatalogEntry::query()
+            ->whereKey($retainedEntry->id)
+            ->exists())->toBeTrue();
+
+        // Catalogusnummer 200 wordt verwijderd.
+        expect(StampCatalogEntry::query()
+            ->whereKey($missingEntry->id)
+            ->exists())->toBeFalse();
+
+        // De bijbehorende postzegel blijft behouden.
+        expect(Stamp::query()
+            ->whereKey($missingStamp->id)
+            ->exists())->toBeTrue();
+
+        // Het persoonlijke exemplaar blijft behouden.
+        expect(StampCopy::query()
+            ->whereKey($stampCopy->id)
+            ->exists())->toBeTrue();
+
+        // Controleer dat alle persoonlijke gegevens ongewijzigd zijn.
+        $stampCopy->refresh();
+
+        expect($stampCopy->user_id)->toBe($user->id)
+            ->and($stampCopy->stamp_id)->toBe($missingStamp->id)
+            ->and($stampCopy->condition_id)->toBe($condition->id)
+            ->and($stampCopy->quantity)->toBe(3)
+            ->and($stampCopy->acquisition_date->format('Y-m-d'))->toBe('2026-10-15')
+            ->and($stampCopy->purchase_price)->toBe('45.75')
+            ->and($stampCopy->purchase_currency)->toBe('EUR')
+            ->and($stampCopy->acquisition_method)->toBe('purchase')
+            ->and($stampCopy->is_variant)->toBeTrue()
+            ->and($stampCopy->variant_description)->toBe('Bijzondere kleurafwijking')
+            ->and($stampCopy->notes)->toBe('Persoonlijk verzamelexemplaar behouden');
+
+        // De cataloguseditie bevat nog één catalogusvermelding.
+        expect(StampCatalogEntry::query()
+            ->where('catalog_edition_id', $edition->id)
+            ->count())->toBe(1);
+
+        // Het persoonlijke exemplaar blijft aan de oorspronkelijke gebruiker gekoppeld.
+        expect(StampCopy::query()
+            ->where('user_id', $user->id)
+            ->where('stamp_id', $missingStamp->id)
+            ->count())->toBe(1);
+
+    } finally {
+        // Verwijder het tijdelijke Excel-bestand.
+        unlink($filePath);
+    }
+});
+
+test('importmethode vervangen behoudt algemene en persoonlijke postzegelafbeeldingen', function () {
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus bescherming afbeeldingen',
+    ]);
+
+    $edition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2026',
+        'edition_year' => 2026,
+    ]);
+
+    $country = Country::create([
+        'slug' => 'testland-bescherming-afbeeldingen',
+        'iso_code' => 'TBA',
+        'name' => 'Testland bescherming afbeeldingen',
+    ]);
+
+    $condition = Condition::create([
+        'slug' => 'postfris',
+        'sort_order' => 1,
+        'is_active' => true,
+    ]);
+
+    $user = User::factory()->create();
+
+    // Deze postzegel blijft aanwezig in Excel.
+    $retainedStamp = Stamp::create([
+        'country_id' => $country->id,
+        'name' => 'Postzegel behouden in Excel',
+        'issue_year' => 2026,
+    ]);
+
+    $retainedEntry = StampCatalogEntry::create([
+        'stamp_id' => $retainedStamp->id,
+        'catalog_edition_id' => $edition->id,
+        'catalog_number' => '100',
+    ]);
+
+    // Exporteer de cataloguseditie voordat de tweede postzegel bestaat.
+    $excelContent = Excel::raw(
+        new CatalogEditionExchangeExcelExport($catalog, $edition),
+        Xlsx::class
+    );
+
+    $filePath = tempnam(sys_get_temp_dir(), 'stamp_images_replace_');
+
+    if ($filePath === false) {
+        throw new RuntimeException(
+            'Kan tijdelijk Excel-bestand niet aanmaken.'
+        );
+    }
+
+    try {
+        file_put_contents($filePath, $excelContent);
+
+        // Deze postzegel ontbreekt in Excel.
+        $missingStamp = Stamp::create([
+            'country_id' => $country->id,
+            'name' => 'Postzegel met afbeeldingen',
+            'issue_year' => 2026,
+        ]);
+
+        $missingEntry = StampCatalogEntry::create([
+            'stamp_id' => $missingStamp->id,
+            'catalog_edition_id' => $edition->id,
+            'catalog_number' => '200',
+        ]);
+
+        // Algemene afbeelding van de postzegel.
+        $stampImage = StampImage::create([
+            'stamp_id' => $missingStamp->id,
+            'path' => 'stamps/testland/2026/algemene-afbeelding.jpg',
+            'image_type' => 'front',
+            'alt_text' => 'Algemene afbeelding behouden',
+            'is_primary' => true,
+        ]);
+
+        // Persoonlijk postzegelexemplaar.
+        $stampCopy = StampCopy::create([
+            'user_id' => $user->id,
+            'stamp_id' => $missingStamp->id,
+            'condition_id' => $condition->id,
+            'quantity' => 2,
+            'notes' => 'Persoonlijk exemplaar met afbeelding',
+        ]);
+
+        // Persoonlijke afbeelding.
+        $stampCopyImage = StampCopyImage::create([
+            'stamp_copy_id' => $stampCopy->id,
+            'path' => 'stamp-copies/test/persoonlijke-afbeelding.jpg',
+            'image_type' => 'detail',
+            'alt_text' => 'Persoonlijke afbeelding behouden',
+            'is_primary' => true,
+        ]);
+
+        // Controleer de uitgangssituatie.
+        expect(StampCatalogEntry::query()
+            ->where('catalog_edition_id', $edition->id)
+            ->count())->toBe(2);
+
+        expect(StampImage::query()
+            ->whereKey($stampImage->id)
+            ->exists())->toBeTrue();
+
+        expect(StampCopyImage::query()
+            ->whereKey($stampCopyImage->id)
+            ->exists())->toBeTrue();
+
+        // Vervang de cataloguseditie.
+        $importer = new CatalogEditionExchangeImporter;
+
+        $importedEdition = $importer->importEdition(
+            $filePath,
+            $catalog,
+            'replace'
+        );
+
+        // De cataloguseditie blijft dezelfde.
+        expect($importedEdition->id)->toBe($edition->id);
+
+        // Catalogusnummer 100 blijft bestaan.
+        expect(StampCatalogEntry::query()
+            ->whereKey($retainedEntry->id)
+            ->exists())->toBeTrue();
+
+        // Catalogusnummer 200 wordt verwijderd.
+        expect(StampCatalogEntry::query()
+            ->whereKey($missingEntry->id)
+            ->exists())->toBeFalse();
+
+        // De oorspronkelijke postzegel blijft bestaan.
+        expect(Stamp::query()
+            ->whereKey($missingStamp->id)
+            ->exists())->toBeTrue();
+
+        // Het persoonlijke exemplaar blijft bestaan.
+        expect(StampCopy::query()
+            ->whereKey($stampCopy->id)
+            ->exists())->toBeTrue();
+
+        // De algemene afbeelding blijft bestaan.
+        expect(StampImage::query()
+            ->whereKey($stampImage->id)
+            ->exists())->toBeTrue();
+
+        $stampImage->refresh();
+
+        expect($stampImage->stamp_id)->toBe($missingStamp->id)
+            ->and($stampImage->path)->toBe(
+                'stamps/testland/2026/algemene-afbeelding.jpg'
+            )
+            ->and($stampImage->image_type)->toBe('front')
+            ->and($stampImage->alt_text)->toBe(
+                'Algemene afbeelding behouden'
+            )
+            ->and($stampImage->is_primary)->toBeTrue();
+
+        // De persoonlijke afbeelding blijft bestaan.
+        expect(StampCopyImage::query()
+            ->whereKey($stampCopyImage->id)
+            ->exists())->toBeTrue();
+
+        $stampCopyImage->refresh();
+
+        expect($stampCopyImage->stamp_copy_id)->toBe($stampCopy->id)
+            ->and($stampCopyImage->path)->toBe(
+                'stamp-copies/test/persoonlijke-afbeelding.jpg'
+            )
+            ->and($stampCopyImage->image_type)->toBe('detail')
+            ->and($stampCopyImage->alt_text)->toBe(
+                'Persoonlijke afbeelding behouden'
+            )
+            ->and($stampCopyImage->is_primary)->toBeTrue();
+
+        // Er zijn geen dubbele afbeeldingsrecords aangemaakt.
+        expect(StampImage::query()
+            ->where('stamp_id', $missingStamp->id)
+            ->count())->toBe(1);
+
+        expect(StampCopyImage::query()
+            ->where('stamp_copy_id', $stampCopy->id)
+            ->count())->toBe(1);
+
+    } finally {
+        unlink($filePath);
+    }
+});
+
+test('importmethode vervangen behoudt historische postzegelwaarderingen', function () {
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus bescherming waarderingshistorie',
+    ]);
+
+    $edition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2026',
+        'edition_year' => 2026,
+    ]);
+
+    $country = Country::create([
+        'slug' => 'testland-bescherming-waarderingshistorie',
+        'iso_code' => 'TBW',
+        'name' => 'Testland waarderingshistorie',
+    ]);
+
+    $condition = Condition::create([
+        'slug' => 'postfris',
+        'sort_order' => 1,
+        'is_active' => true,
+    ]);
+
+    // Deze postzegel blijft aanwezig in Excel.
+    $retainedStamp = Stamp::create([
+        'country_id' => $country->id,
+        'name' => 'Postzegel behouden in Excel',
+        'issue_year' => 2026,
+    ]);
+
+    $retainedEntry = StampCatalogEntry::create([
+        'stamp_id' => $retainedStamp->id,
+        'catalog_edition_id' => $edition->id,
+        'catalog_number' => '100',
+    ]);
+
+    // Exporteer de cataloguseditie.
+    $excelContent = Excel::raw(
+        new CatalogEditionExchangeExcelExport($catalog, $edition),
+        Xlsx::class
+    );
+
+    $filePath = tempnam(sys_get_temp_dir(), 'stamp_valuations_replace_');
+
+    if ($filePath === false) {
+        throw new RuntimeException(
+            'Kan tijdelijk Excel-bestand niet aanmaken.'
+        );
+    }
+
+    try {
+        file_put_contents($filePath, $excelContent);
+
+        // Deze postzegel ontbreekt in Excel.
+        $missingStamp = Stamp::create([
+            'country_id' => $country->id,
+            'name' => 'Postzegel met waarderingshistorie',
+            'issue_year' => 2026,
+        ]);
+
+        $missingEntry = StampCatalogEntry::create([
+            'stamp_id' => $missingStamp->id,
+            'catalog_edition_id' => $edition->id,
+            'catalog_number' => '200',
+        ]);
+
+        // Maak een historische waardering aan.
+        $valuation = StampValuation::create([
+            'stamp_id' => $missingStamp->id,
+            'condition_id' => $condition->id,
+            'valuation_date' => '2025-06-15',
+            'value' => '125.50',
+            'currency' => 'EUR',
+            'source' => 'Historische taxatie',
+            'notes' => 'Deze waardering moet behouden blijven',
+        ]);
+
+        // Controleer de uitgangssituatie.
+        expect(StampCatalogEntry::query()
+            ->where('catalog_edition_id', $edition->id)
+            ->count())->toBe(2);
+
+        expect(StampValuation::query()
+            ->whereKey($valuation->id)
+            ->exists())->toBeTrue();
+
+        // Vervang de cataloguseditie.
+        $importer = new CatalogEditionExchangeImporter;
+
+        $importedEdition = $importer->importEdition(
+            $filePath,
+            $catalog,
+            'replace'
+        );
+
+        // De oorspronkelijke cataloguseditie blijft bestaan.
+        expect($importedEdition->id)->toBe($edition->id);
+
+        // Catalogusnummer 100 blijft behouden.
+        expect(StampCatalogEntry::query()
+            ->whereKey($retainedEntry->id)
+            ->exists())->toBeTrue();
+
+        // Catalogusnummer 200 wordt verwijderd.
+        expect(StampCatalogEntry::query()
+            ->whereKey($missingEntry->id)
+            ->exists())->toBeFalse();
+
+        // De oorspronkelijke postzegel blijft bestaan.
+        expect(Stamp::query()
+            ->whereKey($missingStamp->id)
+            ->exists())->toBeTrue();
+
+        // De historische waardering blijft bestaan.
+        expect(StampValuation::query()
+            ->whereKey($valuation->id)
+            ->exists())->toBeTrue();
+
+        // Controleer alle historische waarderingsgegevens.
+        $valuation->refresh();
+
+        expect($valuation->stamp_id)->toBe($missingStamp->id)
+            ->and($valuation->condition_id)->toBe($condition->id)
+            ->and($valuation->valuation_date->format('Y-m-d'))->toBe('2025-06-15')
+            ->and($valuation->value)->toBe('125.50')
+            ->and($valuation->currency)->toBe('EUR')
+            ->and($valuation->source)->toBe('Historische taxatie')
+            ->and($valuation->notes)->toBe(
+                'Deze waardering moet behouden blijven'
+            );
+
+        // Er zijn geen dubbele historische waarderingen aangemaakt.
+        expect(StampValuation::query()
+            ->where('stamp_id', $missingStamp->id)
+            ->count())->toBe(1);
+
+        // De cataloguseditie bevat nog één catalogusvermelding.
+        expect(StampCatalogEntry::query()
+            ->where('catalog_edition_id', $edition->id)
+            ->count())->toBe(1);
+
+    } finally {
+        unlink($filePath);
+    }
+});
+
+test('importmethode vervangen behoudt bestaande postzegelvertalingen', function () {
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus bescherming postzegelvertalingen',
+    ]);
+
+    $edition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2026',
+        'edition_year' => 2026,
+    ]);
+
+    $country = Country::create([
+        'slug' => 'testland-bescherming-postzegelvertalingen',
+        'iso_code' => 'TBV',
+        'name' => 'Testland postzegelvertalingen',
+    ]);
+
+    // Deze postzegel blijft aanwezig in Excel.
+    $retainedStamp = Stamp::create([
+        'country_id' => $country->id,
+        'name' => 'Postzegel behouden in Excel',
+        'issue_year' => 2026,
+    ]);
+
+    $retainedEntry = StampCatalogEntry::create([
+        'stamp_id' => $retainedStamp->id,
+        'catalog_edition_id' => $edition->id,
+        'catalog_number' => '100',
+    ]);
+
+    // Exporteer de cataloguseditie.
+    $excelContent = Excel::raw(
+        new CatalogEditionExchangeExcelExport($catalog, $edition),
+        Xlsx::class
+    );
+
+    $filePath = tempnam(sys_get_temp_dir(), 'stamp_translations_replace_');
+
+    if ($filePath === false) {
+        throw new RuntimeException(
+            'Kan tijdelijk Excel-bestand niet aanmaken.'
+        );
+    }
+
+    try {
+        file_put_contents($filePath, $excelContent);
+
+        // Deze postzegel ontbreekt in Excel.
+        $missingStamp = Stamp::create([
+            'country_id' => $country->id,
+            'name' => 'Postzegel met vertalingen',
+            'issue_year' => 2026,
+        ]);
+
+        $missingEntry = StampCatalogEntry::create([
+            'stamp_id' => $missingStamp->id,
+            'catalog_edition_id' => $edition->id,
+            'catalog_number' => '200',
+        ]);
+
+        // Maak vertalingen aan in alle vijf ondersteunde talen.
+        $translations = [
+            'nl' => [
+                'name' => 'Nederlandse postzegelnaam',
+                'description' => 'Nederlandse beschrijving behouden',
+            ],
+            'en' => [
+                'name' => 'English stamp name',
+                'description' => 'English description preserved',
+            ],
+            'de' => [
+                'name' => 'Deutscher Briefmarkenname',
+                'description' => 'Deutsche Beschreibung erhalten',
+            ],
+            'fr' => [
+                'name' => 'Nom du timbre français',
+                'description' => 'Description française conservée',
+            ],
+            'es' => [
+                'name' => 'Nombre del sello español',
+                'description' => 'Descripción española conservada',
+            ],
+        ];
+
+        foreach ($translations as $locale => $translation) {
+            StampTranslation::create([
+                'stamp_id' => $missingStamp->id,
+                'locale' => $locale,
+                'name' => $translation['name'],
+                'description' => $translation['description'],
+            ]);
+        }
+
+        // Controleer de uitgangssituatie.
+        expect(StampCatalogEntry::query()
+            ->where('catalog_edition_id', $edition->id)
+            ->count())->toBe(2);
+
+        expect(StampTranslation::query()
+            ->where('stamp_id', $missingStamp->id)
+            ->count())->toBe(5);
+
+        // Vervang de cataloguseditie.
+        $importer = new CatalogEditionExchangeImporter;
+
+        $importedEdition = $importer->importEdition(
+            $filePath,
+            $catalog,
+            'replace'
+        );
+
+        // De oorspronkelijke cataloguseditie blijft bestaan.
+        expect($importedEdition->id)->toBe($edition->id);
+
+        // Catalogusnummer 100 blijft behouden.
+        expect(StampCatalogEntry::query()
+            ->whereKey($retainedEntry->id)
+            ->exists())->toBeTrue();
+
+        // Catalogusnummer 200 wordt verwijderd.
+        expect(StampCatalogEntry::query()
+            ->whereKey($missingEntry->id)
+            ->exists())->toBeFalse();
+
+        // De oorspronkelijke postzegel blijft behouden.
+        expect(Stamp::query()
+            ->whereKey($missingStamp->id)
+            ->exists())->toBeTrue();
+
+        // Alle vijf vertalingen blijven bestaan.
+        expect(StampTranslation::query()
+            ->where('stamp_id', $missingStamp->id)
+            ->count())->toBe(5);
+
+        // Controleer alle vertaalde namen en beschrijvingen.
+        foreach ($translations as $locale => $expected) {
+            $translation = StampTranslation::query()
+                ->where('stamp_id', $missingStamp->id)
+                ->where('locale', $locale)
+                ->first();
+
+            expect($translation)->not->toBeNull()
+                ->and($translation->name)->toBe($expected['name'])
+                ->and($translation->description)->toBe($expected['description']);
+        }
+
+        // Controleer dat iedere taal precies één vertaling heeft.
+        foreach (array_keys($translations) as $locale) {
+            expect(StampTranslation::query()
+                ->where('stamp_id', $missingStamp->id)
+                ->where('locale', $locale)
+                ->count())->toBe(1);
+        }
+
+        // De cataloguseditie bevat nog één catalogusvermelding.
+        expect(StampCatalogEntry::query()
+            ->where('catalog_edition_id', $edition->id)
+            ->count())->toBe(1);
+
+    } finally {
+        unlink($filePath);
+    }
+});
+
+test('importmethode vervangen behoudt persoonlijke variantvertalingen', function () {
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus bescherming variantvertalingen',
+    ]);
+
+    $edition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2026',
+        'edition_year' => 2026,
+    ]);
+
+    $country = Country::create([
+        'slug' => 'testland-bescherming-variantvertalingen',
+        'iso_code' => 'TVV',
+        'name' => 'Testland variantvertalingen',
+    ]);
+
+    $condition = Condition::create([
+        'slug' => 'postfris',
+        'sort_order' => 1,
+        'is_active' => true,
+    ]);
+
+    $user = User::factory()->create();
+
+    // Deze postzegel blijft aanwezig in Excel.
+    $retainedStamp = Stamp::create([
+        'country_id' => $country->id,
+        'name' => 'Postzegel behouden in Excel',
+        'issue_year' => 2026,
+    ]);
+
+    $retainedEntry = StampCatalogEntry::create([
+        'stamp_id' => $retainedStamp->id,
+        'catalog_edition_id' => $edition->id,
+        'catalog_number' => '100',
+    ]);
+
+    // Exporteer de cataloguseditie.
+    $excelContent = Excel::raw(
+        new CatalogEditionExchangeExcelExport($catalog, $edition),
+        Xlsx::class
+    );
+
+    $filePath = tempnam(sys_get_temp_dir(), 'stamp_copy_translations_');
+
+    if ($filePath === false) {
+        throw new RuntimeException(
+            'Kan tijdelijk Excel-bestand niet aanmaken.'
+        );
+    }
+
+    try {
+        file_put_contents($filePath, $excelContent);
+
+        // Deze postzegel ontbreekt in Excel.
+        $missingStamp = Stamp::create([
+            'country_id' => $country->id,
+            'name' => 'Postzegel met persoonlijke variant',
+            'issue_year' => 2026,
+        ]);
+
+        $missingEntry = StampCatalogEntry::create([
+            'stamp_id' => $missingStamp->id,
+            'catalog_edition_id' => $edition->id,
+            'catalog_number' => '200',
+        ]);
+
+        // Maak een persoonlijk postzegelexemplaar aan.
+        $stampCopy = StampCopy::create([
+            'user_id' => $user->id,
+            'stamp_id' => $missingStamp->id,
+            'condition_id' => $condition->id,
+            'quantity' => 2,
+            'is_variant' => true,
+            'notes' => 'Bijzondere variant met vijf vertalingen',
+        ]);
+
+        // Persoonlijke variantbeschrijvingen in vijf talen.
+        $translations = [
+            'nl' => 'Bijzondere kleurafwijking',
+            'en' => 'Special colour variation',
+            'de' => 'Besondere Farbabweichung',
+            'fr' => 'Variation de couleur particulière',
+            'es' => 'Variación especial de color',
+        ];
+
+        $translationIds = [];
+
+        foreach ($translations as $locale => $description) {
+            $translation = StampCopyTranslation::create([
+                'stamp_copy_id' => $stampCopy->id,
+                'locale' => $locale,
+                'variant_description' => $description,
+            ]);
+
+            $translationIds[$locale] = $translation->id;
+        }
+
+        // Controleer de uitgangssituatie.
+        expect(StampCatalogEntry::query()
+            ->where('catalog_edition_id', $edition->id)
+            ->count())->toBe(2);
+
+        expect(StampCopyTranslation::query()
+            ->where('stamp_copy_id', $stampCopy->id)
+            ->count())->toBe(5);
+
+        // Vervang de cataloguseditie.
+        $importer = new CatalogEditionExchangeImporter;
+
+        $importedEdition = $importer->importEdition(
+            $filePath,
+            $catalog,
+            'replace'
+        );
+
+        // De oorspronkelijke cataloguseditie blijft bestaan.
+        expect($importedEdition->id)->toBe($edition->id);
+
+        // Catalogusnummer 100 blijft behouden.
+        expect(StampCatalogEntry::query()
+            ->whereKey($retainedEntry->id)
+            ->exists())->toBeTrue();
+
+        // Catalogusnummer 200 wordt verwijderd.
+        expect(StampCatalogEntry::query()
+            ->whereKey($missingEntry->id)
+            ->exists())->toBeFalse();
+
+        // De oorspronkelijke postzegel blijft bestaan.
+        expect(Stamp::query()
+            ->whereKey($missingStamp->id)
+            ->exists())->toBeTrue();
+
+        // Het persoonlijke exemplaar blijft bestaan.
+        expect(StampCopy::query()
+            ->whereKey($stampCopy->id)
+            ->exists())->toBeTrue();
+
+        $stampCopy->refresh();
+
+        expect($stampCopy->user_id)->toBe($user->id)
+            ->and($stampCopy->stamp_id)->toBe($missingStamp->id)
+            ->and($stampCopy->quantity)->toBe(2)
+            ->and($stampCopy->is_variant)->toBeTrue();
+
+        // Alle vijf persoonlijke vertalingen blijven bestaan.
+        expect(StampCopyTranslation::query()
+            ->where('stamp_copy_id', $stampCopy->id)
+            ->count())->toBe(5);
+
+        // Controleer iedere taal afzonderlijk.
+        foreach ($translations as $locale => $expectedDescription) {
+            $translation = StampCopyTranslation::query()
+                ->where('stamp_copy_id', $stampCopy->id)
+                ->where('locale', $locale)
+                ->first();
+
+            expect($translation)->not->toBeNull()
+                ->and($translation->id)->toBe($translationIds[$locale])
+                ->and($translation->variant_description)->toBe(
+                    $expectedDescription
+                );
+        }
+
+        // Controleer dat iedere taal precies één vertaling heeft.
+        foreach (array_keys($translations) as $locale) {
+            expect(StampCopyTranslation::query()
+                ->where('stamp_copy_id', $stampCopy->id)
+                ->where('locale', $locale)
+                ->count())->toBe(1);
+        }
+
+        // De cataloguseditie bevat nog één catalogusvermelding.
+        expect(StampCatalogEntry::query()
+            ->where('catalog_edition_id', $edition->id)
+            ->count())->toBe(1);
+
+    } finally {
+        unlink($filePath);
+    }
+});
+
+test('importmethode vervangen behoudt persoonlijke waarderingshistorie', function () {
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus bescherming persoonlijke waarderingen',
+    ]);
+
+    $edition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2026',
+        'edition_year' => 2026,
+    ]);
+
+    $country = Country::create([
+        'slug' => 'testland-bescherming-persoonlijke-waarderingen',
+        'iso_code' => 'TPW',
+        'name' => 'Testland persoonlijke waarderingen',
+    ]);
+
+    $condition = Condition::create([
+        'slug' => 'postfris',
+        'sort_order' => 1,
+        'is_active' => true,
+    ]);
+
+    $user = User::factory()->create();
+
+    // Deze postzegel blijft aanwezig in Excel.
+    $retainedStamp = Stamp::create([
+        'country_id' => $country->id,
+        'name' => 'Postzegel behouden in Excel',
+        'issue_year' => 2026,
+    ]);
+
+    $retainedEntry = StampCatalogEntry::create([
+        'stamp_id' => $retainedStamp->id,
+        'catalog_edition_id' => $edition->id,
+        'catalog_number' => '100',
+    ]);
+
+    // Exporteer de cataloguseditie voordat de tweede postzegel bestaat.
+    $excelContent = Excel::raw(
+        new CatalogEditionExchangeExcelExport($catalog, $edition),
+        Xlsx::class
+    );
+
+    $filePath = tempnam(
+        sys_get_temp_dir(),
+        'stamp_copy_valuations_'
+    );
+
+    if ($filePath === false) {
+        throw new RuntimeException(
+            'Kan tijdelijk Excel-bestand niet aanmaken.'
+        );
+    }
+
+    try {
+        file_put_contents($filePath, $excelContent);
+
+        // Deze postzegel ontbreekt in Excel.
+        $missingStamp = Stamp::create([
+            'country_id' => $country->id,
+            'name' => 'Postzegel met persoonlijke waarderingshistorie',
+            'issue_year' => 2026,
+        ]);
+
+        $missingEntry = StampCatalogEntry::create([
+            'stamp_id' => $missingStamp->id,
+            'catalog_edition_id' => $edition->id,
+            'catalog_number' => '200',
+        ]);
+
+        // Maak een persoonlijk postzegelexemplaar aan.
+        $stampCopy = StampCopy::create([
+            'user_id' => $user->id,
+            'stamp_id' => $missingStamp->id,
+            'condition_id' => $condition->id,
+            'quantity' => 1,
+            'notes' => 'Persoonlijk exemplaar met waarderingshistorie',
+        ]);
+
+        // Maak drie historische waarderingen aan.
+        $valuations = [
+            [
+                'valuation_date' => '2024-01-15',
+                'value' => '12.50',
+                'currency' => 'EUR',
+                'source' => 'Persoonlijke taxatie 2024',
+                'notes' => 'Eerste waardering',
+            ],
+            [
+                'valuation_date' => '2025-06-20',
+                'value' => '18.75',
+                'currency' => 'EUR',
+                'source' => 'Persoonlijke taxatie 2025',
+                'notes' => 'Tweede waardering',
+            ],
+            [
+                'valuation_date' => '2026-10-01',
+                'value' => '25.00',
+                'currency' => 'EUR',
+                'source' => 'Persoonlijke taxatie 2026',
+                'notes' => 'Derde waardering',
+            ],
+        ];
+
+        $valuationIds = [];
+
+        foreach ($valuations as $valuationData) {
+            $valuation = StampCopyValuation::create([
+                'stamp_copy_id' => $stampCopy->id,
+                ...$valuationData,
+            ]);
+
+            $valuationIds[$valuationData['valuation_date']] = $valuation->id;
+        }
+
+        // Controleer de uitgangssituatie.
+        expect(StampCatalogEntry::query()
+            ->where('catalog_edition_id', $edition->id)
+            ->count())->toBe(2);
+
+        expect(StampCopyValuation::query()
+            ->where('stamp_copy_id', $stampCopy->id)
+            ->count())->toBe(3);
+
+        // Vervang de cataloguseditie.
+        $importer = new CatalogEditionExchangeImporter;
+
+        $importedEdition = $importer->importEdition(
+            $filePath,
+            $catalog,
+            'replace'
+        );
+
+        // De oorspronkelijke cataloguseditie blijft bestaan.
+        expect($importedEdition->id)->toBe($edition->id);
+
+        // Catalogusnummer 100 blijft behouden.
+        expect(StampCatalogEntry::query()
+            ->whereKey($retainedEntry->id)
+            ->exists())->toBeTrue();
+
+        // Catalogusnummer 200 wordt verwijderd.
+        expect(StampCatalogEntry::query()
+            ->whereKey($missingEntry->id)
+            ->exists())->toBeFalse();
+
+        // De oorspronkelijke postzegel blijft bestaan.
+        expect(Stamp::query()
+            ->whereKey($missingStamp->id)
+            ->exists())->toBeTrue();
+
+        // Het persoonlijke exemplaar blijft bestaan.
+        expect(StampCopy::query()
+            ->whereKey($stampCopy->id)
+            ->exists())->toBeTrue();
+
+        $stampCopy->refresh();
+
+        expect($stampCopy->user_id)->toBe($user->id)
+            ->and($stampCopy->stamp_id)->toBe($missingStamp->id)
+            ->and($stampCopy->quantity)->toBe(1);
+
+        // Alle drie de historische waarderingen blijven bestaan.
+        expect(StampCopyValuation::query()
+            ->where('stamp_copy_id', $stampCopy->id)
+            ->count())->toBe(3);
+
+        // Controleer iedere waardering afzonderlijk.
+        foreach ($valuations as $valuationData) {
+            $valuation = StampCopyValuation::query()
+                ->where('stamp_copy_id', $stampCopy->id)
+                ->whereDate(
+                    'valuation_date',
+                    $valuationData['valuation_date']
+                )
+                ->first();
+
+            expect($valuation)->not->toBeNull()
+                ->and($valuation->id)->toBe(
+                    $valuationIds[$valuationData['valuation_date']]
+                )
+                ->and($valuation->valuation_date->format('Y-m-d'))->toBe(
+                    $valuationData['valuation_date']
+                )
+                ->and($valuation->value)->toBe(
+                    $valuationData['value']
+                )
+                ->and($valuation->currency)->toBe(
+                    $valuationData['currency']
+                )
+                ->and($valuation->source)->toBe(
+                    $valuationData['source']
+                )
+                ->and($valuation->notes)->toBe(
+                    $valuationData['notes']
+                );
+        }
+
+        // Controleer dat iedere waarderingsdatum precies één record heeft.
+        foreach ($valuations as $valuationData) {
+            expect(StampCopyValuation::query()
+                ->where('stamp_copy_id', $stampCopy->id)
+                ->whereDate(
+                    'valuation_date',
+                    $valuationData['valuation_date']
+                )
+                ->count())->toBe(1);
+        }
+
+        // De cataloguseditie bevat nog één catalogusvermelding.
+        expect(StampCatalogEntry::query()
+            ->where('catalog_edition_id', $edition->id)
+            ->count())->toBe(1);
+
+    } finally {
+        unlink($filePath);
+    }
+});
+
+test('een nieuwe cataloguseditie hergebruikt een postzegel uit een eerdere editie van dezelfde catalogus', function () {
+    // Maak een catalogus aan.
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus hergebruik tussen edities',
+        'abbreviation' => 'TCHTE',
+    ]);
+
+    // Maak de bestaande cataloguseditie aan.
+    $previousEdition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2026',
+        'edition_year' => 2026,
+    ]);
+
+    // Maak een land aan.
+    $country = Country::create([
+        'slug' => 'testland-hergebruik-edities',
+        'iso_code' => 'THE',
+        'name' => 'Testland hergebruik edities',
+    ]);
+
+    // Maak een bestaande postzegel aan.
+    $stamp = Stamp::create([
+        'country_id' => $country->id,
+        'name' => 'Bestaande postzegel',
+        'issue_year' => 2020,
+        'face_value' => '1',
+        'currency' => 'EUR',
+    ]);
+
+    // Koppel de postzegel aan de bestaande editie.
+    $previousEntry = StampCatalogEntry::create([
+        'stamp_id' => $stamp->id,
+        'catalog_edition_id' => $previousEdition->id,
+        'catalog_number' => '100',
+    ]);
+
+    // Exporteer de bestaande editie.
+    $excelContent = Excel::raw(
+        new CatalogEditionExchangeExcelExport($catalog, $previousEdition),
+        Xlsx::class
+    );
+
+    $filePath = tempnam(sys_get_temp_dir(), 'catalog_exchange_');
+
+    if ($filePath === false) {
+        throw new RuntimeException(
+            'Kan tijdelijk Excel-bestand niet aanmaken.'
+        );
+    }
+
+    $spreadsheet = null;
+
+    try {
+        file_put_contents($filePath, $excelContent);
+
+        // Wijzig de Excel-gegevens naar een nieuwe cataloguseditie.
+        $spreadsheet = IOFactory::load($filePath);
+
+        $editionSheet = $spreadsheet->getSheetByName('Editie');
+
+        // Pas de bestaande editiegegevens aan.
+        // De exacte kolomindeling controleren we voordat we dit uitvoeren.
+        $editionSheet->setCellValue('A2', 'Editie 2027');
+        $editionSheet->setCellValue('B2', 2027);
+
+        $writer = new Xlsx($spreadsheet);
+        $writer->save($filePath);
+
+        $spreadsheet->disconnectWorksheets();
+        $spreadsheet = null;
+
+        // Importeer de nieuwe cataloguseditie.
+        $importer = new CatalogEditionExchangeImporter;
+
+        $importedEdition = $importer->importEdition(
+            $filePath,
+            $catalog,
+            'create'
+        );
+
+        // Controleer dat een nieuwe editie is aangemaakt.
+        expect($importedEdition->id)->not->toBe($previousEdition->id);
+
+        // De bestaande postzegel moet worden hergebruikt.
+        expect(Stamp::query()->count())->toBe(1);
+
+        // Controleer de catalogusvermelding van de nieuwe editie.
+        $newEntry = StampCatalogEntry::query()
+            ->where('catalog_edition_id', $importedEdition->id)
+            ->where('catalog_number', '100')
+            ->first();
+
+        expect($newEntry)->not->toBeNull();
+
+        expect($newEntry->stamp_id)->toBe($stamp->id);
+
+        // De oorspronkelijke catalogusvermelding blijft behouden.
+        expect(StampCatalogEntry::query()
+            ->whereKey($previousEntry->id)
+            ->exists())->toBeTrue();
+
+        // Beide edities verwijzen naar dezelfde postzegel.
+        expect(StampCatalogEntry::query()
+            ->where('stamp_id', $stamp->id)
+            ->count())->toBe(2);
+
+    } finally {
+        if ($spreadsheet !== null) {
+            $spreadsheet->disconnectWorksheets();
+        }
+
+        unlink($filePath);
+    }
+});
+
+test('een nieuwe cataloguseditie hergebruikt bestaande varianten en hun hoofdpostzegel', function () {
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus hergebruik varianten tussen edities',
+    ]);
+
+    $previousEdition = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2026',
+        'edition_year' => 2026,
+    ]);
+
+    $country = Country::create([
+        'slug' => 'testland-hergebruik-varianten-edities',
+        'iso_code' => 'THV',
+        'name' => 'Testland hergebruik varianten',
+    ]);
+
+    // Maak een hoofdpostzegel aan die zelf niet in de cataloguseditie staat.
+    $parentStamp = Stamp::create([
+        'country_id' => $country->id,
+        'name' => 'Bestaande hoofdpostzegel',
+        'issue_year' => 2020,
+        'face_value' => '1',
+        'currency' => 'EUR',
+    ]);
+
+    // Maak twee bestaande varianten aan.
+    $childStampA = Stamp::create([
+        'country_id' => $country->id,
+        'parent_stamp_id' => $parentStamp->id,
+        'name' => 'Bestaande variant rood',
+        'issue_year' => 2020,
+        'face_value' => '1',
+        'currency' => 'EUR',
+    ]);
+
+    $childStampB = Stamp::create([
+        'country_id' => $country->id,
+        'parent_stamp_id' => $parentStamp->id,
+        'name' => 'Bestaande variant blauw',
+        'issue_year' => 2020,
+        'face_value' => '1',
+        'currency' => 'EUR',
+    ]);
+
+    StampCatalogEntry::create([
+        'catalog_edition_id' => $previousEdition->id,
+        'stamp_id' => $childStampA->id,
+        'catalog_number' => '100a',
+    ]);
+
+    StampCatalogEntry::create([
+        'catalog_edition_id' => $previousEdition->id,
+        'stamp_id' => $childStampB->id,
+        'catalog_number' => '100b',
+    ]);
+
+    // Exporteer de bestaande editie.
+    $excelContent = Excel::raw(
+        new CatalogEditionExchangeExcelExport($catalog, $previousEdition),
+        Xlsx::class
+    );
+
+    $filePath = tempnam(sys_get_temp_dir(), 'catalog_exchange_');
+
+    if ($filePath === false) {
+        throw new RuntimeException('Kan tijdelijk Excel-bestand niet aanmaken.');
+    }
+
+    $spreadsheet = null;
+
+    try {
+        file_put_contents($filePath, $excelContent);
+
+        $spreadsheet = IOFactory::load($filePath);
+
+        // Wijzig uitsluitend de cataloguseditie.
+        $editionSheet = $spreadsheet->getSheetByName('Editie');
+
+        $editionSheet->setCellValue('A2', 'Editie 2027');
+        $editionSheet->setCellValue('B2', 2027);
+
+        $writer = new Xlsx($spreadsheet);
+        $writer->save($filePath);
+
+        $spreadsheet->disconnectWorksheets();
+        $spreadsheet = null;
+
+        // Importeer als nieuwe cataloguseditie.
+        $importedEdition = app(CatalogEditionExchangeImporter::class)
+            ->importEdition($filePath, $catalog, 'create');
+
+        // Er mogen geen extra postzegels ontstaan.
+        expect(Stamp::query()->count())->toBe(3);
+
+        // De bestaande ouder-kindrelaties moeten behouden blijven.
+        expect($childStampA->fresh()->parent_stamp_id)->toBe($parentStamp->id);
+        expect($childStampB->fresh()->parent_stamp_id)->toBe($parentStamp->id);
+
+        // Beide varianten moeten in de nieuwe editie dezelfde IDs behouden.
+        $newEntryA = StampCatalogEntry::query()
+            ->where('catalog_edition_id', $importedEdition->id)
+            ->where('catalog_number', '100a')
+            ->first();
+
+        $newEntryB = StampCatalogEntry::query()
+            ->where('catalog_edition_id', $importedEdition->id)
+            ->where('catalog_number', '100b')
+            ->first();
+
+        expect($newEntryA)->not->toBeNull();
+        expect($newEntryB)->not->toBeNull();
+
+        expect($newEntryA->stamp_id)->toBe($childStampA->id);
+        expect($newEntryB->stamp_id)->toBe($childStampB->id);
+
+        // De hoofdpostzegel mag geen catalogusvermelding krijgen.
+        expect(
+            StampCatalogEntry::query()
+                ->where('catalog_edition_id', $importedEdition->id)
+                ->where('stamp_id', $parentStamp->id)
+                ->exists()
+        )->toBeFalse();
+
+        // Beide catalogusedities moeten hun eigen vermeldingen behouden.
+        expect(
+            StampCatalogEntry::query()
+                ->where('catalog_edition_id', $previousEdition->id)
+                ->count()
+        )->toBe(2);
+
+        expect(
+            StampCatalogEntry::query()
+                ->where('catalog_edition_id', $importedEdition->id)
+                ->count()
+        )->toBe(2);
+
+    } finally {
+        if ($spreadsheet !== null) {
+            $spreadsheet->disconnectWorksheets();
+        }
+
+        unlink($filePath);
+    }
+});
+
+test('een nieuwe cataloguseditie weigert conflicterende catalogusnummers uit eerdere edities', function () {
+    // Maak een catalogus aan.
+    $catalog = Catalog::create([
+        'name' => 'Testcatalogus conflicterende catalogusnummers',
+    ]);
+
+    // Maak twee bestaande catalogusedities aan.
+    $edition2025 = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2025',
+        'edition_year' => 2025,
+    ]);
+
+    $edition2026 = CatalogEdition::create([
+        'catalog_id' => $catalog->id,
+        'edition_name' => 'Editie 2026',
+        'edition_year' => 2026,
+    ]);
+
+    // Maak een land aan.
+    $country = Country::create([
+        'slug' => 'testland-conflicterende-catalogusnummers',
+        'iso_code' => 'TCN',
+        'name' => 'Testland conflicterende catalogusnummers',
+    ]);
+
+    // Maak twee verschillende postzegels aan.
+    $stamp2025 = Stamp::create([
+        'country_id' => $country->id,
+        'name' => 'Postzegel editie 2025',
+        'issue_year' => 2020,
+        'face_value' => '1',
+        'currency' => 'EUR',
+    ]);
+
+    $stamp2026 = Stamp::create([
+        'country_id' => $country->id,
+        'name' => 'Postzegel editie 2026',
+        'issue_year' => 2020,
+        'face_value' => '1',
+        'currency' => 'EUR',
+    ]);
+
+    // Hetzelfde catalogusnummer verwijst naar verschillende postzegels.
+    $entry2025 = StampCatalogEntry::create([
+        'stamp_id' => $stamp2025->id,
+        'catalog_edition_id' => $edition2025->id,
+        'catalog_number' => '100',
+    ]);
+
+    $entry2026 = StampCatalogEntry::create([
+        'stamp_id' => $stamp2026->id,
+        'catalog_edition_id' => $edition2026->id,
+        'catalog_number' => '100',
+    ]);
+
+    // Exporteer de editie van 2026.
+    $excelContent = Excel::raw(
+        new CatalogEditionExchangeExcelExport($catalog, $edition2026),
+        Xlsx::class
+    );
+
+    $filePath = tempnam(sys_get_temp_dir(), 'catalog_exchange_');
+
+    if ($filePath === false) {
+        throw new RuntimeException(
+            'Kan tijdelijk Excel-bestand niet aanmaken.'
+        );
+    }
+
+    $spreadsheet = null;
+
+    try {
+        file_put_contents($filePath, $excelContent);
+
+        // Open het Excel-bestand.
+        $spreadsheet = IOFactory::load($filePath);
+
+        // Wijzig de editiegegevens naar 2027.
+        $editionSheet = $spreadsheet->getSheetByName('Editie');
+
+        $editionSheet->setCellValue('A2', 'Editie 2027');
+        $editionSheet->setCellValue('B2', 2027);
+
+        // Sla het gewijzigde bestand op.
+        $writer = new Xlsx($spreadsheet);
+        $writer->save($filePath);
+
+        $spreadsheet->disconnectWorksheets();
+        $spreadsheet = null;
+
+        // De import moet worden geweigerd.
+        expect(
+            fn () => app(CatalogEditionExchangeImporter::class)
+                ->importEdition($filePath, $catalog, 'create')
+        )->toThrow(
+            RuntimeException::class,
+            'Catalogusnummer 100 verwijst naar verschillende postzegels binnen dezelfde catalogus'
+        );
+
+        // Er mogen geen nieuwe postzegels zijn aangemaakt.
+        expect(Stamp::query()->count())->toBe(2);
+
+        // Beide bestaande postzegels blijven behouden.
+        expect(Stamp::query()->whereKey($stamp2025->id)->exists())->toBeTrue();
+        expect(Stamp::query()->whereKey($stamp2026->id)->exists())->toBeTrue();
+
+        // Beide bestaande catalogusvermeldingen blijven behouden.
+        expect(StampCatalogEntry::query()->whereKey($entry2025->id)->exists())->toBeTrue();
+        expect(StampCatalogEntry::query()->whereKey($entry2026->id)->exists())->toBeTrue();
+
+        // De bestaande koppelingen mogen niet veranderen.
+        expect($entry2025->fresh()->stamp_id)->toBe($stamp2025->id);
+        expect($entry2026->fresh()->stamp_id)->toBe($stamp2026->id);
+
+        // De nieuwe cataloguseditie mag niet zijn opgeslagen.
+        expect(
+            CatalogEdition::query()
+                ->where('catalog_id', $catalog->id)
+                ->where('edition_year', 2027)
+                ->exists()
+        )->toBeFalse();
+
+        // Alleen de twee oorspronkelijke catalogusedities bestaan.
+        expect(
+            CatalogEdition::query()
+                ->where('catalog_id', $catalog->id)
+                ->count()
+        )->toBe(2);
+
+    } finally {
+        if ($spreadsheet !== null) {
+            $spreadsheet->disconnectWorksheets();
+        }
+
         unlink($filePath);
     }
 });

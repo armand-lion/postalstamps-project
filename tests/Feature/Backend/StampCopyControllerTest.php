@@ -818,10 +818,10 @@ test('onvolledige serie behoudt oorspronkelijke cataloguspositie', function () {
         }
     }
 
-    // Een losse postzegel met catalogusnummer 333.
+    // Een losse postzegel met catalogusnummer 333a.
     $looseStamp = Stamp::factory()->create([
         'country_id' => $country->id,
-        'name' => 'Losse postzegel 333',
+        'name' => 'Losse postzegel 333a',
         'stamp_series_id' => null,
         'parent_stamp_id' => null,
         'issue_year' => 1940,
@@ -829,7 +829,7 @@ test('onvolledige serie behoudt oorspronkelijke cataloguspositie', function () {
 
     $looseStamp->catalogEntries()->create([
         'catalog_edition_id' => $edition->id,
-        'catalog_number' => '333',
+        'catalog_number' => '333a',
     ]);
 
     StampCopy::create([
@@ -855,7 +855,7 @@ test('onvolledige serie behoudt oorspronkelijke cataloguspositie', function () {
                 ?->catalog_number)
             ->all();
 
-        return $numbers === ['334', '335', '333'];
+        return $numbers === ['334', '335', '333a'];
     });
 });
 
