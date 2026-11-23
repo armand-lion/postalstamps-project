@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Backend\CatalogController;
 use App\Http\Controllers\Backend\CatalogEditionBulkEditController;
+use App\Http\Controllers\Backend\CatalogEditionComparisonController;
 use App\Http\Controllers\Backend\CatalogEditionCompletenessController;
 use App\Http\Controllers\Backend\CatalogEditionController;
 use App\Http\Controllers\Backend\CatalogEditionExportController;
@@ -150,6 +151,12 @@ Route::middleware(['auth'])->group(function () { //
                     [CatalogEditionImportController::class, 'confirm']
                 )->name('catalogs.editions.import.confirm');
             });
+
+            // Vergelijking van twee catalogusedities.
+            Route::get(
+                'catalogs/{catalog}/editions/compare',
+                [CatalogEditionComparisonController::class, 'index']
+            )->name('catalogs.editions.compare');
 
             Route::resource('catalogs.editions', CatalogEditionController::class);
         });
