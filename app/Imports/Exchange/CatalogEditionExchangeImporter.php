@@ -945,6 +945,7 @@ class CatalogEditionExchangeImporter
      * @param  array<int, int>  $seriesIdMap
      * @param  array<string, int>  $stampIdMap
      * @param  array<string, int>  $catalogEntryIdMap
+     * @param  array<int, int>  $newStampIds
      */
     private function importStamps(
         Spreadsheet $spreadsheet,
@@ -1226,7 +1227,9 @@ class CatalogEditionExchangeImporter
             // Hergebruik de bestaande postzegel wanneer deze
             // in een eerdere cataloguseditie voorkomt.
             if ($existingStampIds->count() === 1) {
-                $existingStamp = Stamp::query()->find($existingStampIds->first());
+                $existingStamp = Stamp::query()
+                    ->whereKey($existingStampIds->first())
+                    ->first();
 
                 if ($existingStamp === null) {
                     throw new RuntimeException(
@@ -1341,6 +1344,7 @@ class CatalogEditionExchangeImporter
      *
      * @param  array<int, int>  $seriesIdMap
      * @param  array<string, int>  $stampIdMap
+     * @param  array<int, int>  $newStampIds
      */
     private function importParentStamps(
         Spreadsheet $spreadsheet,
