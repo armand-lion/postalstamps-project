@@ -565,7 +565,9 @@ class StampController extends Controller
                 if ($catalogEditionId !== null && $catalogNumber !== null) {
 
                     // Haal de geselecteerde cataloguseditie op.
-                    $catalogEdition = CatalogEdition::findOrFail($catalogEditionId);
+                    $catalogEdition = CatalogEdition::query()
+                        ->whereKey($catalogEditionId)
+                        ->firstOrFail();
 
                     // Maak een geschiedenisbatch aan voor deze cataloguseditie.
                     $batch = $history->createBatch(

@@ -5,6 +5,10 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property array<string, mixed>|null $old_values
+ * @property array<string, mixed>|null $new_values
+ */
 class CatalogChangeLog extends Model
 {
     protected $fillable = [
@@ -30,6 +34,8 @@ class CatalogChangeLog extends Model
 
     /**
      * De batch waartoe deze wijziging behoort.
+     *
+     * @return BelongsTo<CatalogChangeBatch, $this>
      */
     public function batch(): BelongsTo
     {
@@ -41,6 +47,8 @@ class CatalogChangeLog extends Model
 
     /**
      * De cataloguseditie waarop de wijziging betrekking heeft.
+     *
+     * @return BelongsTo<CatalogEdition, $this>
      */
     public function catalogEdition(): BelongsTo
     {
@@ -49,6 +57,8 @@ class CatalogChangeLog extends Model
 
     /**
      * De postzegel waarop de wijziging betrekking heeft.
+     *
+     * @return BelongsTo<Stamp, $this>
      */
     public function stamp(): BelongsTo
     {
@@ -57,6 +67,8 @@ class CatalogChangeLog extends Model
 
     /**
      * De postzegelserie waarop de wijziging betrekking heeft.
+     *
+     * @return BelongsTo<StampSeries, $this>
      */
     public function stampSeries(): BelongsTo
     {
@@ -65,6 +77,8 @@ class CatalogChangeLog extends Model
 
     /**
      * De waarderingscategorie waarop de wijziging betrekking heeft.
+     *
+     * @return BelongsTo<Condition, $this>
      */
     public function condition(): BelongsTo
     {

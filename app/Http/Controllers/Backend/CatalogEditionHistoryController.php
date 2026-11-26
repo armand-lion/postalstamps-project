@@ -99,6 +99,8 @@ class CatalogEditionHistoryController extends Controller
 
     /**
      * Bepaal welke geschiedenisvelden de gebruiker mag raadplegen.
+     *
+     * @return array<int, string>
      */
     private function batchColumns(bool $isAdmin): array
     {

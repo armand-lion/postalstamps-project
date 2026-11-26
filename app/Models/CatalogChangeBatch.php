@@ -38,6 +38,8 @@ class CatalogChangeBatch extends Model
 
     /**
      * De cataloguseditie waarop deze bewerking betrekking heeft.
+     *
+     * @return BelongsTo<CatalogEdition, $this>
      */
     public function catalogEdition(): BelongsTo
     {
@@ -46,6 +48,8 @@ class CatalogChangeBatch extends Model
 
     /**
      * De gebruiker die de bewerking heeft uitgevoerd.
+     *
+     * @return BelongsTo<User, $this>
      */
     public function user(): BelongsTo
     {
@@ -54,6 +58,8 @@ class CatalogChangeBatch extends Model
 
     /**
      * Alle wijzigingen die bij deze bewerking horen.
+     *
+     * @return HasMany<CatalogChangeLog, $this>
      */
     public function logs(): HasMany
     {
