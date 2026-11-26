@@ -149,7 +149,7 @@ new class extends Component {
             if ($this->source_edition_id !== null) {
                 $sourceEdition = $this->catalog->editions()->findOrFail($this->source_edition_id);
 
-                app(CatalogEditionDuplicationService::class)->copyStampEntries($sourceEdition, $targetEdition, $this->copy_catalog_values);
+                app(CatalogEditionDuplicationService::class)->copyStampEntries($sourceEdition, $targetEdition, $this->copy_catalog_values, auth()->user());
             }
         });
 

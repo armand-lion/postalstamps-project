@@ -8,6 +8,7 @@ use App\Models\CatalogEdition;
 use App\Models\Condition;
 use App\Models\Stamp;
 use App\Models\StampCatalogEntry;
+use App\Services\CatalogChangeHistoryService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -68,7 +69,8 @@ class CatalogEditionBulkEditController extends Controller
     public function update(
         Request $request,
         Catalog $catalog,
-        CatalogEdition $edition
+        CatalogEdition $edition,
+        CatalogChangeHistoryService $history
     ): RedirectResponse {
         // Controleer of de cataloguseditie bij deze catalogus hoort.
         abort_unless(
@@ -76,11 +78,15 @@ class CatalogEditionBulkEditController extends Controller
             404
         );
 
+        // Valideer eerst de bovenliggende gegevensstructuur.
+        $request->validate([
+            'stamps' => ['required', 'array'],
+        ]);
+
         // Stel begrijpelijke veldnamen samen voor validatiefouten.
         $attributeNames = [];
 
         $stampIds = array_keys($request->input('stamps', []));
-
         $stampsForValidation = Stamp::query()
             ->whereIn('id', $stampIds)
             ->get()
@@ -206,91 +212,121 @@ class CatalogEditionBulkEditController extends Controller
             }
         }
 
+        // Haal de gebruiker op die de bulkbewerking uitvoert.
+        $user = $request->user();
+
         // Sla alle wijzigingen veilig op binnen één databasetransactie.
-        DB::transaction(function () use ($validated, $edition) {
+        try {
+            DB::transaction(function () use ($validated, $edition, $history, $user) {
 
-            foreach ($validated['stamps'] as $stampId => $stampData) {
+                // Maak een geschiedenisbatch aan voor deze bulkbewerking.
+                $batch = $history->createBatch(
+                    $edition,
+                    'bulk_edit',
+                    $user,
+                    'Bulkbewerking van catalogusnummers en cataloguswaarden'
+                );
 
-                // Zoek de bestaande catalogusvermelding voor deze editie.
-                $catalogEntry = StampCatalogEntry::query()
-                    ->where('catalog_edition_id', $edition->id)
-                    ->where('stamp_id', $stampId)
-                    ->first();
+                // Activeer de geschiedenisbatch voor de modelobservers.
+                $history->setActiveBatch($batch);
 
-                // Haal het ingevoerde catalogusnummer op.
-                $catalogNumber = trim($stampData['catalog_number'] ?? '');
+                foreach ($validated['stamps'] as $stampId => $stampData) {
 
-                // Controleer of er cataloguswaarden zijn ingevuld.
-                $hasCatalogValues = false;
+                    // Zoek de bestaande catalogusvermelding voor deze editie.
+                    $catalogEntry = StampCatalogEntry::query()
+                        ->where('catalog_edition_id', $edition->id)
+                        ->where('stamp_id', $stampId)
+                        ->first();
 
-                foreach ($stampData['values'] ?? [] as $value) {
-                    if ($value !== null && $value !== '') {
-                        $hasCatalogValues = true;
+                    // Haal het ingevoerde catalogusnummer op.
+                    $catalogNumber = trim($stampData['catalog_number'] ?? '');
 
-                        break;
-                    }
-                }
+                    // Controleer of er cataloguswaarden zijn ingevuld.
+                    $hasCatalogValues = false;
 
-                // Verwijder de cataloguskoppeling als alle velden leeg zijn.
-                if ($catalogEntry && $catalogNumber === '' && ! $hasCatalogValues) {
+                    foreach ($stampData['values'] ?? [] as $value) {
+                        if ($value !== null && $value !== '') {
+                            $hasCatalogValues = true;
 
-                    // Verwijder eerst alle bijbehorende cataloguswaarden.
-                    $catalogEntry->values()->delete();
-
-                    // Verwijder daarna de catalogusvermelding.
-                    $catalogEntry->delete();
-
-                    continue;
-                }
-
-                // Werk een bestaande catalogusvermelding bij.
-                if ($catalogEntry) {
-
-                    if ($catalogNumber !== '') {
-                        $catalogEntry->update([
-                            'catalog_number' => $catalogNumber,
-                        ]);
+                            break;
+                        }
                     }
 
-                } elseif ($catalogNumber !== '') {
+                    // Verwijder de cataloguskoppeling als alle velden leeg zijn.
+                    if ($catalogEntry && $catalogNumber === '' && ! $hasCatalogValues) {
 
-                    // Maak een nieuwe catalogusvermelding aan.
-                    $catalogEntry = StampCatalogEntry::create([
-                        'catalog_edition_id' => $edition->id,
-                        'stamp_id' => $stampId,
-                        'catalog_number' => $catalogNumber,
-                    ]);
+                        // Verwijder eerst alle bijbehorende cataloguswaarden.
+                        foreach ($catalogEntry->values()->get() as $catalogValue) {
+                            $catalogValue->delete();
+                        }
 
-                }
-
-                // Zonder catalogusvermelding kunnen we geen waarden opslaan.
-                if (! $catalogEntry) {
-                    continue;
-                }
-
-                // Verwerk de ingevoerde cataloguswaarden.
-                foreach ($stampData['values'] ?? [] as $conditionId => $value) {
-                    if ($value === null || $value === '') {
-                        $catalogEntry->values()
-                            ->where('condition_id', $conditionId)
-                            ->delete();
+                        // Verwijder daarna de catalogusvermelding.
+                        $catalogEntry->delete();
 
                         continue;
                     }
 
-                    $catalogValue = $catalogEntry->values()
-                        ->firstOrNew(['condition_id' => $conditionId]);
+                    // Werk een bestaande catalogusvermelding bij.
+                    if ($catalogEntry) {
 
-                    if (! $catalogValue->exists) {
-                        $catalogValue->currency = 'EUR';
+                        if ($catalogNumber !== '') {
+                            $catalogEntry->update([
+                                'catalog_number' => $catalogNumber,
+                            ]);
+                        }
+
+                    } elseif ($catalogNumber !== '') {
+
+                        // Maak een nieuwe catalogusvermelding aan.
+                        $catalogEntry = StampCatalogEntry::create([
+                            'catalog_edition_id' => $edition->id,
+                            'stamp_id' => $stampId,
+                            'catalog_number' => $catalogNumber,
+                        ]);
+
                     }
 
-                    $catalogValue->catalog_value = $value;
-                    $catalogValue->save();
-                }
-            }
+                    // Zonder catalogusvermelding kunnen we geen waarden opslaan.
+                    if (! $catalogEntry) {
+                        continue;
+                    }
 
-        });
+                    // Verwerk de ingevoerde cataloguswaarden.
+                    foreach ($stampData['values'] ?? [] as $conditionId => $value) {
+                        if ($value === null || $value === '') {
+                            $catalogValues = $catalogEntry->values()
+                                ->where('condition_id', $conditionId)
+                                ->get();
+
+                            foreach ($catalogValues as $catalogValue) {
+                                $catalogValue->delete();
+                            }
+
+                            continue;
+                        }
+
+                        $catalogValue = $catalogEntry->values()
+                            ->firstOrNew(['condition_id' => $conditionId]);
+
+                        if (! $catalogValue->exists) {
+                            $catalogValue->currency = $edition->currency ?? 'EUR';
+                        }
+
+                        $catalogValue->catalog_value = $value;
+                        $catalogValue->save();
+                    }
+                }
+
+                // Verwijder de geschiedenisbatch als er geen wijzigingen zijn geregistreerd.
+                if (! $batch->logs()->exists()) {
+                    $batch->delete();
+                }
+
+            });
+        } finally {
+            // Wis altijd de actieve geschiedenisbatch.
+            $history->clearActiveBatch();
+        }
 
         return redirect()
             ->route('backend.catalogs.editions.bulk-edit', [$catalog, $edition])

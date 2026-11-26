@@ -2,6 +2,13 @@
 
 namespace App\Providers;
 
+use App\Models\SeriesCatalogValue;
+use App\Models\StampCatalogEntry;
+use App\Models\StampCatalogValue;
+use App\Observers\SeriesCatalogValueObserver;
+use App\Observers\StampCatalogEntryObserver;
+use App\Observers\StampCatalogValueObserver;
+use App\Services\CatalogChangeHistoryService;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
@@ -15,7 +22,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->scoped(CatalogChangeHistoryService::class);
     }
 
     /**
@@ -24,6 +31,10 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->configureDefaults();
+
+        StampCatalogEntry::observe(StampCatalogEntryObserver::class);
+        StampCatalogValue::observe(StampCatalogValueObserver::class);
+        SeriesCatalogValue::observe(SeriesCatalogValueObserver::class);
     }
 
     /**

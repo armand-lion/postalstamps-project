@@ -172,7 +172,8 @@ class CatalogEditionImportController extends Controller
             $importedEdition = $importer->importEdition(
                 $filePath,
                 $catalog,
-                $importMode
+                $importMode,
+                $request->user()
             );
         } catch (RuntimeException $exception) {
             // Toon de foutmelding zonder de tijdelijke import te verwijderen.

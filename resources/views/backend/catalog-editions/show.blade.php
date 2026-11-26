@@ -56,6 +56,12 @@
                     </flux:button>
                 @endif
 
+                <flux:button :href="route('backend.catalogs.editions.history.index', [$catalog, $edition])"
+                    icon="arrow-path"
+                    class="border border-theme-accent-3! bg-brown-5! text-zinc-900! hover:bg-brown-6!">
+                    {{ __('Wijzigingsgeschiedenis') }}
+                </flux:button>
+
                 <flux:button :href="route('backend.catalogs.editions.edit', [$catalog, $edition])" variant="primary"
                     icon="pencil" class="bg-brown-1 hover:bg-brown-2">
                     {{ __('Bewerken') }}

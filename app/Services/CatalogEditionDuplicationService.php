@@ -3,16 +3,18 @@
 namespace App\Services;
 
 use App\Models\CatalogEdition;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
 class CatalogEditionDuplicationService
 {
     /**
-     * Maak de bestaande cataloguswaarderingsservice beschikbaar.
+     * Maak de cataloguswaarderingsservice en geschiedenisservice beschikbaar.
      */
     public function __construct(
-        private readonly CatalogConditionService $catalogConditionService
+        private readonly CatalogConditionService $catalogConditionService,
+        private readonly CatalogChangeHistoryService $history
     ) {}
 
     /**
@@ -85,64 +87,87 @@ class CatalogEditionDuplicationService
     public function copyStampEntries(
         CatalogEdition $sourceEdition,
         CatalogEdition $targetEdition,
-        bool $copyValues = false
+        bool $copyValues = false,
+        ?User $user = null
     ): array {
         $this->validateEditions($sourceEdition, $targetEdition);
 
-        return DB::transaction(function () use ($sourceEdition, $targetEdition, $copyValues) {
-            $copied = 0;
-            $skipped = 0;
-
-            $sourceEntries = $sourceEdition->stampEntries()
-                ->with('stamp', 'values')
-                ->get();
-
-            foreach ($sourceEntries as $sourceEntry) {
-                $targetEntry = $targetEdition->stampEntries()->firstOrCreate(
-                    [
-                        'stamp_id' => $sourceEntry->stamp_id,
-                    ],
-                    [
-                        'catalog_number' => $sourceEntry->catalog_number,
-                        'notes' => $sourceEntry->notes,
-                    ]
+        try {
+            return DB::transaction(function () use ($sourceEdition, $targetEdition, $copyValues, $user) {
+                // Maak een geschiedenisbatch aan voor de doeleditie.
+                $batch = $this->history->createBatch(
+                    $targetEdition,
+                    'duplicate',
+                    $user,
+                    'Duplicatie van catalogusvermeldingen vanuit '.$sourceEdition->edition_name
                 );
 
-                if ($targetEntry->wasRecentlyCreated) {
-                    $copied++;
+                // Activeer de geschiedenisbatch voor de observers.
+                $this->history->setActiveBatch($batch);
 
-                    if ($copyValues) {
-                        $allowedConditionIds = $this->catalogConditionService
-                            ->availableConditions(
-                                $targetEdition->catalog,
-                                $sourceEntry->stamp->country_id,
-                                $sourceEntry->stamp->issue_year
-                            )
-                            ->pluck('id')
-                            ->all();
-                        foreach ($sourceEntry->values as $sourceValue) {
-                            if (! in_array($sourceValue->condition_id, $allowedConditionIds, true)) {
-                                continue;
+                $copied = 0;
+                $skipped = 0;
+
+                $sourceEntries = $sourceEdition->stampEntries()
+                    ->with('stamp', 'values')
+                    ->get();
+
+                foreach ($sourceEntries as $sourceEntry) {
+                    $targetEntry = $targetEdition->stampEntries()->firstOrCreate(
+                        [
+                            'stamp_id' => $sourceEntry->stamp_id,
+                        ],
+                        [
+                            'catalog_number' => $sourceEntry->catalog_number,
+                            'notes' => $sourceEntry->notes,
+                        ]
+                    );
+
+                    if ($targetEntry->wasRecentlyCreated) {
+                        $copied++;
+
+                        if ($copyValues) {
+                            $allowedConditionIds = $this->catalogConditionService
+                                ->availableConditions(
+                                    $targetEdition->catalog,
+                                    $sourceEntry->stamp->country_id,
+                                    $sourceEntry->stamp->issue_year
+                                )
+                                ->pluck('id')
+                                ->all();
+
+                            foreach ($sourceEntry->values as $sourceValue) {
+                                if (! in_array($sourceValue->condition_id, $allowedConditionIds, true)) {
+                                    continue;
+                                }
+
+                                $targetEntry->values()->create([
+                                    'condition_id' => $sourceValue->condition_id,
+                                    'catalog_value' => $sourceValue->catalog_value,
+                                    'currency' => $sourceValue->currency,
+                                    'notes' => $sourceValue->notes,
+                                    'needs_review' => true,
+                                ]);
                             }
-
-                            $targetEntry->values()->create([
-                                'condition_id' => $sourceValue->condition_id,
-                                'catalog_value' => $sourceValue->catalog_value,
-                                'currency' => $sourceValue->currency,
-                                'notes' => $sourceValue->notes,
-                                'needs_review' => true,
-                            ]);
                         }
+                    } else {
+                        $skipped++;
                     }
-                } else {
-                    $skipped++;
                 }
-            }
 
-            return [
-                'copied' => $copied,
-                'skipped' => $skipped,
-            ];
-        });
+                // Verwijder de geschiedenisbatch wanneer er geen wijzigingen zijn geregistreerd.
+                if (! $batch->logs()->exists()) {
+                    $batch->delete();
+                }
+
+                return [
+                    'copied' => $copied,
+                    'skipped' => $skipped,
+                ];
+            });
+        } finally {
+            // Ruim de actieve geschiedenisbatch altijd op.
+            $this->history->clearActiveBatch();
+        }
     }
 }

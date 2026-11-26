@@ -115,12 +115,16 @@ class StampSeriesController extends Controller
     {
         $name = $stamp_series->name;
 
-        if ($stamp_series->stamps()->exists()) {
+        // Voorkom verwijderen wanneer er gekoppelde gegevens bestaan.
+        if (
+            $stamp_series->stamps()->exists()
+            || $stamp_series->catalogValues()->exists()
+        ) {
             return redirect()
                 ->route('backend.stamp-series.index')
                 ->with(
                     'error',
-                    "Postzegelserie '{$name}' kan niet worden verwijderd, omdat er nog postzegels aan gekoppeld zijn."
+                    "Postzegelserie '{$name}' kan niet worden verwijderd, omdat er nog postzegels of cataloguswaarden aan gekoppeld zijn."
                 );
         }
 

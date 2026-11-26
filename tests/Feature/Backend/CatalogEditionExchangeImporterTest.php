@@ -3,6 +3,7 @@
 use App\Exports\Exchange\CatalogEditionExchangeExcelExport;
 use App\Imports\Exchange\CatalogEditionExchangeImporter;
 use App\Models\Catalog;
+use App\Models\CatalogChangeBatch;
 use App\Models\CatalogConditionRule;
 use App\Models\CatalogEdition;
 use App\Models\Condition;
@@ -259,6 +260,10 @@ test('een nieuwe cataloguseditie wordt succesvol geimporteerd', function () {
         'abbreviation' => 'TCIM',
     ]);
 
+    $user = User::factory()->create([
+        'name' => 'Testgebruiker importgeschiedenis',
+    ]);
+
     // Maak een cataloguseditie aan voor het Excel-bestand.
     $edition = CatalogEdition::create([
         'catalog_id' => $catalog->id,
@@ -301,7 +306,7 @@ test('een nieuwe cataloguseditie wordt succesvol geimporteerd', function () {
 
         // Importeer de cataloguseditie vanuit Excel.
         $importedEdition = app(CatalogEditionExchangeImporter::class)
-            ->importEdition($filePath, $catalog);
+            ->importEdition($filePath, $catalog, 'create', $user);
 
         // Controleer de geïmporteerde gegevens.
         expect($importedEdition->catalog_id)->toBe($catalog->id)
@@ -319,6 +324,13 @@ test('een nieuwe cataloguseditie wordt succesvol geimporteerd', function () {
                 ->where('edition_year', 2026)
                 ->count()
         )->toBe(1);
+
+        // Controleer dat er geen lege geschiedenisbatch achterblijft.
+        expect(
+            CatalogChangeBatch::query()
+                ->where('catalog_edition_id', $importedEdition->id)
+                ->count()
+        )->toBe(0);
     } finally {
         // Verwijder het tijdelijke Excel-bestand.
         unlink($filePath);

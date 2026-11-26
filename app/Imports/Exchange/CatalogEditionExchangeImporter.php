@@ -18,6 +18,8 @@ use App\Models\StampSeriesTranslation;
 use App\Models\StampTranslation;
 use App\Models\Theme;
 use App\Models\ThemeTranslation;
+use App\Models\User;
+use App\Services\CatalogChangeHistoryService;
 use Illuminate\Support\Facades\DB;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -25,6 +27,17 @@ use RuntimeException;
 
 class CatalogEditionExchangeImporter
 {
+    /**
+     * Maak de geschiedenisservice beschikbaar.
+     */
+    private readonly CatalogChangeHistoryService $history;
+
+    public function __construct(
+        ?CatalogChangeHistoryService $history = null
+    ) {
+        $this->history = $history ?? app(CatalogChangeHistoryService::class);
+    }
+
     /**
      * Controleer of het Excel-bestand bij de geselecteerde catalogus hoort.
      */
@@ -112,7 +125,8 @@ class CatalogEditionExchangeImporter
     public function importEdition(
         string $filePath,
         Catalog $catalog,
-        string $importMode = 'create'
+        string $importMode = 'create',
+        ?User $user = null
     ): CatalogEdition {
 
         // Controleer of de gekozen importmethode wordt ondersteund.
@@ -122,162 +136,213 @@ class CatalogEditionExchangeImporter
             );
         }
 
+        // Controleer of de expliciet meegegeven gebruiker bestaat.
+        if (
+            $user !== null && (
+                ! $user->exists ||
+                $user->getKey() === null ||
+                ! User::query()->whereKey($user->getKey())->exists()
+            )
+        ) {
+            throw new RuntimeException(
+                'De opgegeven gebruiker bestaat niet in de database.'
+            );
+        }
+
         // Valideer eerst het volledige Excel-uitwisselingsbestand.
         app(CatalogEditionExchangeValidator::class)->validate($filePath);
 
         // Controleer of het bestand bij de geselecteerde catalogus hoort.
         $this->validateCatalog($filePath, $catalog);
 
-        return DB::transaction(function () use ($filePath, $catalog, $importMode) {
-            // Controleer bij een nieuwe import of de cataloguseditie al bestaat.
-            if ($importMode === 'create') {
-                $this->validateEditionDoesNotExist($filePath, $catalog);
-            }
+        // Voorkom dat een bestaande actieve geschiedenisbatch wordt overschreven.
+        if ($this->history->getActiveBatch() !== null) {
+            throw new RuntimeException(
+                'Er is al een actieve catalogusgeschiedenisbatch.'
+            );
+        }
 
-            // Open het Excel-bestand.
-            $spreadsheet = IOFactory::load($filePath);
-
-            try {
-                // Lees het werkblad Editie.
-                $editionSheet = $spreadsheet->getSheetByName('Editie');
-
-                // Lees de cataloguseditiegegevens.
-                $editionName = trim(
-                    (string) $editionSheet->getCell('A2')->getValue()
-                );
-
-                $editionYear = (int) $editionSheet->getCell('B2')->getValue();
-
-                $publicationDate = trim(
-                    (string) $editionSheet->getCell('C2')->getValue()
-                );
-
-                $currency = trim(
-                    (string) $editionSheet->getCell('D2')->getValue()
-                );
-
-                $notes = trim(
-                    (string) $editionSheet->getCell('E2')->getValue()
-                );
-
-                // Zoek een bestaande cataloguseditie binnen de geselecteerde catalogus.
-                $existingEdition = CatalogEdition::query()
-                    ->where('catalog_id', $catalog->id)
-                    ->where('edition_name', $editionName)
-                    ->where('edition_year', $editionYear)
-                    ->first();
-
-                // Aanvullen en vervangen vereisen een bestaande cataloguseditie.
-                if (
-                    in_array($importMode, ['merge', 'replace'], true)
-                    && $existingEdition === null
-                ) {
-                    throw new RuntimeException(
-                        'De cataloguseditie bestaat niet. Aanvullen of vervangen is daarom niet mogelijk.'
-                    );
-                }
-
-                // Gebruik bij aanvullen of vervangen de bestaande cataloguseditie.
-                // Maak uitsluitend bij een nieuwe import een cataloguseditie aan.
+        try {
+            return DB::transaction(function () use ($filePath, $catalog, $importMode, $user) {
+                // Controleer bij een nieuwe import of de cataloguseditie al bestaat.
                 if ($importMode === 'create') {
-                    $importedEdition = CatalogEdition::create([
-                        'catalog_id' => $catalog->id,
-                        'edition_name' => $editionName,
-                        'edition_year' => $editionYear,
-                        'publication_date' => $publicationDate !== '' ? $publicationDate : null,
-                        'currency' => $currency !== '' ? $currency : null,
-                        'notes' => $notes !== '' ? $notes : null,
-                    ]);
-                } else {
-                    $importedEdition = $existingEdition;
+                    $this->validateEditionDoesNotExist($filePath, $catalog);
                 }
 
-                // Koppeling tussen Excel-serie-ID's en lokale database-ID's.
-                $seriesIdMap = [];
+                // Open het Excel-bestand.
+                $spreadsheet = IOFactory::load($filePath);
 
-                // Importeer de landen binnen dezelfde databasetransactie.
-                $this->importCountries($spreadsheet);
-                $this->importCountryTranslations($spreadsheet);
-                $this->importConditions($spreadsheet);
-                $this->importConditionTranslations($spreadsheet);
-                $this->importConditionRules($spreadsheet, $catalog);
-                // Importeer de postzegelseries.
-                $this->importStampSeries($spreadsheet, $seriesIdMap);
-                // Importeer de vertalingen van de postzegelseries.
-                $this->importStampSeriesTranslations($spreadsheet, $seriesIdMap);
-                // Importeer de thema's.
-                $this->importThemes($spreadsheet);
-                // Importeer de vertalingen van de thema's.
-                $this->importThemeTranslations($spreadsheet);
+                try {
+                    // Lees het werkblad Editie.
+                    $editionSheet = $spreadsheet->getSheetByName('Editie');
 
-                // Koppeling tussen Excel-postzegel-ID's en lokale database-ID's.
-                $stampIdMap = [];
-
-                // Koppeling tussen Excel-postzegel-ID's en catalogusvermelding-ID's.
-                $catalogEntryIdMap = [];
-
-                // Houd bij welke postzegels tijdens deze import nieuw worden aangemaakt.
-                $newStampIds = [];
-
-                // Importeer de postzegels en hun catalogusvermeldingen.
-                $this->importStamps(
-                    $spreadsheet,
-                    $importedEdition,
-                    $seriesIdMap,
-                    $stampIdMap,
-                    $catalogEntryIdMap,
-                    $newStampIds,
-                    $importMode
-                );
-                // Importeer bovenliggende postzegels die niet in deze
-                // cataloguseditie voorkomen en herstel hun ouder-kindrelaties.
-                $this->importParentStamps(
-                    $spreadsheet,
-                    $seriesIdMap,
-                    $stampIdMap,
-                    $newStampIds,
-                    $importMode
-                );
-
-                // Importeer de vertalingen van de postzegels.
-                $this->importStampTranslations(
-                    $spreadsheet,
-                    $stampIdMap
-                );
-
-                $this->importStampThemes($spreadsheet, $stampIdMap);
-
-                // Importeer de cataloguswaarden van de postzegels.
-                $this->importCatalogValues(
-                    $spreadsheet,
-                    $catalogEntryIdMap,
-                    $importMode
-                );
-
-                // Importeer de cataloguswaarden van de postzegelseries.
-                $this->importSeriesCatalogValues(
-                    $spreadsheet,
-                    $importedEdition,
-                    $seriesIdMap,
-                    $importMode
-                );
-
-                // Verwijder bij Vervangen de catalogusvermeldingen
-                // die niet meer in het Excel-bestand voorkomen.
-                if ($importMode === 'replace') {
-                    $this->removeMissingCatalogEntries(
-                        $importedEdition,
-                        $catalogEntryIdMap
+                    // Lees de cataloguseditiegegevens.
+                    $editionName = trim(
+                        (string) $editionSheet->getCell('A2')->getValue()
                     );
-                }
 
-                // Geef de geïmporteerde cataloguseditie terug.
-                return $importedEdition;
-            } finally {
-                // Maak het spreadsheet vrij uit het geheugen.
-                $spreadsheet->disconnectWorksheets();
-            }
-        });
+                    $editionYear = (int) $editionSheet->getCell('B2')->getValue();
+
+                    $publicationDate = trim(
+                        (string) $editionSheet->getCell('C2')->getValue()
+                    );
+
+                    $currency = trim(
+                        (string) $editionSheet->getCell('D2')->getValue()
+                    );
+
+                    $notes = trim(
+                        (string) $editionSheet->getCell('E2')->getValue()
+                    );
+
+                    // Zoek een bestaande cataloguseditie binnen de geselecteerde catalogus.
+                    $existingEdition = CatalogEdition::query()
+                        ->where('catalog_id', $catalog->id)
+                        ->where('edition_name', $editionName)
+                        ->where('edition_year', $editionYear)
+                        ->first();
+
+                    // Aanvullen en vervangen vereisen een bestaande cataloguseditie.
+                    if (
+                        in_array($importMode, ['merge', 'replace'], true)
+                        && $existingEdition === null
+                    ) {
+                        throw new RuntimeException(
+                            'De cataloguseditie bestaat niet. Aanvullen of vervangen is daarom niet mogelijk.'
+                        );
+                    }
+
+                    // Gebruik bij aanvullen of vervangen de bestaande cataloguseditie.
+                    // Maak uitsluitend bij een nieuwe import een cataloguseditie aan.
+                    if ($importMode === 'create') {
+                        $importedEdition = CatalogEdition::create([
+                            'catalog_id' => $catalog->id,
+                            'edition_name' => $editionName,
+                            'edition_year' => $editionYear,
+                            'publication_date' => $publicationDate !== '' ? $publicationDate : null,
+                            'currency' => $currency !== '' ? $currency : null,
+                            'notes' => $notes !== '' ? $notes : null,
+                        ]);
+                    } else {
+                        $importedEdition = $existingEdition;
+                    }
+
+                    // Bepaal het type geschiedenisbewerking.
+                    $operation = match ($importMode) {
+                        'create' => 'import_create',
+                        'merge' => 'import_merge',
+                        'replace' => 'import_replace',
+                    };
+
+                    // Maak de geschiedenisbatch aan.
+                    $batch = $this->history->createBatch(
+                        $importedEdition,
+                        $operation,
+                        $user,
+                        'Cataloguseditie geïmporteerd vanuit Excel.'
+                    );
+
+                    // Activeer de geschiedenisbatch voor de observers.
+                    $this->history->setActiveBatch($batch);
+
+                    // Koppeling tussen Excel-serie-ID's en lokale database-ID's.
+                    $seriesIdMap = [];
+
+                    // Importeer de landen binnen dezelfde databasetransactie.
+                    $this->importCountries($spreadsheet);
+                    $this->importCountryTranslations($spreadsheet);
+                    $this->importConditions($spreadsheet);
+                    $this->importConditionTranslations($spreadsheet);
+                    $this->importConditionRules($spreadsheet, $catalog);
+                    // Importeer de postzegelseries.
+                    $this->importStampSeries($spreadsheet, $seriesIdMap);
+                    // Importeer de vertalingen van de postzegelseries.
+                    $this->importStampSeriesTranslations($spreadsheet, $seriesIdMap);
+                    // Importeer de thema's.
+                    $this->importThemes($spreadsheet);
+                    // Importeer de vertalingen van de thema's.
+                    $this->importThemeTranslations($spreadsheet);
+
+                    // Koppeling tussen Excel-postzegel-ID's en lokale database-ID's.
+                    $stampIdMap = [];
+
+                    // Koppeling tussen Excel-postzegel-ID's en catalogusvermelding-ID's.
+                    $catalogEntryIdMap = [];
+
+                    // Houd bij welke postzegels tijdens deze import nieuw worden aangemaakt.
+                    $newStampIds = [];
+
+                    // Importeer de postzegels en hun catalogusvermeldingen.
+                    $this->importStamps(
+                        $spreadsheet,
+                        $importedEdition,
+                        $seriesIdMap,
+                        $stampIdMap,
+                        $catalogEntryIdMap,
+                        $newStampIds,
+                        $importMode
+                    );
+                    // Importeer bovenliggende postzegels die niet in deze
+                    // cataloguseditie voorkomen en herstel hun ouder-kindrelaties.
+                    $this->importParentStamps(
+                        $spreadsheet,
+                        $seriesIdMap,
+                        $stampIdMap,
+                        $newStampIds,
+                        $importMode
+                    );
+
+                    // Importeer de vertalingen van de postzegels.
+                    $this->importStampTranslations(
+                        $spreadsheet,
+                        $stampIdMap
+                    );
+
+                    $this->importStampThemes($spreadsheet, $stampIdMap);
+
+                    // Importeer de cataloguswaarden van de postzegels.
+                    $this->importCatalogValues(
+                        $spreadsheet,
+                        $catalogEntryIdMap,
+                        $importMode
+                    );
+
+                    // Importeer de cataloguswaarden van de postzegelseries.
+                    $this->importSeriesCatalogValues(
+                        $spreadsheet,
+                        $importedEdition,
+                        $seriesIdMap,
+                        $importMode
+                    );
+
+                    // Verwijder bij Vervangen de catalogusvermeldingen
+                    // die niet meer in het Excel-bestand voorkomen.
+                    if ($importMode === 'replace') {
+                        $this->removeMissingCatalogEntries(
+                            $importedEdition,
+                            $catalogEntryIdMap
+                        );
+                    }
+
+                    // Deactiveer de geschiedenisbatch na alle cataloguswijzigingen.
+                    $this->history->clearActiveBatch();
+
+                    // Verwijder de geschiedenisbatch wanneer er geen wijzigingen zijn geregistreerd.
+                    if (! $batch->logs()->exists()) {
+                        $batch->delete();
+                    }
+
+                    // Geef de geïmporteerde cataloguseditie terug.
+                    return $importedEdition;
+                } finally {
+                    // Maak het spreadsheet vrij uit het geheugen.
+                    $spreadsheet->disconnectWorksheets();
+                }
+            });
+        } finally {
+            // Ruim de actieve geschiedenisbatch altijd op.
+            $this->history->clearActiveBatch();
+        }
     }
 
     /**
@@ -1862,8 +1927,11 @@ class CatalogEditionExchangeImporter
                     $query->whereNotIn('id', $retainedCatalogValueIds);
                 }
 
-                // Verwijder uitsluitend de ontbrekende cataloguswaarden.
-                $query->delete();
+                // Verwijder de ontbrekende cataloguswaarden via Eloquent,
+                // zodat de observer iedere verwijdering registreert.
+                foreach ($query->with('catalogEntry')->lazyById(500) as $value) {
+                    $value->delete();
+                }
             }
         }
     }
@@ -2015,8 +2083,11 @@ class CatalogEditionExchangeImporter
                 $query->whereNotIn('id', $retainedSeriesCatalogValueIds);
             }
 
-            // Verwijder uitsluitend de ontbrekende seriecataloguswaarden.
-            $query->delete();
+            // Verwijder de ontbrekende seriecataloguswaarden via Eloquent,
+            // zodat de observer iedere verwijdering registreert.
+            foreach ($query->lazyById(500) as $value) {
+                $value->delete();
+            }
         }
     }
 
@@ -2046,9 +2117,12 @@ class CatalogEditionExchangeImporter
 
         // Verwijder uitsluitend de ontbrekende catalogusvermeldingen.
         foreach ($query->get() as $entry) {
-            // Eerst de bijbehorende cataloguswaarden verwijderen.
-            // De database gebruikt hiervoor restrictOnDelete().
-            $entry->values()->delete();
+            // Verwijder eerst de bijbehorende cataloguswaarden via Eloquent,
+            // zodat de observer iedere verwijdering registreert.
+            foreach ($entry->values()->lazyById(500) as $value) {
+                $value->setRelation('catalogEntry', $entry);
+                $value->delete();
+            }
 
             // Daarna de catalogusvermelding verwijderen.
             $entry->delete();

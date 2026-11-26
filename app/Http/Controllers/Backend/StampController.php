@@ -11,6 +11,7 @@ use App\Models\Country;
 use App\Models\Stamp;
 use App\Models\StampSeries;
 use App\Models\Theme;
+use App\Services\CatalogChangeHistoryService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -281,8 +282,10 @@ class StampController extends Controller
     /**
      * Store a newly created stamp.
      */
-    public function store(Request $request): RedirectResponse
-    {
+    public function store(
+        Request $request,
+        CatalogChangeHistoryService $history
+    ): RedirectResponse {
         $validated = $request->validate(array_merge([
             'country_id' => [
                 'required',
@@ -513,6 +516,9 @@ class StampController extends Controller
         // Bewaar het pad voor eventuele opruiming bij een fout.
         $storedImagePath = null;
 
+        // Bepaal welke gebruiker de postzegel aanmaakt.
+        $user = $request->user();
+
         try {
 
             $stamp = DB::transaction(function () use (
@@ -525,6 +531,8 @@ class StampController extends Controller
                 $imageFile,
                 $imageType,
                 $imageAltText,
+                $history,
+                $user,
                 &$storedImagePath
             ) {
 
@@ -555,6 +563,21 @@ class StampController extends Controller
 
                 // Koppel de postzegel aan de geselecteerde cataloguseditie.
                 if ($catalogEditionId !== null && $catalogNumber !== null) {
+
+                    // Haal de geselecteerde cataloguseditie op.
+                    $catalogEdition = CatalogEdition::findOrFail($catalogEditionId);
+
+                    // Maak een geschiedenisbatch aan voor deze cataloguseditie.
+                    $batch = $history->createBatch(
+                        $catalogEdition,
+                        'stamp_create',
+                        $user,
+                        'Catalogusgegevens bij het aanmaken van een postzegel'
+                    );
+
+                    // Activeer de geschiedenisbatch voor de Eloquent-observers.
+                    $history->setActiveBatch($batch);
+
                     $catalogEntry = $stamp->catalogEntries()->create([
                         'catalog_edition_id' => $catalogEditionId,
                         'catalog_number' => trim($catalogNumber),
@@ -583,6 +606,14 @@ class StampController extends Controller
                             ]);
                         }
                     }
+
+                    // Verwijder de geschiedenisbatch als er geen wijzigingen zijn geregistreerd.
+                    if (! $batch->logs()->exists()) {
+                        $batch->delete();
+                    }
+
+                    // Beëindig de actieve geschiedeniscontext voor deze cataloguseditie.
+                    $history->clearActiveBatch();
                 }
 
                 // Koppel de afbeelding aan de nieuwe postzegel.
@@ -618,6 +649,9 @@ class StampController extends Controller
             }
 
             throw $exception;
+        } finally {
+            // Zorg dat er nooit een actieve geschiedenisbatch achterblijft.
+            $history->clearActiveBatch();
         }
 
         return redirect()
@@ -712,7 +746,8 @@ class StampController extends Controller
      */
     public function update(
         Request $request,
-        Stamp $stamp
+        Stamp $stamp,
+        CatalogChangeHistoryService $history
     ): RedirectResponse {
         $validated = $request->validate(array_merge([
             'country_id' => [
@@ -979,101 +1014,200 @@ class StampController extends Controller
 
         $validated['description'] = $translations[$locale]['description'] ?? null;
 
-        DB::transaction(function () use (
-            $stamp,
-            $validated,
-            $translations,
-            $themeIds,
-            $catalogEditionId,
-            $catalogNumber,
-            $catalogValues,
-            $catalogEntries,
-            $catalogEditionsInput
-        ) {
+        // Bepaal welke gebruiker de postzegel wijzigt.
+        $user = $request->user();
 
-            // Werk de algemene postzegelgegevens bij.
-            $stamp->update($validated);
+        try {
+            DB::transaction(function () use (
+                $stamp,
+                $validated,
+                $translations,
+                $themeIds,
+                $catalogEditionId,
+                $catalogNumber,
+                $catalogValues,
+                $catalogEntries,
+                $catalogEditionsInput,
+                $history,
+                $user
+            ) {
 
-            // Verwijder cataloguskoppelingen die niet bij het geselecteerde land horen.
-            $invalidCatalogEntries = $stamp->catalogEntries()
-                ->whereHas('catalogEdition.catalog', function ($query) use ($validated) {
-                    $query->whereDoesntHave('countries', function ($countryQuery) use ($validated) {
-                        $countryQuery->where('countries.id', $validated['country_id']);
-                    });
-                })
-                ->get();
+                // Bewaar maximaal één geschiedenisbatch per cataloguseditie.
+                $batches = [];
 
-            foreach ($invalidCatalogEntries as $catalogEntry) {
-                // Verwijder eerst de bijbehorende cataloguswaarden.
-                $catalogEntry->values()->delete();
+                // Maak een geschiedenisbatch aan of hergebruik een bestaande batch.
+                $activateBatch = function (int $editionId) use (
+                    &$batches,
+                    $history,
+                    $user
+                ): void {
+                    if (! isset($batches[$editionId])) {
+                        $edition = CatalogEdition::findOrFail($editionId);
 
-                // Verwijder daarna de cataloguskoppeling.
-                $catalogEntry->delete();
-            }
+                        $batches[$editionId] = $history->createBatch(
+                            $edition,
+                            'stamp_update',
+                            $user,
+                            'Catalogusgegevens bij het wijzigen van een postzegel'
+                        );
+                    }
 
-            // Werk de gekoppelde thema's bij.
-            $stamp->themes()->sync($themeIds);
+                    // Activeer de juiste batch voor de Eloquent-observers.
+                    $history->setActiveBatch($batches[$editionId]);
+                };
 
-            // Werk bestaande vertalingen bij of voeg nieuwe toe.
-            foreach (self::LOCALES as $locale) {
+                // Werk de algemene postzegelgegevens bij.
+                $stamp->update($validated);
 
-                $translation = $translations[$locale] ?? [];
+                // Verwijder cataloguskoppelingen die niet bij het geselecteerde land horen.
+                $invalidCatalogEntries = $stamp->catalogEntries()
+                    ->whereHas('catalogEdition.catalog', function ($query) use ($validated) {
+                        $query->whereDoesntHave('countries', function ($countryQuery) use ($validated) {
+                            $countryQuery->where('countries.id', $validated['country_id']);
+                        });
+                    })
+                    ->get();
 
-                $name = trim((string) ($translation['name'] ?? ''));
+                foreach ($invalidCatalogEntries as $catalogEntry) {
 
-                // Behoud bestaande vertalingen als de naam leeg is.
-                if ($name === '') {
-                    continue;
+                    // Activeer de geschiedenisbatch voor deze cataloguseditie.
+                    $activateBatch((int) $catalogEntry->catalog_edition_id);
+
+                    // Verwijder eerst de bijbehorende cataloguswaarden afzonderlijk.
+                    foreach ($catalogEntry->values()->get() as $catalogValue) {
+                        $catalogValue->delete();
+                    }
+
+                    // Verwijder daarna de cataloguskoppeling.
+                    $catalogEntry->delete();
                 }
 
-                $stamp->translations()->updateOrCreate(
-                    ['locale' => $locale],
-                    [
-                        'name' => $name,
-                        'description' => $translation['description'] ?? null,
-                    ]
-                );
-            }
-            // Werk een bestaande cataloguskoppeling bij of voeg een nieuwe toe.
-            if ($catalogEditionId !== null && $catalogNumber !== null) {
-                $catalogEntry = $stamp->catalogEntries()->updateOrCreate(
-                    [
-                        'catalog_edition_id' => $catalogEditionId,
-                    ],
-                    [
-                        'catalog_number' => trim($catalogNumber),
-                    ]
-                );
+                // Beëindig de actieve geschiedeniscontext.
+                $history->clearActiveBatch();
+                // Werk de gekoppelde thema's bij.
+                $stamp->themes()->sync($themeIds);
 
-                // Werk de cataloguswaarden per conditie bij.
-                if ($catalogValues !== []) {
-                    $conditions = Condition::query()
-                        ->whereIn('slug', array_keys($catalogValues))
-                        ->get()
-                        ->keyBy('slug');
-                    foreach ($catalogValues as $slug => $amount) {
-                        $condition = $conditions->get($slug);
+                // Werk bestaande vertalingen bij of voeg nieuwe toe.
+                foreach (self::LOCALES as $locale) {
+
+                    $translation = $translations[$locale] ?? [];
+
+                    $name = trim((string) ($translation['name'] ?? ''));
+
+                    // Behoud bestaande vertalingen als de naam leeg is.
+                    if ($name === '') {
+                        continue;
+                    }
+
+                    $stamp->translations()->updateOrCreate(
+                        ['locale' => $locale],
+                        [
+                            'name' => $name,
+                            'description' => $translation['description'] ?? null,
+                        ]
+                    );
+                }
+                // Werk een bestaande cataloguskoppeling bij of voeg een nieuwe toe.
+                if ($catalogEditionId !== null && $catalogNumber !== null) {
+
+                    // Activeer de geschiedenisbatch voor deze cataloguseditie.
+                    $activateBatch((int) $catalogEditionId);
+
+                    $catalogEntry = $stamp->catalogEntries()->updateOrCreate(
+                        [
+                            'catalog_edition_id' => $catalogEditionId,
+                        ],
+                        [
+                            'catalog_number' => trim($catalogNumber),
+                        ]
+                    );
+
+                    // Werk de cataloguswaarden per conditie bij.
+                    if ($catalogValues !== []) {
+                        $conditions = Condition::query()
+                            ->whereIn('slug', array_keys($catalogValues))
+                            ->get()
+                            ->keyBy('slug');
+                        foreach ($catalogValues as $slug => $amount) {
+                            $condition = $conditions->get($slug);
+
+                            if ($condition === null) {
+                                throw ValidationException::withMessages([
+                                    'catalog_values' => __('De geselecteerde conditie bestaat niet.'),
+                                ]);
+                            }
+
+                            // Verwijder de bestaande cataloguswaarde als het veld leeg is.
+                            if ($amount === null || $amount === '') {
+                                $catalogValue = $catalogEntry->values()
+                                    ->where('condition_id', $condition->id)
+                                    ->first();
+
+                                if ($catalogValue !== null) {
+                                    $catalogValue->delete();
+                                }
+
+                                continue;
+                            }
+
+                            // Voeg een nieuwe cataloguswaarde toe of werk de bestaande bij.
+                            $catalogEntry->values()->updateOrCreate(
+                                [
+                                    'condition_id' => $condition->id,
+                                ],
+                                [
+                                    'catalog_value' => $amount,
+                                    'currency' => $catalogEntry->catalogEdition->currency ?? 'EUR',
+                                ]
+                            );
+                        }
+                    }
+                }
+
+                // Haal de condities op voor de cataloguswaarderingen.
+                $entryConditions = Condition::query()
+                    ->whereIn('slug', [
+                        'postfris',
+                        'ongebruikt-met-plakker',
+                        'gestempeld',
+                    ])
+                    ->get()
+                    ->keyBy('slug');
+
+                // Werk bestaande catalogusvermeldingen en hun waarden bij.
+                foreach ($catalogEntries as $entryId => $entryData) {
+                    $catalogEntry = $stamp->catalogEntries()
+                        ->whereKey($entryId)
+                        ->firstOrFail();
+
+                    // Activeer de geschiedenisbatch voor deze cataloguseditie.
+                    $activateBatch((int) $catalogEntry->catalog_edition_id);
+
+                    // Werk het catalogusnummer bij.
+                    $catalogEntry->update([
+                        'catalog_number' => trim($entryData['catalog_number']),
+                    ]);
+
+                    // Werk de cataloguswaarden per conditie bij.
+                    foreach ($entryData['values'] ?? [] as $slug => $amount) {
+                        $condition = $entryConditions->get($slug);
 
                         if ($condition === null) {
                             throw ValidationException::withMessages([
-                                'catalog_values' => __('De geselecteerde conditie bestaat niet.'),
+                                'catalog_entries' => __(
+                                    'De geselecteerde conditie bestaat niet.'
+                                ),
                             ]);
                         }
 
-                        // Verwijder de bestaande cataloguswaarde als het veld leeg is.
+                        // Lege velden wijzigen bestaande cataloguswaarden niet.
                         if ($amount === null || $amount === '') {
-                            $catalogEntry->values()
-                                ->where('condition_id', $condition->id)
-                                ->delete();
-
                             continue;
                         }
 
-                        // Voeg een nieuwe cataloguswaarde toe of werk de bestaande bij.
+                        // Voeg een ontbrekende cataloguswaarde toe of werk de bestaande bij.
                         $catalogEntry->values()->updateOrCreate(
-                            [
-                                'condition_id' => $condition->id,
-                            ],
+                            ['condition_id' => $condition->id],
                             [
                                 'catalog_value' => $amount,
                                 'currency' => $catalogEntry->catalogEdition->currency ?? 'EUR',
@@ -1081,179 +1215,150 @@ class StampController extends Controller
                         );
                     }
                 }
-            }
 
-            // Haal de condities op voor de cataloguswaarderingen.
-            $entryConditions = Condition::query()
-                ->whereIn('slug', [
-                    'postfris',
-                    'ongebruikt-met-plakker',
-                    'gestempeld',
-                ])
-                ->get()
-                ->keyBy('slug');
+                // Verwerk alle catalogusedities uit de nieuwe tabel.
+                foreach ($catalogEditionsInput as $editionId => $editionData) {
+                    $catalogNumber = trim((string) ($editionData['catalog_number'] ?? ''));
+                    $values = $editionData['values'] ?? [];
 
-            // Werk bestaande catalogusvermeldingen en hun waarden bij.
-            foreach ($catalogEntries as $entryId => $entryData) {
-                $catalogEntry = $stamp->catalogEntries()
-                    ->whereKey($entryId)
-                    ->firstOrFail();
+                    // Controleer of de ingevulde cataloguswaarden zijn toegestaan
+                    // voor de catalogus, het land en het uitgiftejaar.
+                    $submittedValues = array_filter(
+                        $values,
+                        fn ($value) => $value !== null && $value !== ''
+                    );
 
-                // Werk het catalogusnummer bij.
-                $catalogEntry->update([
-                    'catalog_number' => trim($entryData['catalog_number']),
-                ]);
+                    if ($submittedValues !== []) {
+                        $edition = CatalogEdition::findOrFail((int) $editionId);
 
-                // Werk de cataloguswaarden per conditie bij.
-                foreach ($entryData['values'] ?? [] as $slug => $amount) {
-                    $condition = $entryConditions->get($slug);
+                        $allowedConditionIds = CatalogConditionRule::query()
+                            ->where('catalog_id', $edition->catalog_id)
+                            ->where(function ($query) use ($validated) {
+                                $query->whereNull('country_id')
+                                    ->orWhere('country_id', $validated['country_id']);
+                            })
+                            ->where(function ($query) use ($validated) {
+                                $query->whereNull('issue_year_from')
+                                    ->orWhere('issue_year_from', '<=', $validated['issue_year']);
+                            })
+                            ->where(function ($query) use ($validated) {
+                                $query->whereNull('issue_year_to')
+                                    ->orWhere('issue_year_to', '>=', $validated['issue_year']);
+                            })
+                            ->pluck('condition_id');
 
-                    if ($condition === null) {
+                        $allowedSlugs = Condition::query()
+                            ->whereIn('id', $allowedConditionIds)
+                            ->pluck('slug')
+                            ->all();
+
+                        foreach (array_keys($submittedValues) as $slug) {
+                            if (! in_array($slug, $allowedSlugs, true)) {
+                                throw ValidationException::withMessages([
+                                    "catalog_editions.{$editionId}.values.{$slug}" => __(
+                                        'Deze cataloguswaarde is niet toegestaan voor de geselecteerde catalogus, het land of het uitgiftejaar.'
+                                    ),
+                                ]);
+                            }
+                        }
+                    }
+
+                    // Controleer of er cataloguswaarden zijn ingevuld.
+                    $hasValues = false;
+
+                    foreach ($values as $value) {
+                        if ($value !== null && $value !== '') {
+                            $hasValues = true;
+
+                            break;
+                        }
+                    }
+
+                    // Zoek een bestaande cataloguskoppeling.
+                    $catalogEntry = $stamp->catalogEntries()
+                        ->where('catalog_edition_id', $editionId)
+                        ->first();
+
+                    // Sla een volledig lege, nog niet gekoppelde editie over.
+                    if ($catalogEntry === null && $catalogNumber === '' && ! $hasValues) {
+                        continue;
+                    }
+
+                    // Een nieuwe koppeling vereist een catalogusnummer.
+                    if ($catalogEntry === null && $catalogNumber === '') {
                         throw ValidationException::withMessages([
-                            'catalog_entries' => __(
-                                'De geselecteerde conditie bestaat niet.'
+                            "catalog_editions.{$editionId}.catalog_number" => __(
+                                'Vul een catalogusnummer in wanneer je cataloguswaarden opgeeft.'
                             ),
                         ]);
                     }
 
-                    // Lege velden wijzigen bestaande cataloguswaarden niet.
-                    if ($amount === null || $amount === '') {
-                        continue;
+                    // Activeer de geschiedenisbatch voor deze cataloguseditie.
+                    $activateBatch((int) $editionId);
+
+                    // Maak een nieuwe koppeling aan als deze nog niet bestaat.
+                    if ($catalogEntry === null) {
+                        $catalogEntry = $stamp->catalogEntries()->create([
+                            'catalog_edition_id' => $editionId,
+                            'catalog_number' => $catalogNumber,
+                        ]);
+                    } elseif ($catalogNumber !== '') {
+                        // Werk een bestaand catalogusnummer alleen bij als het is ingevuld.
+                        $catalogEntry->update([
+                            'catalog_number' => $catalogNumber,
+                        ]);
                     }
 
-                    // Voeg een ontbrekende cataloguswaarde toe of werk de bestaande bij.
-                    $catalogEntry->values()->updateOrCreate(
-                        ['condition_id' => $condition->id],
-                        [
-                            'catalog_value' => $amount,
-                            'currency' => $catalogEntry->catalogEdition->currency ?? 'EUR',
-                        ]
-                    );
-                }
-            }
+                    // Werk de cataloguswaarden per conditie bij.
+                    foreach ($values as $slug => $amount) {
+                        $condition = $entryConditions->get($slug);
 
-            // Verwerk alle catalogusedities uit de nieuwe tabel.
-            foreach ($catalogEditionsInput as $editionId => $editionData) {
-                $catalogNumber = trim((string) ($editionData['catalog_number'] ?? ''));
-                $values = $editionData['values'] ?? [];
-
-                // Controleer of de ingevulde cataloguswaarden zijn toegestaan
-                // voor de catalogus, het land en het uitgiftejaar.
-                $submittedValues = array_filter(
-                    $values,
-                    fn ($value) => $value !== null && $value !== ''
-                );
-
-                if ($submittedValues !== []) {
-                    $edition = CatalogEdition::findOrFail((int) $editionId);
-
-                    $allowedConditionIds = CatalogConditionRule::query()
-                        ->where('catalog_id', $edition->catalog_id)
-                        ->where(function ($query) use ($validated) {
-                            $query->whereNull('country_id')
-                                ->orWhere('country_id', $validated['country_id']);
-                        })
-                        ->where(function ($query) use ($validated) {
-                            $query->whereNull('issue_year_from')
-                                ->orWhere('issue_year_from', '<=', $validated['issue_year']);
-                        })
-                        ->where(function ($query) use ($validated) {
-                            $query->whereNull('issue_year_to')
-                                ->orWhere('issue_year_to', '>=', $validated['issue_year']);
-                        })
-                        ->pluck('condition_id');
-
-                    $allowedSlugs = Condition::query()
-                        ->whereIn('id', $allowedConditionIds)
-                        ->pluck('slug')
-                        ->all();
-
-                    foreach (array_keys($submittedValues) as $slug) {
-                        if (! in_array($slug, $allowedSlugs, true)) {
+                        if ($condition === null) {
                             throw ValidationException::withMessages([
                                 "catalog_editions.{$editionId}.values.{$slug}" => __(
-                                    'Deze cataloguswaarde is niet toegestaan voor de geselecteerde catalogus, het land of het uitgiftejaar.'
+                                    'De geselecteerde conditie bestaat niet.'
                                 ),
                             ]);
                         }
+
+                        // Verwijder de bestaande cataloguswaarde wanneer het veld leeg is.
+                        if ($amount === null || $amount === '') {
+                            $catalogValue = $catalogEntry->values()
+                                ->where('condition_id', $condition->id)
+                                ->first();
+
+                            if ($catalogValue !== null) {
+                                $catalogValue->delete();
+                            }
+
+                            continue;
+                        }
+
+                        // Voeg een ontbrekende cataloguswaarde toe of werk de bestaande bij.
+                        $catalogEntry->values()->updateOrCreate(
+                            ['condition_id' => $condition->id],
+                            [
+                                'catalog_value' => $amount,
+                                'currency' => $catalogEntry->catalogEdition->currency ?? 'EUR',
+                            ]
+                        );
                     }
                 }
 
-                // Controleer of er cataloguswaarden zijn ingevuld.
-                $hasValues = false;
+                // Beëindig de actieve geschiedeniscontext.
+                $history->clearActiveBatch();
 
-                foreach ($values as $value) {
-                    if ($value !== null && $value !== '') {
-                        $hasValues = true;
-
-                        break;
+                // Verwijder alle batches waarvoor geen wijzigingen zijn geregistreerd.
+                foreach ($batches as $batch) {
+                    if (! $batch->logs()->exists()) {
+                        $batch->delete();
                     }
                 }
-
-                // Zoek een bestaande cataloguskoppeling.
-                $catalogEntry = $stamp->catalogEntries()
-                    ->where('catalog_edition_id', $editionId)
-                    ->first();
-
-                // Sla een volledig lege, nog niet gekoppelde editie over.
-                if ($catalogEntry === null && $catalogNumber === '' && ! $hasValues) {
-                    continue;
-                }
-
-                // Een nieuwe koppeling vereist een catalogusnummer.
-                if ($catalogEntry === null && $catalogNumber === '') {
-                    throw ValidationException::withMessages([
-                        "catalog_editions.{$editionId}.catalog_number" => __(
-                            'Vul een catalogusnummer in wanneer je cataloguswaarden opgeeft.'
-                        ),
-                    ]);
-                }
-
-                // Maak een nieuwe koppeling aan als deze nog niet bestaat.
-                if ($catalogEntry === null) {
-                    $catalogEntry = $stamp->catalogEntries()->create([
-                        'catalog_edition_id' => $editionId,
-                        'catalog_number' => $catalogNumber,
-                    ]);
-                } elseif ($catalogNumber !== '') {
-                    // Werk een bestaand catalogusnummer alleen bij als het is ingevuld.
-                    $catalogEntry->update([
-                        'catalog_number' => $catalogNumber,
-                    ]);
-                }
-
-                // Werk de cataloguswaarden per conditie bij.
-                foreach ($values as $slug => $amount) {
-                    $condition = $entryConditions->get($slug);
-
-                    if ($condition === null) {
-                        throw ValidationException::withMessages([
-                            "catalog_editions.{$editionId}.values.{$slug}" => __(
-                                'De geselecteerde conditie bestaat niet.'
-                            ),
-                        ]);
-                    }
-
-                    // Verwijder de bestaande cataloguswaarde wanneer het veld leeg is.
-                    if ($amount === null || $amount === '') {
-                        $catalogEntry->values()
-                            ->where('condition_id', $condition->id)
-                            ->delete();
-
-                        continue;
-                    }
-
-                    // Voeg een ontbrekende cataloguswaarde toe of werk de bestaande bij.
-                    $catalogEntry->values()->updateOrCreate(
-                        ['condition_id' => $condition->id],
-                        [
-                            'catalog_value' => $amount,
-                            'currency' => $catalogEntry->catalogEdition->currency ?? 'EUR',
-                        ]
-                    );
-                }
-            }
-        });
+            });
+        } finally {
+            // Zorg dat er nooit een actieve geschiedenisbatch achterblijft.
+            $history->clearActiveBatch();
+        }
 
         return redirect()
             ->route('backend.stamps.index')

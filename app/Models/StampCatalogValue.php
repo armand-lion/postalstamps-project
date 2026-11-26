@@ -16,6 +16,10 @@ class StampCatalogValue extends Model
         'needs_review',
     ];
 
+    protected $attributes = [
+        'needs_review' => false,
+    ];
+
     protected function casts(): array
     {
         return [

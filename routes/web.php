@@ -6,6 +6,7 @@ use App\Http\Controllers\Backend\CatalogEditionComparisonController;
 use App\Http\Controllers\Backend\CatalogEditionCompletenessController;
 use App\Http\Controllers\Backend\CatalogEditionController;
 use App\Http\Controllers\Backend\CatalogEditionExportController;
+use App\Http\Controllers\Backend\CatalogEditionHistoryController;
 use App\Http\Controllers\Backend\CatalogEditionImportController;
 use App\Http\Controllers\Backend\CatalogEditionReviewController;
 use App\Http\Controllers\Backend\CollectibleController;
@@ -157,6 +158,18 @@ Route::middleware(['auth'])->group(function () { //
                 'catalogs/{catalog}/editions/compare',
                 [CatalogEditionComparisonController::class, 'index']
             )->name('catalogs.editions.compare');
+
+            // Overzicht van de wijzigingsgeschiedenis van een cataloguseditie.
+            Route::get(
+                'catalogs/{catalog}/editions/{edition}/history',
+                [CatalogEditionHistoryController::class, 'index']
+            )->name('catalogs.editions.history.index');
+
+            // Details van een geschiedenisbatch.
+            Route::get(
+                'catalogs/{catalog}/editions/{edition}/history/{batch}',
+                [CatalogEditionHistoryController::class, 'show']
+            )->name('catalogs.editions.history.show');
 
             Route::resource('catalogs.editions', CatalogEditionController::class);
         });
