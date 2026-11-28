@@ -12,6 +12,7 @@ use App\Models\Stamp;
 use App\Models\StampSeries;
 use App\Models\Theme;
 use App\Services\CatalogChangeHistoryService;
+use App\Services\StampFilterService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -93,7 +94,7 @@ class StampController extends Controller
     /**
      * Display a listing of the stamps.
      */
-    public function index(Request $request): View
+    public function index(Request $request, StampFilterService $stampFilterService): View
     {
         $query = Stamp::with([
             'country',
@@ -107,44 +108,8 @@ class StampController extends Controller
             'copies as is_owned' => fn ($query) => $query->where('quantity', '>', 0),
         ]);
 
-        // Zoek in postzegelnamen, vertalingen en catalogusreferenties.
-        if ($request->filled('search')) {
-            $search = trim((string) $request->input('search'));
-
-            $query->where(function ($query) use ($search) {
-                $query->where('name', 'like', "%{$search}%")
-                    ->orWhere('catalog_reference', 'like', "%{$search}%")
-                    ->orWhereHas('translations', function ($translationQuery) use ($search) {
-                        $translationQuery->where('name', 'like', "%{$search}%");
-                    });
-            });
-        }
-
-        if ($request->filled('country_id')) {
-            $query->where('country_id', $request->integer('country_id'));
-        }
-
-        if ($request->filled('issue_year')) {
-            $query->where('issue_year', $request->integer('issue_year'));
-        }
-
-        // Filter postzegels op de geselecteerde catalogus.
-        if ($request->filled('catalog_id')) {
-            $catalogId = $request->integer('catalog_id');
-
-            $query->whereHas('catalogEntries.catalogEdition', function ($editionQuery) use ($catalogId) {
-                $editionQuery->where('catalog_id', $catalogId);
-            });
-        }
-
-        // Filter postzegels op de geselecteerde cataloguseditie.
-        if ($request->filled('catalog_edition_id')) {
-            $catalogEditionId = $request->integer('catalog_edition_id');
-
-            $query->whereHas('catalogEntries', function ($entryQuery) use ($catalogEditionId) {
-                $entryQuery->where('catalog_edition_id', $catalogEditionId);
-            });
-        }
+        // Pas de algemene postzegelfilters toe.
+        $query = $stampFilterService->applyFilters($query, $request);
 
         $sort = $request->input('sort', 'year_desc');
 

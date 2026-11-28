@@ -13,7 +13,9 @@ use App\Http\Controllers\Backend\CollectibleController;
 use App\Http\Controllers\Backend\CollectibleCopyController;
 use App\Http\Controllers\Backend\CollectibleTypeController;
 use App\Http\Controllers\Backend\CountryController;
+use App\Http\Controllers\Backend\StampBulkEditController;
 use App\Http\Controllers\Backend\StampCatalogValueReviewController;
+use App\Http\Controllers\Backend\StampChangeHistoryController;
 use App\Http\Controllers\Backend\StampController;
 use App\Http\Controllers\Backend\StampCopyController;
 use App\Http\Controllers\Backend\StampCopyImageController;
@@ -51,6 +53,71 @@ Route::middleware(['auth'])->group(function () { //
             Route::resource('countries', CountryController::class);
             Route::resource('themes', ThemeController::class);
             Route::resource('watermarks', WatermarkController::class);
+
+            // Bulkbewerking van algemene postzegelgegevens.
+            Route::middleware(EnsureUserIsAdmin::class)->group(function () {
+                Route::get(
+                    'stamps/bulk-edit',
+                    [StampBulkEditController::class, 'index']
+                )->name('stamps.bulk-edit.index');
+
+                Route::get(
+                    'stamps/bulk-edit/selected',
+                    [StampBulkEditController::class, 'selected']
+                )->name('stamps.bulk-edit.selected');
+
+                Route::get(
+                    'stamps/bulk-edit/edit',
+                    [StampBulkEditController::class, 'edit']
+                )->name('stamps.bulk-edit.edit');
+
+                Route::post(
+                    'stamps/bulk-edit/preview',
+                    [StampBulkEditController::class, 'preview']
+                )->name('stamps.bulk-edit.preview');
+
+                Route::get(
+                    'stamps/bulk-edit/preview',
+                    [StampBulkEditController::class, 'showPreview']
+                )->name('stamps.bulk-edit.preview.show');
+
+                Route::post(
+                    'stamps/bulk-edit/preview/exclusion',
+                    [StampBulkEditController::class, 'updateExclusion']
+                )->name('stamps.bulk-edit.preview.exclusion');
+
+                Route::post(
+                    'stamps/bulk-edit/apply',
+                    [StampBulkEditController::class, 'apply']
+                )->name('stamps.bulk-edit.apply');
+
+                Route::post(
+                    'stamps/bulk-edit/selection',
+                    [StampBulkEditController::class, 'updateSelection']
+                )->name('stamps.bulk-edit.selection.update');
+
+                Route::post(
+                    'stamps/bulk-edit/selection/all-filtered',
+                    [StampBulkEditController::class, 'selectAllFiltered']
+                )->name('stamps.bulk-edit.selection.all-filtered');
+
+                Route::delete(
+                    'stamps/bulk-edit/selection',
+                    [StampBulkEditController::class, 'clearSelection']
+                )->name('stamps.bulk-edit.selection.clear');
+            });
+
+            // Algemene wijzigingsgeschiedenis van postzegels.
+            Route::get(
+                'stamps/history',
+                [StampChangeHistoryController::class, 'index']
+            )->name('stamps.history.index');
+
+            Route::get(
+                'stamps/history/{batch}',
+                [StampChangeHistoryController::class, 'show']
+            )->whereNumber('batch')->name('stamps.history.show');
+
             Route::resource('stamps', StampController::class);
 
             Route::patch(
@@ -85,6 +152,10 @@ Route::middleware(['auth'])->group(function () { //
                 ->except(['show'])
                 ->parameters(['collectible-types' => 'collectibleType']);
 
+            // Postzegelseries dynamisch ophalen op basis van land en uitgiftejaar.
+            Route::get('stamp-series/lookup', [StampSeriesController::class, 'lookup'])
+                ->name('stamp-series.lookup');
+
             Route::resource('stamp-series', StampSeriesController::class);
             Route::resource('catalogs', CatalogController::class);
 
@@ -116,6 +187,7 @@ Route::middleware(['auth'])->group(function () { //
                 'catalogs/{catalog}/editions/{edition}/bulk-edit',
                 [CatalogEditionBulkEditController::class, 'edit']
             )->name('catalogs.editions.bulk-edit');
+
             Route::patch(
                 'catalogs/{catalog}/editions/{edition}/bulk-edit',
                 [CatalogEditionBulkEditController::class, 'update']

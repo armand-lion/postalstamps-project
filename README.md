@@ -1013,24 +1013,49 @@ Planned features:
 
 ### Part H — Bulk Stamp Management
 
-**Status:** ⏳ Planned
+**Status:** ✅ Completed
 
 **Objective:** Allow administrators to update general stamp information for multiple stamps simultaneously.
 
-Planned features:
+Implemented features:
 
-- Select multiple stamps from a filtered overview.
-- Update countries or territories where appropriate.
-- Update issue years.
-- Assign or change stamp series.
-- Add or remove themes.
-- Update printing methods.
-- Fill missing stamp information.
-- Validate relationships and existing restrictions.
-- Preview changes before saving.
-- Prevent unintended modifications.
+- Dedicated bulk stamp management interface for administrators.
+- Reusable stamp filtering and selection functionality.
+- Persistent selection across filters and pagination.
+- Select all filtered stamps independently of pagination.
+- Display selected stamps and selection counts.
+- Advanced filtering by stamp series, theme, printing method, missing information, and stamp type.
+- Dynamic stamp series filtering based on country and issue year.
+- Update countries or territories.
+- Update issue years and issue dates.
+- Assign, change, or remove stamp series.
+- Add, remove, replace, or clear themes.
+- Update face values, currencies, designers, printing methods, and notes.
+- Fill missing information without overwriting existing values.
+- Validate parent and variant relationships.
+- Validate stamp series, catalog relationships, and valuation restrictions.
+- Preview proposed changes before saving.
+- Display changed, unchanged, conflicting, and excluded stamps.
+- Exclude individual stamps from bulk operations.
+- Prevent saving when unresolved conflicts remain.
+- Require explicit confirmation before applying changes.
+- Detect outdated previews before saving.
+- Use database transactions and record locking to protect data integrity.
+- Record bulk changes in a dedicated stamp change history.
+- Store previous and updated values, timestamps, and responsible users.
+- Provide change history overviews and detailed change records.
+- Restrict responsible user information to administrators.
+- Preserve catalog values, images, and personal collection data.
 
-**Result:** General stamp information can be maintained efficiently across large datasets.
+Quality assurance:
+
+- Functional and visual browser checks completed.
+- Automated selection, filtering, bulk editing, and change history tests passed.
+- PHPStan: 215 files analyzed without errors.
+- Laravel Pint: 308 files passed.
+- Full test suite: 761 tests passed with 31,681 assertions.
+
+**Result:** General stamp information can be maintained efficiently and safely across large datasets, with conflict detection, controlled bulk updates, and traceable change history.
 
 ### Part I — Bulk Personal Collection Management
 

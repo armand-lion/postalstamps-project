@@ -5,12 +5,47 @@ namespace App\Http\Controllers\Backend;
 use App\Http\Controllers\Controller;
 use App\Models\Country;
 use App\Models\StampSeries;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class StampSeriesController extends Controller
 {
+    /**
+     * Haal postzegelseries op voor een specifiek land en uitgiftejaar.
+     */
+    public function lookup(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'country_id' => ['required', 'integer', 'exists:countries,id'],
+            'issue_year' => ['required', 'integer', 'min:1840', 'max:2200'],
+        ]);
+
+        $locale = app()->getLocale();
+        $fallbackLocale = config('app.fallback_locale', 'nl');
+
+        $series = StampSeries::query()
+            ->with('translations')
+            ->where('country_id', $validated['country_id'])
+            ->where('issue_year', $validated['issue_year'])
+            ->orderBy('name')
+            ->get()
+            ->map(function (StampSeries $series) use ($locale, $fallbackLocale) {
+                $translation = $series->translations->firstWhere('locale', $locale)
+                    ?? $series->translations->firstWhere('locale', $fallbackLocale);
+
+                return [
+                    'id' => $series->id,
+                    'name' => $translation->name ?? $series->name,
+                ];
+            })
+            ->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)
+            ->values();
+
+        return response()->json($series);
+    }
+
     /**
      * Toon alle postzegelseries.
      */
